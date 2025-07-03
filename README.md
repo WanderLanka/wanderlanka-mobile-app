@@ -1,50 +1,116 @@
-# Welcome to your Expo app 👋
+# WanderLanka Mobile App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A React Native mobile application for exploring Sri Lankan destinations and planning travel experiences.
 
-## Get started
+## 🚀 Getting Started
 
-1. Install dependencies
+### Prerequisites
+- Node.js (v18 or higher)
+- npm or yarn
+- Expo CLI
+- Expo Go app on your mobile device
 
-   ```bash
-   npm install
-   ```
+### Installation
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
+1. Install dependencies:
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+2. Start the development server:
+```bash
+npm start
+```
 
-## Learn more
+3. Open the Expo Go app on your device and scan the QR code
 
-To learn more about developing your project with Expo, look at the following resources:
+### Available Scripts
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- `npm start` - Start the Expo development server
+- `npm run android` - Run on Android device/emulator
+- `npm run ios` - Run on iOS device/simulator
+- `npm run web` - Run on web browser
+- `npm run lint` - Run ESLint
 
-## Join the community
+## 📁 Project Structure
 
-Join our community of developers creating universal apps.
+```
+wanderlanka-mobile-app/
+├── app/                    # Expo Router pages
+│   ├── _layout.tsx        # Root layout
+│   ├── index.tsx          # Home page
+│   └── global.css         # Global styles
+├── components/            # Reusable UI components
+│   ├── ThemedText.tsx     # Themed text component
+│   ├── ThemedView.tsx     # Themed view component
+│   └── index.ts           # Component exports
+├── constants/             # App constants
+│   ├── Colors.ts          # Color palette
+│   └── Layout.ts          # Layout constants
+├── hooks/                 # Custom React hooks
+│   └── useFontLoader.ts   # Font loading hook
+├── types/                 # TypeScript type definitions
+│   └── index.ts           # Common types
+├── utils/                 # Utility functions
+│   ├── responsive.ts      # Responsive design helpers
+│   ├── shadows.ts         # Shadow utilities
+│   └── typography.ts      # Typography utilities
+└── assets/               # Static assets
+    ├── fonts/            # Custom fonts
+    └── images/           # Images and icons
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## 🎨 Design System
+
+### Colors
+- Primary: Green shades (#059669)
+- Secondary: Gray shades 
+- Semantic: Success, Warning, Error, Info
+
+### Typography
+- Primary Font: Poppins (headings)
+- Secondary Font: Inter (body text)
+- Accent Font: Nunito (special text)
+
+### Components
+- `ThemedText`: Styled text with variants
+- `ThemedView`: Styled view with theme colors
+
+## 🛠️ Development
+
+### Adding New Pages
+1. Create a new file in the `app/` directory
+2. Export a React component as default
+3. Expo Router will automatically create a route
+
+### Creating Components
+1. Add new components to the `components/` directory
+2. Export them from `components/index.ts`
+3. Use TypeScript interfaces for props
+
+### Styling
+- Uses NativeWind (Tailwind CSS for React Native)
+- Custom colors defined in `constants/Colors.ts`
+- Responsive utilities in `utils/responsive.ts`
+
+## 📱 Features (Planned)
+
+- [ ] Destination discovery
+- [ ] Trip planning
+- [ ] User authentication
+- [ ] Reviews and ratings
+- [ ] Map integration
+- [ ] Offline support
+- [ ] Push notifications
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests and linting
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License.

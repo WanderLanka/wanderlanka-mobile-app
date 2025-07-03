@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "wanderlanka-mobile-app",
-    "slug": "wanderlanka-mobile-app",
+    "name": "wanderlanka-web-app",
+    "slug": "wanderlanka-web-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "wanderlankamobileapp",
+    "scheme": "wanderlankawebapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -33,7 +33,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
