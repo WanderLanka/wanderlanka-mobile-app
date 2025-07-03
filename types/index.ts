@@ -1,10 +1,58 @@
+// User roles
+export type UserRole = 'traveller' | 'guide';
+
 export interface User {
   id: string;
-  name: string;
+  username: string;
   email: string;
+  role: UserRole;
   avatar?: string;
+  isActive: boolean;
+  emailVerified: boolean;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Authentication interfaces
+export interface SignUpRequest {
+  username: string;
+  email: string;
+  password: string;
+  role: UserRole;
+}
+
+export interface LoginRequest {
+  identifier: string; // username or email
+  password: string;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    user: User;
+    accessToken: string;
+    refreshToken: string;
+  };
+  error?: string;
+}
+
+export interface RefreshTokenRequest {
+  refreshToken: string;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  newPassword: string;
 }
 
 export interface Destination {
