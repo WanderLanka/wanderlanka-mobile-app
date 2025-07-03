@@ -4,6 +4,8 @@ import * as SplashScreen from 'expo-splash-screen';
 
 import { StatusBar, View } from 'react-native';
 
+import { AuthProvider } from '../context/AuthContext';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Stack } from "expo-router";
 import { useEffect } from 'react';
 import useFontLoader from '../hooks/useFontLoader';
@@ -23,5 +25,11 @@ export default function RootLayout() {
     return <View />; // Loading state
   }
 
-  return <Stack />;
+  return (
+    <SafeAreaProvider>
+      <AuthProvider>
+        <Stack screenOptions={{ headerShown: false }} />
+      </AuthProvider>
+    </SafeAreaProvider>
+  );
 }
