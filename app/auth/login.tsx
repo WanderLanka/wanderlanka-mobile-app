@@ -1,25 +1,27 @@
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView,
+import {
+  Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
-  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
   TouchableOpacity,
+  View,
 } from 'react-native';
-import { router } from 'expo-router';
+import {
+  CustomButton,
+  CustomTextInput,
+  ThemedText,
+  ThemedView
+} from '../../components';
+import React, { useState } from 'react';
+
+import { Colors } from '../../constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Colors } from '../../constants/Colors';
+import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
-import { 
-  CustomTextInput, 
-  CustomButton,
-  ThemedView,
-  ThemedText
-} from '../../components';
 
 export default function LoginScreen() {
   const { login, isLoading } = useAuth();
@@ -83,11 +85,16 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <ThemedView style={styles.header}>
+            <Image
+              source={require('../../assets/images/wander_logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
             <ThemedText variant="title" style={styles.title}>
-              Welcome Back
+              Welcome Back!
             </ThemedText>
             <ThemedText variant="default" style={styles.subtitle}>
-              Sign in to continue your Sri Lankan adventure
+              Sign in to continue your Sri Lankan adventure with WanderLanka
             </ThemedText>
           </ThemedView>
 
@@ -162,16 +169,22 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 40,
+    padding: 10,
+  },
+  logo: {
+    width: 120,
+    height: 120,
+    marginBottom: 5,
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
     color: Colors.primary700,
-    marginBottom: 8,
+    marginBottom: 3,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: Colors.secondary500,
     textAlign: 'center',
     lineHeight: 24,

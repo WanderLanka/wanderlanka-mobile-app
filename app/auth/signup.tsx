@@ -1,27 +1,29 @@
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView,
+import {
+  Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
-  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
   TouchableOpacity,
+  View,
 } from 'react-native';
-import { router } from 'expo-router';
+import {
+  CustomButton,
+  CustomTextInput,
+  RoleSelector,
+  ThemedText,
+  ThemedView
+} from '../../components';
+import React, { useState } from 'react';
+
+import { Colors } from '../../constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Colors } from '../../constants/Colors';
 import { UserRole } from '../../types';
+import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
-import { 
-  CustomTextInput, 
-  CustomButton, 
-  RoleSelector,
-  ThemedView,
-  ThemedText
-} from '../../components';
 
 export default function SignUpScreen() {
   const { signUp, isLoading } = useAuth();
@@ -58,8 +60,8 @@ export default function SignUpScreen() {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
-    } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/.test(formData.password)) {
-      newErrors.password = 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character';
+    } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d@$!%*?&]/.test(formData.password)) {
+      newErrors.password = 'Password must contain at least one uppercase letter, one lowercase letter, and one number';
     }
 
     // Confirm password validation
@@ -130,11 +132,16 @@ export default function SignUpScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <ThemedView style={styles.header}>
+            <Image
+              source={require('../../assets/images/wander_logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
             <ThemedText variant="title" style={styles.title}>
-              Create Account
+              Create Your Account
             </ThemedText>
             <ThemedText variant="default" style={styles.subtitle}>
-              Join WanderLanka and start exploring Sri Lanka
+              Join WanderLanka community and discover the beauty of Sri Lanka with local guides
             </ThemedText>
           </ThemedView>
 
@@ -171,6 +178,9 @@ export default function SignUpScreen() {
               leftIcon="lock-closed"
               isPassword
             />
+            <Text style={styles.helperText}>
+              Must be at least 6 characters with uppercase, lowercase, and number
+            </Text>
 
             <CustomTextInput
               label="Confirm Password"
@@ -230,22 +240,36 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 32,
+    padding: 15,
+  },
+  logo: {
+    width: 120,
+    height: 120,
+    marginBottom: 5,
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
     color: Colors.primary700,
-    marginBottom: 8,
+    marginBottom: 3,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: Colors.secondary500,
     textAlign: 'center',
     lineHeight: 24,
   },
   form: {
     flex: 1,
+  },
+  helperText: {
+    fontSize: 12,
+    color: Colors.secondary400,
+    marginTop: -12,
+    marginBottom: 16,
+    paddingHorizontal: 4,
+    fontFamily: 'Inter',
   },
   signUpButton: {
     marginTop: 8,

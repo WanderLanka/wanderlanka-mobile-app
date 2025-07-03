@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { 
-  TextInput, 
-  TextInputProps, 
-  View, 
-  Text, 
+import {
+  StyleSheet,
+  Text,
+  TextInput,
+  TextInputProps,
   TouchableOpacity,
-  StyleSheet 
+  View
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+
 import { Colors } from '../constants/Colors';
+import { Ionicons } from '@expo/vector-icons';
 
 interface CustomTextInputProps extends TextInputProps {
   label: string;
@@ -50,6 +51,11 @@ export const CustomTextInput: React.FC<CustomTextInputProps> = ({
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           placeholderTextColor={Colors.secondary400}
+          autoComplete="off"
+          autoCorrect={false}
+          spellCheck={false}
+          textContentType="none"
+          blurOnSubmit={false}
           {...props}
         />
         {isPassword && (

@@ -1,7 +1,8 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
 import { Colors } from '../constants/Colors';
+import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
 import { UserRole } from '../types';
 
 interface RoleSelectorProps {

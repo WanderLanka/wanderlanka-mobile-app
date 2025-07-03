@@ -1,9 +1,10 @@
+import { CustomButton, ThemedText, ThemedView } from '../../components';
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+
+import { Colors } from '../../constants/Colors';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
-import { ThemedView, ThemedText, CustomButton } from '../../components';
-import { Colors } from '../../constants/Colors';
 
 export default function DashboardScreen() {
   const { user, logout, isAuthenticated } = useAuth();

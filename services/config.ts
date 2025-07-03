@@ -3,7 +3,8 @@
  */
 export const API_CONFIG = {
   // Update this URL to match your backend service
-  BASE_URL: __DEV__ ? 'http://localhost:3001' : 'https://your-production-api.com',
+  // Using 192.168.8.159 (your local IP) instead of localhost for mobile device connectivity
+  BASE_URL: __DEV__ ? 'http://192.168.8.159:3001' : 'https://your-production-api.com',
   ENDPOINTS: {
     AUTH: '/api/auth',
     HEALTH: '/health',

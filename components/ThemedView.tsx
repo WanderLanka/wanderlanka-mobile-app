@@ -8,7 +8,7 @@ interface ThemedViewProps extends ViewProps {
 }
 
 export function ThemedView({ 
-  backgroundColor = 'white',
+//   backgroundColor = '#',
   style,
   ...props 
 }: ThemedViewProps) {
@@ -16,7 +16,7 @@ export function ThemedView({
     <View
       style={[
         {
-          backgroundColor: Colors[backgroundColor],
+        //   backgroundColor: Colors[backgroundColor],
         },
         style,
       ]}
