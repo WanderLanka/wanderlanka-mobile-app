@@ -1,6 +1,6 @@
-import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
 import { JWTPayload } from '../types';
+import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 
 export class JWTUtils {
   private static readonly ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET || 'your-access-secret-key';

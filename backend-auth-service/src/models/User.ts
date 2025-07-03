@@ -1,6 +1,7 @@
-import mongoose, { Schema } from 'mongoose';
-import bcrypt from 'bcryptjs';
 import { IUser, UserRole } from '../types';
+import mongoose, { Schema } from 'mongoose';
+
+import bcrypt from 'bcryptjs';
 
 const userSchema = new Schema<IUser>(
   {

@@ -1,12 +1,13 @@
 import { API_CONFIG, HTTP_STATUS } from './config';
-import { StorageService } from './storage';
 import {
-  SignUpRequest,
-  LoginRequest,
-  AuthResponse,
-  RefreshTokenRequest,
   ApiResponse,
+  AuthResponse,
+  LoginRequest,
+  RefreshTokenRequest,
+  SignUpRequest,
 } from '../types';
+
+import { StorageService } from './storage';
 
 /**
  * API Service for making HTTP requests

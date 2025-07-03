@@ -1,10 +1,10 @@
-import express from 'express';
+import authRoutes from './routes/auth';
 import cors from 'cors';
+import dotenv from 'dotenv';
+import express from 'express';
+import { generalRateLimitMiddleware } from './middleware/rateLimit';
 import helmet from 'helmet';
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
-import authRoutes from './routes/auth';
-import { generalRateLimitMiddleware } from './middleware/rateLimit';
 
 // Load environment variables
 dotenv.config();

@@ -1,13 +1,14 @@
-import { ApiService } from './api';
-import { StorageService } from './storage';
-import { API_CONFIG } from './config';
 import {
-  SignUpRequest,
-  LoginRequest,
   AuthResponse,
+  LoginRequest,
   RefreshTokenRequest,
+  SignUpRequest,
   User,
 } from '../types';
+
+import { API_CONFIG } from './config';
+import { ApiService } from './api';
+import { StorageService } from './storage';
 
 /**
  * Authentication Service for handling user authentication

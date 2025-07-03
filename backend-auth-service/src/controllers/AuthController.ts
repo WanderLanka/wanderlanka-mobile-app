@@ -1,18 +1,19 @@
-import { Request, Response } from 'express';
-import { User } from '../models/User';
-import { JWTUtils } from '../utils/jwt';
-import { validationSchemas, validateRequest } from '../utils/validation';
-import { 
-  SignUpRequest, 
-  LoginRequest, 
-  AuthResponse, 
-  RefreshTokenRequest,
+import {
+  AuthResponse,
   ChangePasswordRequest,
   ForgotPasswordRequest,
+  JWTPayload,
+  LoginRequest,
+  RefreshTokenRequest,
   ResetPasswordRequest,
-  UserPublic,
-  JWTPayload 
+  SignUpRequest,
+  UserPublic
 } from '../types';
+import { Request, Response } from 'express';
+import { validateRequest, validationSchemas } from '../utils/validation';
+
+import { JWTUtils } from '../utils/jwt';
+import { User } from '../models/User';
 
 export class AuthController {
   /**
