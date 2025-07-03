@@ -3,10 +3,12 @@ import './global.css';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { StatusBar, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { Stack } from "expo-router";
 import { useEffect } from 'react';
 import useFontLoader from '../hooks/useFontLoader';
+import { AuthProvider } from '../context/AuthContext';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -23,5 +25,11 @@ export default function RootLayout() {
     return <View />; // Loading state
   }
 
-  return <Stack />;
+  return (
+    <SafeAreaProvider>
+      <AuthProvider>
+        <Stack screenOptions={{ headerShown: false }} />
+      </AuthProvider>
+    </SafeAreaProvider>
+  );
 }

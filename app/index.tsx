@@ -1,6 +1,22 @@
+import { useEffect } from 'react';
+import { router } from 'expo-router';
 import { ThemedText, ThemedView } from "../components";
+import { useAuth } from '../context/AuthContext';
 
 export default function Index() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (isAuthenticated) {
+        router.replace('./dashboard');
+      } else {
+        router.replace('./auth/login');
+      }
+    }
+  }, [isAuthenticated, isLoading]);
+
+  // Show loading screen while checking auth
   return (
     <ThemedView className="flex-1 items-center justify-center" backgroundColor="secondary50">
       <ThemedText 
@@ -8,14 +24,14 @@ export default function Index() {
         color="primary600" 
         className="text-center mb-4"
       >
-        Welcome to WanderLanka!
+        WanderLanka
       </ThemedText>
       <ThemedText 
-        variant="subtitle" 
+        variant="default" 
         color="secondary600" 
         className="text-center"
       >
-        Your Sri Lankan Travel Companion
+        Loading...
       </ThemedText>
     </ThemedView>
   );
