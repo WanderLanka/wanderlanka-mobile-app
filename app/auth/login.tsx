@@ -15,7 +15,8 @@ import {
   ThemedText,
   ThemedView
 } from '../../components';
-import React, { useState } from 'react';
+import * as React from 'react';
+import { useState } from 'react';
 
 import { Colors } from '../../constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -127,7 +128,7 @@ export default function LoginScreen() {
               style={styles.loginButton}
             />
 
-            <TouchableOpacity style={styles.forgotPassword}>
+            <TouchableOpacity style={styles.forgotPassword} onPress={() => router.push('./forgotPassword')}>
               <Text style={styles.forgotPasswordText}>
                 Forgot Password?
               </Text>
@@ -135,7 +136,7 @@ export default function LoginScreen() {
 
             <View style={styles.signUpPrompt}>
               <Text style={styles.signUpPromptText}>
-                Don't have an account?{' '}
+                Don&#39;t have an account?{' '}
               </Text>
               <TouchableOpacity onPress={() => router.push('./signup')}>
                 <Text style={styles.signUpLink}>Sign up</Text>
