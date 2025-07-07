@@ -32,13 +32,21 @@ export default function TravelerHomeScreen() {
           onChangeText={setDestination}
           placeholder="Where do you want to go ?"
           leftIcon="search"
+           containerStyle={{
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 3,
+            borderRadius:15,
+          }}
         />
 
         <View style = {styles.searchButtonArea}>
         <CustomButton
             variant='primary'
             size='small'
-            title="Plan My Trip"
+            title="Start Planning"
             style={styles.searchButton}
         />
         </View>
@@ -135,7 +143,8 @@ const styles = StyleSheet.create({
   },
   searchButton:{
     marginTop: 5,
-    width: 300,
+    width: 200,
+    backgroundColor: Colors.primary600,
   }
 });
 
