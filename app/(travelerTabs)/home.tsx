@@ -7,13 +7,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 
+
 export default function TravelerHomeScreen() {
   const [destination, setDestination] = useState('');
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
-      <View style={styles.darkTopBg} />
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.iconButton} onPress={() => { /* open menu */ }}>
           <Ionicons name="menu" size={28} color={Colors.white} />
@@ -22,10 +22,11 @@ export default function TravelerHomeScreen() {
           <Ionicons name="notifications-outline" size={26} color={Colors.white} />
         </TouchableOpacity>
       </View>
+      <View style={styles.darkTopBg} />
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        
         <ThemedText variant="title" style={styles.greeting}>Hello Traveler !</ThemedText>
         <ThemedText variant="caption" style={styles.caption}>Explore Sri Lanka With Us!</ThemedText>
-        
         <CustomTextInput
           label=''
           value={destination}
