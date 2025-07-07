@@ -16,6 +16,7 @@ interface CustomTextInputProps extends TextInputProps {
   error?: string;
   isPassword?: boolean;
   leftIcon?: keyof typeof Ionicons.glyphMap;
+  containerStyle?: View['props']['style'];
 }
 
 export const CustomTextInput: React.FC<CustomTextInputProps> = ({
@@ -24,13 +25,14 @@ export const CustomTextInput: React.FC<CustomTextInputProps> = ({
   isPassword = false,
   leftIcon,
   style,
+  containerStyle,
   ...props
 }) => {
   const [isSecureTextEntry, setIsSecureTextEntry] = useState(isPassword);
   const [isFocused, setIsFocused] = useState(false);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, containerStyle]}>
       <Text style={styles.label}>{label}</Text>
       <View style={[
         styles.inputContainer,
@@ -96,6 +98,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     paddingHorizontal: 16,
     minHeight: 50,
+    
   },
   inputContainerFocused: {
     borderColor: Colors.primary600,

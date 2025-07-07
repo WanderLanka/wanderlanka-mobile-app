@@ -123,10 +123,10 @@ export default function LoginScreen() {
 
             <CustomButton
               title="Log In"
-              onPress={handleLogin}
+              onPress={() =>  router.push('/home')}
               loading={isLoading}
               style={styles.loginButton}
-            />
+            />  {/* Unlinked the handleSign function here */}
 
             <TouchableOpacity style={styles.forgotPassword} onPress={() => router.push('./forgotPassword')}>
               <Text style={styles.forgotPasswordText}>

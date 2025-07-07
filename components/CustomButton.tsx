@@ -84,7 +84,7 @@ export const CustomButton: React.FC<CustomButtonProps> = ({
   const getTextStyles = (): TextStyle => {
     const baseStyles: TextStyle = {
       fontFamily: 'Poppins',
-      fontWeight: '600',
+      fontWeight: '500',
       textAlign: 'center',
     };
 
