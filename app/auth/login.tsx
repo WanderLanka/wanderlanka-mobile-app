@@ -123,7 +123,7 @@ export default function LoginScreen() {
 
             <CustomButton
               title="Log In"
-              onPress={() =>  router.push('/traveler/home')}
+              onPress={() =>  router.push('/home')}
               loading={isLoading}
               style={styles.loginButton}
             />  {/* Unlinked the handleSign function here */}

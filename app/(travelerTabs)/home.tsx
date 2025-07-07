@@ -53,7 +53,21 @@ export default function TravelerHomeScreen() {
 
         <View style={styles.section}>
           <ThemedText variant="subtitle" style={styles.sectionTitle}>Popular Places</ThemedText>
-          <View style={styles.placeholderBox}><Text>Popular places go here</Text></View>
+          <View style={styles.placeholderBox}>
+             <TouchableOpacity>
+                <View style={styles.navArrowbg}>
+                <Ionicons name="chevron-back-outline" size={20} color={Colors.primary700} />
+                </View>
+              </TouchableOpacity>
+    
+            <ThemedText>Popular places go here</ThemedText>
+
+            <TouchableOpacity>
+              <View style={styles.navArrowbg}>
+              <Ionicons name="chevron-forward-outline" size={20} color={Colors.primary700} />
+              </View>
+            </TouchableOpacity> 
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -87,7 +101,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 15,
-    paddingTop: 20,
+    paddingTop: 30,
     paddingBottom: 10,
     zIndex: 2,
   },
@@ -131,11 +145,11 @@ const styles = StyleSheet.create({
     color: Colors.primary700,
   },
   placeholderBox: {
+    flexDirection: 'row',
     height: 100,
-    backgroundColor: Colors.primary100,
     borderRadius: 12,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
   },
   searchButtonArea:{
     alignItems: 'center',
@@ -145,6 +159,19 @@ const styles = StyleSheet.create({
     marginTop: 5,
     width: 200,
     backgroundColor: Colors.primary600,
+  },
+  
+  navArrowbg:{
+    backgroundColor: Colors.primary100,
+    borderRadius: 20,
+    width: 25,
+    height: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.secondary200,
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
   }
+
 });
 
