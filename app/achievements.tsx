@@ -304,30 +304,37 @@ export default function AchievementsScreen() {
       </View>
 
       {/* Category Filter */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoryFilter}
-        contentContainerStyle={styles.categoryFilterContent}
-      >
-        {categories.map((category) => (
-          <TouchableOpacity
-            key={category}
-            style={[
-              styles.categoryTab,
-              filterCategory === category && styles.activeCategoryTab
-            ]}
-            onPress={() => setFilterCategory(category)}
-          >
-            <Text style={[
-              styles.categoryTabText,
-              filterCategory === category && styles.activeCategoryTabText
-            ]}>
-              {category.charAt(0).toUpperCase() + category.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={styles.categoryFilter}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryFilterContent}
+          style={styles.categoryScrollView}
+        >
+          {categories.map((category, index) => (
+            <TouchableOpacity
+              key={category}
+              style={[
+                styles.categoryTab,
+                filterCategory === category && styles.activeCategoryTab,
+                index === categories.length - 1 && styles.lastCategoryTab
+              ]}
+              onPress={() => setFilterCategory(category)}
+            >
+              <Text 
+                style={[
+                  styles.categoryTabText,
+                  filterCategory === category && styles.activeCategoryTabText
+                ]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {category.charAt(0).toUpperCase() + category.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
       {/* Status Filter */}
       <View style={styles.statusFilter}>
@@ -414,17 +421,28 @@ const styles = StyleSheet.create({
   categoryFilter: {
     backgroundColor: Colors.white,
     marginBottom: 10,
+    paddingVertical: 10,
+  },
+  categoryScrollView: {
+    flexGrow: 0,
   },
   categoryFilterContent: {
     paddingHorizontal: 20,
-    paddingVertical: 10,
+    alignItems: 'center',
+    paddingRight: 10, // Extra padding for last item
   },
   categoryTab: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     borderRadius: 20,
-    marginRight: 8,
+    marginRight: 10,
     backgroundColor: Colors.light100,
+    minWidth: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lastCategoryTab: {
+    marginRight: 20,
   },
   activeCategoryTab: {
     backgroundColor: Colors.primary600,
@@ -433,9 +451,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.secondary600,
     fontWeight: '500',
+    textAlign: 'center',
+    flexShrink: 0,
   },
   activeCategoryTabText: {
     color: Colors.white,
+    fontWeight: '600',
   },
   statusFilter: {
     flexDirection: 'row',
