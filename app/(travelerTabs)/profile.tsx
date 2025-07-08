@@ -155,6 +155,10 @@ export default function ProfileScreen() {
     router.push('/faq-help');
   };
 
+  const handleRateApp = () => {
+    router.push('/rate-app');
+  };
+
   const handleAchievements = () => {
     router.push('/achievements');
   };
@@ -465,7 +469,7 @@ export default function ProfileScreen() {
           <ProfileItem
             icon="star-outline"
             label="Rate App"
-            onPress={() => Alert.alert('Rate App', 'Thank you for using WanderLanka!')}
+            onPress={handleRateApp}
           />
         </ProfileSection>
 
