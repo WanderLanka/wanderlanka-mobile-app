@@ -6,6 +6,7 @@ import { Colors } from '../../constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { TopBar } from '@/components/TopBar';
 
 export default function TravelerHomeScreen() {
   const [destination, setDestination] = useState('');
@@ -14,16 +15,13 @@ export default function TravelerHomeScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
       <View style={styles.darkTopBg} />
-      <View style={styles.topBar}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => { /* open menu */ }}>
-          <Ionicons name="menu" size={28} color={Colors.white} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.iconButton} onPress={() => { /* open notifications */ }}>
-          <Ionicons name="notifications-outline" size={26} color={Colors.white} />
-        </TouchableOpacity>
-      </View>
+      <TopBar
+        onProfilePress={() => { /* handle profile/account */ }}
+        onNotificationsPress={() => { /* handle notifications */ }}
+        // profileImage={require('../../assets/images/profile.jpg')} // Example usage
+      />
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        <ThemedText variant="title" style={styles.greeting}>Hello Traveler !</ThemedText>
+        <ThemedText variant="title" style={styles.greeting}>Welcome Machan!</ThemedText>
         <ThemedText variant="caption" style={styles.caption}>Explore Sri Lanka With Us!</ThemedText>
         
         <CustomTextInput
@@ -33,12 +31,12 @@ export default function TravelerHomeScreen() {
           placeholder="Where do you want to go ?"
           leftIcon="search"
            containerStyle={{
-            shadowColor: '#000',
+            shadowColor: Colors.primary800,
             shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
+            shadowOpacity: 0.2,
             shadowRadius: 4,
-            elevation: 3,
             borderRadius:15,
+            elevation: 20,
           }}
         />
 

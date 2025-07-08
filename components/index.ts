@@ -4,3 +4,5 @@ export { ThemedView } from './ThemedView';
 export { CustomTextInput } from './CustomTextInput';
 export { CustomButton } from './CustomButton';
 export { RoleSelector } from './RoleSelector';
+export { TopBar } from './TopBar';
+
