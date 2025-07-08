@@ -15,6 +15,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
+// Utility function to format numbers professionally
+const formatNumber = (num: number): string => {
+  if (num >= 1000000) {
+    return `${(num / 1000000).toFixed(1)}M`;
+  } else if (num >= 1000) {
+    return `${(num / 1000).toFixed(1)}K`;
+  }
+  return num.toString();
+};
+
 // Hardcoded user data - easily replaceable with backend calls
 const MOCK_USER_DATA = {
   id: 'user123',
@@ -152,7 +162,7 @@ export default function ProfileScreen() {
   const handleLanguage = () => {
     Alert.alert(
       'Language Settings',
-      'Currently having English only. Other languages coming in next version.',
+      'App is currently available in English only. More languages will be added in upcoming versions.',
       [{ text: 'OK' }]
     );
   };
@@ -222,24 +232,56 @@ export default function ProfileScreen() {
         </View>
 
         {/* Stats Cards */}
-        <View style={styles.statsContainer}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={styles.statsScrollView}
+          contentContainerStyle={styles.statsContainer}
+        >
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{MOCK_USER_DATA.tripsCompleted}</Text>
-            <Text style={styles.statLabel}>Trips</Text>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="map-outline" size={24} color={Colors.primary600} />
+            </View>
+            <View style={styles.statContent}>
+              <Text style={styles.statNumber}>{MOCK_USER_DATA.tripsCompleted}</Text>
+              <Text style={styles.statLabel}>Trips Completed</Text>
+            </View>
           </View>
+          
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{MOCK_USER_DATA.countriesVisited}</Text>
-            <Text style={styles.statLabel}>Places</Text>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="location-outline" size={24} color={Colors.primary600} />
+            </View>
+            <View style={styles.statContent}>
+              <Text style={styles.statNumber}>{MOCK_USER_DATA.countriesVisited}</Text>
+              <Text style={styles.statLabel}>Places Visited</Text>
+            </View>
           </View>
+          
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{MOCK_USER_DATA.loyaltyPoints}</Text>
-            <Text style={styles.statLabel}>Points</Text>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="gift-outline" size={24} color={Colors.primary600} />
+            </View>
+            <View style={styles.statContent}>
+              <Text style={styles.statNumber}>
+                {formatNumber(MOCK_USER_DATA.loyaltyPoints)}
+              </Text>
+              <Text style={styles.statLabel}>Loyalty Points</Text>
+            </View>
           </View>
+          
           <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{(MOCK_USER_DATA.totalDistance / 1000).toFixed(1)}K</Text>
-            <Text style={styles.statLabel}>KM</Text>
+            <View style={styles.statIconContainer}>
+              <Ionicons name="speedometer-outline" size={24} color={Colors.primary600} />
+            </View>
+            <View style={styles.statContent}>
+              <Text style={styles.statNumber}>
+                {formatNumber(Math.round(MOCK_USER_DATA.totalDistance / 1000))}
+              </Text>
+              <Text style={styles.statLabel}>KM Traveled</Text>
+            </View>
           </View>
-        </View>
+        </ScrollView>
 
         {/* Personal Information */}
         <ProfileSection title="Personal Information">
@@ -518,38 +560,59 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     fontWeight: '500',
   },
+  statsScrollView: {
+    marginBottom: 10,
+  },
   statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    marginBottom: 20,
+    alignItems: 'center',
   },
   statCard: {
     backgroundColor: Colors.white,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     alignItems: 'center',
-    flex: 1,
-    marginHorizontal: 4,
+    width: 120,
+    marginRight: 12,
     shadowColor: Colors.black,
     shadowOffset: {
       width: 0,
       height: 2,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 3.84,
+    shadowRadius: 4,
     elevation: 5,
+    minHeight: 120,
+    justifyContent: 'space-between',
+  },
+  statIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.primary100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  statContent: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
   },
   statNumber: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     color: Colors.primary600,
     marginBottom: 4,
+    textAlign: 'center',
+    lineHeight: 22,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.secondary500,
     textAlign: 'center',
+    lineHeight: 14,
+    fontWeight: '500',
   },
   section: {
     backgroundColor: Colors.white,
