@@ -14,13 +14,15 @@ export default function TravelerHomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
-      <View style={styles.darkTopBg} />
+      <View style={styles.darkTopBg1} />
       <TopBar
         onProfilePress={() => { /* handle profile/account */ }}
         onNotificationsPress={() => { /* handle notifications */ }}
         // profileImage={require('../../assets/images/profile.jpg')} // Example usage
       />
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <View style={styles.darkTopBg2} />
+
         <ThemedText variant="title" style={styles.greeting}>Welcome Machan!</ThemedText>
         <ThemedText variant="caption" style={styles.caption}>Explore Sri Lanka With Us!</ThemedText>
         
@@ -58,7 +60,7 @@ export default function TravelerHomeScreen() {
                 </View>
               </TouchableOpacity>
     
-            <ThemedText>Popular places go here</ThemedText>
+            <ThemedText>Recommended Places go here</ThemedText>
 
             <TouchableOpacity>
               <View style={styles.navArrowbg}>
@@ -70,8 +72,60 @@ export default function TravelerHomeScreen() {
 
         <View style={styles.section}>
           <ThemedText variant="subtitle" style={styles.sectionTitle}>Best Deals</ThemedText>
-          <View style={styles.placeholderBox}><Text>Best deals go here</Text></View>
-        </View>
+            <View style={styles.placeholderBox}>
+             <TouchableOpacity>
+                <View style={styles.navArrowbg}>
+                <Ionicons name="chevron-back-outline" size={20} color={Colors.primary700} />
+                </View>
+              </TouchableOpacity>
+    
+              <ThemedText>Re go here</ThemedText>
+
+              <TouchableOpacity>
+                <View style={styles.navArrowbg}>
+                <Ionicons name="chevron-forward-outline" size={20} color={Colors.primary700} />
+                </View>
+              </TouchableOpacity> 
+            </View>        
+          </View>
+
+          <View style={styles.section}>
+          <ThemedText variant="subtitle" style={styles.sectionTitle}>Best Deals</ThemedText>
+            <View style={styles.placeholderBox}>
+             <TouchableOpacity>
+                <View style={styles.navArrowbg}>
+                <Ionicons name="chevron-back-outline" size={20} color={Colors.primary700} />
+                </View>
+              </TouchableOpacity>
+    
+              <ThemedText>Re go here</ThemedText>
+
+              <TouchableOpacity>
+                <View style={styles.navArrowbg}>
+                <Ionicons name="chevron-forward-outline" size={20} color={Colors.primary700} />
+                </View>
+              </TouchableOpacity> 
+            </View>        
+          </View>
+
+          <View style={styles.section}>
+          <ThemedText variant="subtitle" style={styles.sectionTitle}>Best Deals</ThemedText>
+            <View style={styles.placeholderBox}>
+             <TouchableOpacity>
+                <View style={styles.navArrowbg}>
+                <Ionicons name="chevron-back-outline" size={20} color={Colors.primary700} />
+                </View>
+              </TouchableOpacity>
+    
+              <ThemedText>Re go here</ThemedText>
+
+              <TouchableOpacity>
+                <View style={styles.navArrowbg}>
+                <Ionicons name="chevron-forward-outline" size={20} color={Colors.primary700} />
+                </View>
+              </TouchableOpacity> 
+            </View>        
+          </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -84,12 +138,21 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
 
-  darkTopBg: {
+  darkTopBg1: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 210, // enough to cover greeting, subtitle, and half the input
+    height: 40, // enough to cover greeting, subtitle, and half the input
+    backgroundColor: Colors.primary800,
+    zIndex: 0,
+  },
+  darkTopBg2: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 130, // enough to cover greeting, subtitle, and half the input
     backgroundColor: Colors.primary800,
     zIndex: 0,
   },

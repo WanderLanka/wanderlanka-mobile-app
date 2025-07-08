@@ -41,6 +41,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 10,
     zIndex: 2,
+    backgroundColor: Colors.primary800,
   },
   profileContainer: {
     width: 40,
