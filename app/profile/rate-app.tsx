@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import React, { useState } from 'react';
 
-import { Colors } from '../constants/Colors';
+import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -141,7 +141,7 @@ const RateAppScreen: React.FC = () => {
         {/* App Icon & Title */}
         <View className="items-center py-8">
           <View className="w-20 h-20 rounded-3xl items-center bg-primary-100 justify-center mb-1">
-           <Image source={require('../assets/images/wander_logo.png')} className="w-full h-full rounded-2xl" /> 
+           <Image source={require('../../assets/images/wander_logo.png')} className="w-full h-full rounded-2xl" /> 
           </View>
           <Text className="text-2xl font-bold text-neutral-800 mb-2">WanderLanka</Text>
           <Text className="text-neutral-600 text-center px-8">
@@ -205,7 +205,7 @@ const RateAppScreen: React.FC = () => {
                   'Have suggestions or found a bug? We\'d love to hear from you!',
                   [
                     { text: 'Cancel', style: 'cancel' },
-                    { text: 'Contact Support', onPress: () => router.push('/faq-help') },
+                    { text: 'Contact Support', onPress: () => router.push('/profile/faq-help') },
                   ]
                 );
               }}

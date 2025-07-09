@@ -136,31 +136,31 @@ export default function ProfileScreen() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const handleEditProfile = () => {
-    router.push('/edit-profile');
+    router.push('/profile/edit-profile');
   };
 
   const handleTravelHistory = () => {
-    router.push('/trip-timeline');
+    router.push('/profile/trip-timeline');
   };
 
   const handleTripMemories = () => {
-    router.push('/trip-memories');
+    router.push('/profile/trip-memories');
   };
 
   const handleSettings = () => {
-    router.push('/privacy-security');
+    router.push('/profile/privacy-security');
   };
 
   const handleSupport = () => {
-    router.push('/faq-help');
+    router.push('/profile/faq-help');
   };
 
   const handleRateApp = () => {
-    router.push('/rate-app');
+    router.push('/profile/rate-app');
   };
 
   const handleAchievements = () => {
-    router.push('/achievements');
+    router.push('/profile/achievements');
   };
 
   const handleLanguage = () => {
@@ -172,11 +172,11 @@ export default function ProfileScreen() {
   };
 
   const handleLoyaltyPoints = () => {
-    router.push('/loyalty-points');
+    router.push('/profile/loyalty-points');
   };
 
   const handleDiscountCoupons = () => {
-    router.push('/discount-coupons');
+    router.push('/profile/discount-coupons');
   };
 
   const handleLogout = () => {
