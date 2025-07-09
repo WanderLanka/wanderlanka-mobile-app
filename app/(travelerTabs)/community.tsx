@@ -1,13 +1,21 @@
 import {
+  Alert,
+  Animated,
   FlatList,
   Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { formatTimeAgo, formatTimeShort, getTimestampAgo } from '../../utils/timeFormat';
 
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,11 +37,12 @@ const MOCK_TRAVEL_POSTS = [
       'https://example.com/galle-sunset.jpg',
     ],
     location: 'Galle Fort, Sri Lanka',
-    timestamp: '2024-07-08T18:30:00Z',
+    timestamp: getTimestampAgo(2, 'hours'),
     likes: 45,
     comments: 12,
     shares: 8,
     liked: false,
+    category: 'experience',
   },
   {
     id: 'post2',
@@ -46,13 +55,81 @@ const MOCK_TRAVEL_POSTS = [
     content: 'Tea plantation tour in Ella was incredible! Met some amazing locals who taught us about the tea-making process. The train ride here was scenic too! 🚂',
     images: [],
     location: 'Ella, Sri Lanka',
-    timestamp: '2024-07-08T14:15:00Z',
+    timestamp: getTimestampAgo(1, 'days'),
     likes: 32,
     comments: 7,
     shares: 5,
     liked: true,
+    category: 'tips',
   },
 ];
+
+const MOCK_COMMENTS = {
+  post1: [
+    {
+      id: 'comment1',
+      author: {
+        id: 'user3',
+        name: 'Emma Wilson',
+        avatar: null,
+      },
+      content: 'Absolutely stunning! I was there last month and the sunset was incredible. Did you try the local seafood nearby?',
+      timestamp: getTimestampAgo(45, 'minutes'),
+      likes: 8,
+      liked: false,
+    },
+    {
+      id: 'comment2',
+      author: {
+        id: 'user4',
+        name: 'James Rodriguez',
+        avatar: null,
+      },
+      content: 'Great shot! The lighthouse tour is definitely worth it. How crowded was it when you visited?',
+      timestamp: getTimestampAgo(1, 'hours'),
+      likes: 5,
+      liked: true,
+    },
+    {
+      id: 'comment3',
+      author: {
+        id: 'user5',
+        name: 'Lisa Park',
+        avatar: null,
+      },
+      content: 'Added this to my bucket list! Any tips for the best time to visit?',
+      timestamp: getTimestampAgo(3, 'hours'),
+      likes: 3,
+      liked: false,
+    },
+  ],
+  post2: [
+    {
+      id: 'comment4',
+      author: {
+        id: 'user6',
+        name: 'David Kumar',
+        avatar: null,
+      },
+      content: 'The train journey to Ella is magical! Did you book in advance or get tickets on the day?',
+      timestamp: getTimestampAgo(2, 'days'),
+      likes: 4,
+      liked: false,
+    },
+    {
+      id: 'comment5',
+      author: {
+        id: 'user7',
+        name: 'Sophie Anderson',
+        avatar: null,
+      },
+      content: 'Love the tea plantations there! The locals are so friendly and knowledgeable.',
+      timestamp: getTimestampAgo(3, 'days'),
+      likes: 6,
+      liked: true,
+    },
+  ],
+};
 
 const MOCK_REVIEWS = [
   {
@@ -61,7 +138,7 @@ const MOCK_REVIEWS = [
     businessName: 'Cinnamon Grand Colombo',
     rating: 4.5,
     reviewer: 'Jennifer Smith',
-    reviewDate: '2024-07-07',
+    reviewDate: getTimestampAgo(3, 'days'),
     content: 'Excellent service and great location. The breakfast buffet was outstanding!',
     helpful: 23,
   },
@@ -71,7 +148,7 @@ const MOCK_REVIEWS = [
     businessName: 'Elephant Orphanage Pinnawala',
     rating: 4.8,
     reviewer: 'David Williams',
-    reviewDate: '2024-07-06',
+    reviewDate: getTimestampAgo(1, 'weeks'),
     content: 'Incredible experience watching the elephants. Educational and heartwarming.',
     helpful: 18,
   },
@@ -82,7 +159,7 @@ const MOCK_QUESTIONS = [
     id: 'q1',
     question: 'Best time to visit Sigiriya Rock?',
     askedBy: 'Tourist_2024',
-    askedDate: '2024-07-08T10:00:00Z',
+    askedDate: getTimestampAgo(30, 'minutes'),
     answers: 5,
     category: 'Travel Tips',
     featured: true,
@@ -91,7 +168,7 @@ const MOCK_QUESTIONS = [
     id: 'q2',
     question: 'Safe areas to stay in Colombo for solo female travelers?',
     askedBy: 'SoloTraveler',
-    askedDate: '2024-07-08T08:30:00Z',
+    askedDate: getTimestampAgo(5, 'hours'),
     answers: 12,
     category: 'Safety',
     featured: false,
@@ -123,11 +200,32 @@ const CommunityTab: React.FC<CommunityTabProps> = ({ title, icon, isActive, onPr
 
 interface PostCardProps {
   post: typeof MOCK_TRAVEL_POSTS[0];
+  onLike: (postId: string) => void;
+  onComment: (postId: string) => void;
+  onShare: (postId: string) => void;
+  onPostOptions: (postId: string) => void;
 }
 
-const PostCard: React.FC<PostCardProps> = ({ post }) => {
-  const timeAgo = new Date().getTime() - new Date(post.timestamp).getTime();
-  const hoursAgo = Math.floor(timeAgo / (1000 * 60 * 60));
+const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onShare, onPostOptions }) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handleLikePress = () => {
+    // Animation for like button
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 1.3,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    
+    onLike(post.id);
+  };
 
   return (
     <View style={styles.postCard}>
@@ -144,10 +242,10 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
                 <Ionicons name="checkmark-circle" size={14} color={Colors.primary600} />
               )}
             </View>
-            <Text style={styles.postTime}>{hoursAgo}h ago • {post.location}</Text>
+            <Text style={styles.postTime}>{formatTimeShort(post.timestamp)} • {post.location}</Text>
           </View>
         </View>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => onPostOptions(post.id)} style={styles.optionsButton}>
           <Ionicons name="ellipsis-horizontal" size={20} color={Colors.secondary400} />
         </TouchableOpacity>
       </View>
@@ -157,21 +255,26 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 
       {/* Post Actions */}
       <View style={styles.postActions}>
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons
-            name={post.liked ? "heart" : "heart-outline"}
-            size={20}
-            color={post.liked ? Colors.error : Colors.secondary400}
-          />
-          <Text style={styles.actionText}>{post.likes}</Text>
+        <TouchableOpacity style={styles.actionButton} onPress={handleLikePress}>
+          <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+            <Ionicons
+              name={post.liked ? "heart" : "heart-outline"}
+              size={20}
+              color={post.liked ? Colors.error : Colors.secondary400}
+            />
+          </Animated.View>
+          <Text style={[styles.actionText, post.liked && styles.likedText]}>{post.likes}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton}>
+        <TouchableOpacity style={styles.actionButton} onPress={() => onComment(post.id)}>
           <Ionicons name="chatbubble-outline" size={20} color={Colors.secondary400} />
           <Text style={styles.actionText}>{post.comments}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton}>
+        <TouchableOpacity style={styles.actionButton} onPress={() => onShare(post.id)}>
           <Ionicons name="share-outline" size={20} color={Colors.secondary400} />
           <Text style={styles.actionText}>{post.shares}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionButton}>
+          <Ionicons name="bookmark-outline" size={20} color={Colors.secondary400} />
         </TouchableOpacity>
       </View>
     </View>
@@ -180,6 +283,12 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 
 export default function CommunityScreen() {
   const [activeTab, setActiveTab] = useState('blog');
+  const [posts, setPosts] = useState(MOCK_TRAVEL_POSTS);
+  const [showPostOptions, setShowPostOptions] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [showComments, setShowComments] = useState(false);
+  const [currentComments, setCurrentComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState('');
 
   const tabs = [
     { id: 'blog', title: 'Travel Blog', icon: 'newspaper-outline' as const },
@@ -188,6 +297,132 @@ export default function CommunityScreen() {
     { id: 'map', title: 'Map Insights', icon: 'map-outline' as const },
     { id: 'social', title: 'Connect', icon: 'people-outline' as const },
   ];
+
+  // Post action handlers
+  const handleLike = (postId: string) => {
+    setPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.id === postId 
+          ? { 
+              ...post, 
+              liked: !post.liked, 
+              likes: post.liked ? post.likes - 1 : post.likes + 1 
+            }
+          : post
+      )
+    );
+  };
+
+  const handleComment = (postId: string) => {
+    const comments = MOCK_COMMENTS[postId as keyof typeof MOCK_COMMENTS] || [];
+    setCurrentComments(comments);
+    setSelectedPostId(postId);
+    setShowComments(true);
+  };
+
+  const handleCloseComments = () => {
+    console.log('Closing comments modal');
+    setShowComments(false);
+    setSelectedPostId(null);
+    setCurrentComments([]);
+  };
+
+  const handleShare = async (postId: string) => {
+    const post = posts.find(p => p.id === postId);
+    if (post) {
+      try {
+        await Share.share({
+          message: `Check out this travel experience: "${post.content}" - Shared from WanderLanka`,
+          url: `https://wanderlanka.com/post/${postId}`, // Replace with actual URL
+        });
+        
+        // Update share count
+        setPosts(prevPosts => 
+          prevPosts.map(p => 
+            p.id === postId ? { ...p, shares: p.shares + 1 } : p
+          )
+        );
+      } catch (error) {
+        Alert.alert('Error', 'Could not share the post');
+      }
+    }
+  };
+
+  const handlePostOptions = (postId: string) => {
+    setSelectedPostId(postId);
+    setShowPostOptions(true);
+  };
+
+  const handlePostOption = (option: string) => {
+    const post = posts.find(p => p.id === selectedPostId);
+    setShowPostOptions(false);
+
+    switch (option) {
+      case 'save':
+        Alert.alert('Saved', 'Post saved to your collection');
+        break;
+      case 'report':
+        Alert.alert('Report', 'Thank you for reporting. We will review this post.');
+        break;
+      case 'hide':
+        Alert.alert('Hidden', 'Post hidden from your feed');
+        break;
+      case 'follow':
+        Alert.alert('Following', `You are now following ${post?.author.name}`);
+        break;
+      case 'copy':
+        // Copy post link functionality
+        Alert.alert('Copied', 'Post link copied to clipboard');
+        break;
+      default:
+        break;
+    }
+    setSelectedPostId(null);
+  };
+
+  const handleAddComment = () => {
+    if (newComment.trim() && selectedPostId) {
+      const comment = {
+        id: `comment_${Date.now()}`,
+        author: {
+          id: 'current_user',
+          name: 'You',
+          avatar: null,
+        },
+        content: newComment.trim(),
+        timestamp: new Date().toISOString(),
+        likes: 0,
+        liked: false,
+      };
+
+      setCurrentComments(prev => [...prev, comment]);
+      
+      // Update comment count in posts
+      setPosts(prevPosts => 
+        prevPosts.map(post => 
+          post.id === selectedPostId 
+            ? { ...post, comments: post.comments + 1 }
+            : post
+        )
+      );
+      
+      setNewComment('');
+    }
+  };
+
+  const handleCommentLike = (commentId: string) => {
+    setCurrentComments(prev => 
+      prev.map(comment => 
+        comment.id === commentId 
+          ? { 
+              ...comment, 
+              liked: !comment.liked, 
+              likes: comment.liked ? comment.likes - 1 : comment.likes + 1 
+            }
+          : comment
+      )
+    );
+  };
 
   const renderBlogContent = () => (
     <View style={styles.contentContainer}>
@@ -207,9 +442,17 @@ export default function CommunityScreen() {
 
       {/* Posts Feed */}
       <FlatList
-        data={MOCK_TRAVEL_POSTS}
+        data={posts}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <PostCard post={item} />}
+        renderItem={({ item }) => (
+          <PostCard 
+            post={item} 
+            onLike={handleLike}
+            onComment={handleComment}
+            onShare={handleShare}
+            onPostOptions={handlePostOptions}
+          />
+        )}
         showsVerticalScrollIndicator={false}
         scrollEnabled={false}
       />
@@ -240,7 +483,7 @@ export default function CommunityScreen() {
           </View>
           <Text style={styles.reviewContent}>{review.content}</Text>
           <View style={styles.reviewFooter}>
-            <Text style={styles.reviewerName}>by {review.reviewer}</Text>
+            <Text style={styles.reviewerName}>by {review.reviewer} • {formatTimeShort(review.reviewDate)}</Text>
             <Text style={styles.helpfulText}>{review.helpful} found helpful</Text>
           </View>
         </View>
@@ -270,7 +513,7 @@ export default function CommunityScreen() {
           </View>
           <View style={styles.questionFooter}>
             <Text style={styles.questionMeta}>
-              by {question.askedBy} • {question.answers} answers
+              by {question.askedBy} • {question.answers} answers • {formatTimeShort(question.askedDate)}
             </Text>
             <Text style={styles.categoryText}>{question.category}</Text>
           </View>
@@ -387,6 +630,151 @@ export default function CommunityScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {renderContent()}
       </ScrollView>
+
+      {/* Post Options Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showPostOptions}
+        onRequestClose={() => setShowPostOptions(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.optionsModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Post Options</Text>
+              <TouchableOpacity onPress={() => setShowPostOptions(false)}>
+                <Ionicons name="close" size={24} color={Colors.secondary400} />
+              </TouchableOpacity>
+            </View>
+            
+            <TouchableOpacity 
+              style={styles.optionItem} 
+              onPress={() => handlePostOption('save')}
+            >
+              <Ionicons name="bookmark-outline" size={20} color={Colors.secondary600} />
+              <Text style={styles.optionText}>Save Post</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.optionItem} 
+              onPress={() => handlePostOption('follow')}
+            >
+              <Ionicons name="person-add-outline" size={20} color={Colors.secondary600} />
+              <Text style={styles.optionText}>Follow Author</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.optionItem} 
+              onPress={() => handlePostOption('copy')}
+            >
+              <Ionicons name="link-outline" size={20} color={Colors.secondary600} />
+              <Text style={styles.optionText}>Copy Link</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.optionItem} 
+              onPress={() => handlePostOption('hide')}
+            >
+              <Ionicons name="eye-off-outline" size={20} color={Colors.secondary600} />
+              <Text style={styles.optionText}>Hide Post</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={[styles.optionItem, styles.reportOption]} 
+              onPress={() => handlePostOption('report')}
+            >
+              <Ionicons name="flag-outline" size={20} color={Colors.error} />
+              <Text style={[styles.optionText, styles.reportText]}>Report Post</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Comments Modal */}
+      <Modal
+        animationType="slide"
+        transparent={false}
+        visible={showComments}
+        onRequestClose={handleCloseComments}
+        supportedOrientations={['portrait']}
+        statusBarTranslucent={false}
+      >
+        <SafeAreaView style={styles.commentsHeaderSafeArea}>
+          <View style={styles.commentsHeader}>
+            <TouchableOpacity 
+              onPress={handleCloseComments}
+              style={styles.backButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Close comments"
+              accessibilityRole="button"
+            >
+              <Ionicons name="arrow-back" size={24} color={Colors.black} />
+            </TouchableOpacity>
+            <Text style={styles.commentsTitle}>Comments</Text>
+            <View style={{ width: 24 }} />
+          </View>
+        </SafeAreaView>
+        
+        <KeyboardAvoidingView 
+          style={styles.commentsModal}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView style={styles.commentsList}>
+            {currentComments.map((comment) => (
+              <View key={comment.id} style={styles.commentItem}>
+                <View style={styles.commentAvatar}>
+                  <Ionicons name="person" size={16} color={Colors.secondary400} />
+                </View>
+                <View style={styles.commentContent}>
+                  <View style={styles.commentHeader}>
+                    <Text style={styles.commentAuthor}>{comment.author.name}</Text>
+                    <Text style={styles.commentTime}>
+                      {formatTimeShort(comment.timestamp)}
+                    </Text>
+                  </View>
+                  <Text style={styles.commentText}>{comment.content}</Text>
+                  <TouchableOpacity 
+                    style={styles.commentLikeButton}
+                    onPress={() => handleCommentLike(comment.id)}
+                  >
+                    <Ionicons 
+                      name={comment.liked ? "heart" : "heart-outline"} 
+                      size={14} 
+                      color={comment.liked ? Colors.error : Colors.secondary400} 
+                    />
+                    <Text style={styles.commentLikes}>{comment.likes}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+          
+          <View style={styles.commentInput}>
+            <View style={styles.commentInputAvatar}>
+              <Ionicons name="person" size={16} color={Colors.secondary400} />
+            </View>
+            <TextInput
+              style={styles.commentInputField}
+              placeholder="Add a comment..."
+              placeholderTextColor={Colors.secondary400}
+              value={newComment}
+              onChangeText={setNewComment}
+              multiline
+            />
+            <TouchableOpacity 
+              style={[styles.commentSendButton, !newComment.trim() && styles.commentSendButtonDisabled]}
+              onPress={handleAddComment}
+              disabled={!newComment.trim()}
+            >
+              <Ionicons 
+                name="send" 
+                size={16} 
+                color={newComment.trim() ? Colors.primary600 : Colors.secondary400} 
+              />
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -554,6 +942,175 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.secondary500,
     marginLeft: 4,
+  },
+  likedText: {
+    color: Colors.error,
+    fontWeight: '600',
+  },
+  optionsButton: {
+    padding: 4,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  optionsModal: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.light200,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.black,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  optionText: {
+    fontSize: 16,
+    color: Colors.black,
+    marginLeft: 12,
+  },
+  reportOption: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.light200,
+    marginTop: 8,
+  },
+  reportText: {
+    color: Colors.error,
+  },
+  // Comments Modal Styles
+  commentsHeaderSafeArea: {
+    backgroundColor: Colors.white,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.light200,
+  },
+  commentsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: Colors.light100,
+  },
+  commentsModal: {
+    flex: 1,
+    backgroundColor: Colors.white,
+  },
+  commentsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.black,
+  },
+  commentsList: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  commentItem: {
+    flexDirection: 'row',
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.light100,
+  },
+  commentAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.light200,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  commentContent: {
+    flex: 1,
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  commentAuthor: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.black,
+    marginRight: 8,
+  },
+  commentTime: {
+    fontSize: 12,
+    color: Colors.secondary500,
+  },
+  commentText: {
+    fontSize: 14,
+    color: Colors.black,
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  commentLikeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  commentLikes: {
+    fontSize: 12,
+    color: Colors.secondary500,
+    marginLeft: 4,
+  },
+  commentInput: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.light200,
+    backgroundColor: Colors.white,
+  },
+  commentInputAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.light200,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  commentInputField: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: Colors.light200,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: Colors.black,
+    maxHeight: 100,
+  },
+  commentSendButton: {
+    marginLeft: 12,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: Colors.primary100,
+  },
+  commentSendButtonDisabled: {
+    backgroundColor: Colors.light100,
   },
   sectionButton: {
     flexDirection: 'row',
