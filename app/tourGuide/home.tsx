@@ -73,13 +73,13 @@ export default function TourGuideHomeScreen() {
         // Navigate to active tour management
         break;
       case 'new_booking':
-        router.push('/(travelerTabs)/bookNow');
+        router.push('/tourGuide/bookings');
         break;
       case 'messages':
-        router.push('/(travelerTabs)/community');
+        router.push('/tourGuide/community');
         break;
       case 'profile':
-        router.push('/(travelerTabs)/profile');
+        router.push('/tourGuide/profile');
         break;
       default:
         break;
@@ -174,45 +174,11 @@ export default function TourGuideHomeScreen() {
           </View>
         </View>
 
-        {/* Quick Actions */}
-        <View style={styles.section}>
-          <ThemedText variant="subtitle" style={styles.sectionTitle}>Quick Actions</ThemedText>
-          <View style={styles.quickActionsContainer}>
-            <TouchableOpacity style={styles.actionCard} onPress={() => handleQuickAction('start_tour')}>
-              <View style={[styles.actionIcon, { backgroundColor: Colors.primary100 }]}>
-                <Ionicons name="play-circle" size={24} color={Colors.success} />
-              </View>
-              <Text style={styles.actionText}>Start Tour</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.actionCard} onPress={() => handleQuickAction('new_booking')}>
-              <View style={[styles.actionIcon, { backgroundColor: Colors.primary100 }]}>
-                <Ionicons name="add-circle" size={24} color={Colors.primary600} />
-              </View>
-              <Text style={styles.actionText}>New Booking</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.actionCard} onPress={() => handleQuickAction('messages')}>
-              <View style={[styles.actionIcon, { backgroundColor: Colors.light200 }]}>
-                <Ionicons name="chatbubbles" size={24} color={Colors.info} />
-              </View>
-              <Text style={styles.actionText}>Messages</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.actionCard} onPress={() => handleQuickAction('profile')}>
-              <View style={[styles.actionIcon, { backgroundColor: Colors.secondary200 }]}>
-                <Ionicons name="person" size={24} color={Colors.secondary600} />
-              </View>
-              <Text style={styles.actionText}>Profile</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
         {/* Today's Schedule */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <ThemedText variant="subtitle" style={styles.sectionTitle}>Today&apos;s Schedule</ThemedText>
-            <TouchableOpacity onPress={() => router.push('/(travelerTabs)/bookNow')}>
+            <TouchableOpacity onPress={() => router.push('/tourGuide/bookings')}>
               <View style={styles.navArrowbg}>
                 <Ionicons name="chevron-forward-outline" size={20} color={Colors.primary700} />
               </View>
@@ -278,15 +244,6 @@ export default function TourGuideHomeScreen() {
           </View>
         </View>
 
-        {/* Logout Button */}
-        <View style={styles.logoutContainer}>
-          <CustomButton
-            title="Logout"
-            variant="outline"
-            onPress={handleLogout}
-            style={styles.logoutButton}
-          />
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
