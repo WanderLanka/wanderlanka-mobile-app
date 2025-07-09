@@ -9,12 +9,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { TopBar } from '@/components/TopBar';
 
 
+
 export default function TravelerHomeScreen() {
   const [destination, setDestination] = useState('');
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
+
       <View style={styles.darkTopBg1} />
       <TopBar
         onProfilePress={() => { /* handle profile/account */ }}
@@ -27,7 +29,6 @@ export default function TravelerHomeScreen() {
 
         <ThemedText variant="title" style={styles.greeting}>Welcome Machan!</ThemedText>
         <ThemedText variant="caption" style={styles.caption}>Explore Sri Lanka With Us!</ThemedText>
-        
         <CustomTextInput
           label=''
           value={destination}

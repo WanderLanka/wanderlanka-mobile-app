@@ -12,11 +12,13 @@ export default function BookNowScreen() {
     <SafeAreaView style={styles.container}>
           <StatusBar style="light" />
           <View style={styles.darkTopBg} />
+
           <TopBar
                   onProfilePress={() => { /* handle profile/account */ }}
                   onNotificationsPress={() => { /* handle notifications */ }}
                   // profileImage={require('../../assets/images/profile.jpg')} // Example usage
                 />
+
           <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
             <ThemedText variant="title" style={styles.greeting}>Book Now !</ThemedText>
             <ThemedText variant="caption" style={styles.caption}>You&#39;re just moments away from booking.</ThemedText>
@@ -132,4 +134,6 @@ const styles = StyleSheet.create({
     marginVertical: 5,
     borderRadius: 35,
   },
+
 });
+
