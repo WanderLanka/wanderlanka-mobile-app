@@ -1,7 +1,7 @@
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { CustomTextInput, ThemedText, CustomButton } from '../../components';
+import { StyleSheet, Text, TouchableOpacity, View, Animated } from 'react-native';
+import { ThemedText } from '../../components';
 import * as React from 'react';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Colors } from '../../constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -27,8 +27,8 @@ interface TourSchedule {
 }
 
 export default function TourGuideHomeScreen() {
-  const { user, logout } = useAuth();
-  const [searchQuery, setSearchQuery] = useState('');
+  const { user } = useAuth();
+  const scrollY = useRef(new Animated.Value(0)).current;
   const [stats] = useState<DashboardStats>({
     todayEarnings: 15750,
     totalBookings: 24,
@@ -58,41 +58,28 @@ export default function TourGuideHomeScreen() {
 
   // Removed authentication check for coding purposes
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      router.replace('../auth/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-  };
-
-  const handleQuickAction = (action: string) => {
-    switch (action) {
-      case 'start_tour':
-        // Navigate to active tour management
-        break;
-      case 'new_booking':
-        router.push('/tourGuide/bookings');
-        break;
-      case 'messages':
-        router.push('/tourGuide/community');
-        break;
-      case 'profile':
-        router.push('/tourGuide/profile');
-        break;
-      default:
-        break;
-    }
-  };
-
   // Provide fallback user data for testing
   const displayUser = user || { username: 'Tour Guide', role: 'guide' };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
-      <View style={styles.topBar}>
+      <Animated.View 
+        style={[
+          styles.topBar,
+          {
+            transform: [
+              {
+                translateY: scrollY.interpolate({
+                  inputRange: [0, 100],
+                  outputRange: [0, -35],
+                  extrapolate: 'clamp',
+                })
+              }
+            ]
+          }
+        ]}
+      >
         <TouchableOpacity style={styles.iconButton} onPress={() => { /* open menu */ }}>
           <Ionicons name="menu" size={28} color={Colors.white} />
         </TouchableOpacity>
@@ -104,9 +91,32 @@ export default function TourGuideHomeScreen() {
             </View>
           </View>
         </TouchableOpacity>
-      </View>
-      <View style={styles.darkTopBg} />
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      </Animated.View>
+      <Animated.View 
+        style={[
+          styles.darkTopBg,
+          {
+            transform: [
+              {
+                translateY: scrollY.interpolate({
+                  inputRange: [0, 200],
+                  outputRange: [0, -100],
+                  extrapolate: 'clamp',
+                })
+              }
+            ]
+          }
+        ]} 
+      />
+      <Animated.ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={styles.scrollContent}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
+      >
         
         <ThemedText variant="title" style={styles.greeting}>
           Welcome, {displayUser.username}!
@@ -114,31 +124,6 @@ export default function TourGuideHomeScreen() {
         <ThemedText variant="caption" style={styles.caption}>
           Ready to share Sri Lanka&apos;s wonders?
         </ThemedText>
-        
-        <CustomTextInput
-          label="Search"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search bookings, clients, locations..."
-          leftIcon="search"
-          containerStyle={{
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 4,
-            elevation: 3,
-            borderRadius: 15,
-          }}
-        />
-
-        <View style={styles.searchButtonArea}>
-          <CustomButton
-            variant='primary'
-            size='small'
-            title="Quick Search"
-            style={styles.searchButton}
-          />
-        </View>
 
         {/* Today's Stats */}
         <View style={styles.section}>
@@ -244,7 +229,7 @@ export default function TourGuideHomeScreen() {
           </View>
         </View>
 
-      </ScrollView>
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 }
