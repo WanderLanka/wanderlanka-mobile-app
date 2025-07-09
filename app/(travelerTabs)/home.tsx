@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { TopBar } from '@/components/TopBar';
 
+
 export default function TravelerHomeScreen() {
   const [destination, setDestination] = useState('');
 
@@ -20,6 +21,7 @@ export default function TravelerHomeScreen() {
         onNotificationsPress={() => { /* handle notifications */ }}
         // profileImage={require('../../assets/images/profile.jpg')} // Example usage
       />
+      
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
       <View style={styles.darkTopBg2} />
 
@@ -157,16 +159,6 @@ const styles = StyleSheet.create({
     zIndex: 0,
   },
 
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingTop: 30,
-    paddingBottom: 10,
-    zIndex: 2,
-  },
-
   iconButton: {
     padding: 8,
   },
@@ -192,7 +184,7 @@ const styles = StyleSheet.create({
   },
   caption: {
     color: Colors.primary100,
-    marginBottom: 30,
+    marginBottom: 20,
     zIndex: 2,
   },
   

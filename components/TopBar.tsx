@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 10,
-    zIndex: 2,
+    zIndex: 5,
     backgroundColor: Colors.primary800,
   },
   profileContainer: {
