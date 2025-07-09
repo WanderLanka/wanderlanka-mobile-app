@@ -1,12 +1,12 @@
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { CustomTextInput, ThemedText, CustomButton } from '../../components';
+import { TopBar } from '@/components/TopBar';
+import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import * as React from 'react';
 import { useState } from 'react';
-import { Colors } from '../../constants/Colors';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
-import { TopBar } from '@/components/TopBar';
+import { CustomButton, CustomTextInput, ThemedText } from '../../components';
+import { Colors } from '../../constants/Colors';
 
 
 
