@@ -4,5 +4,8 @@ export { ThemedView } from './ThemedView';
 export { CustomTextInput } from './CustomTextInput';
 export { CustomButton } from './CustomButton';
 export { RoleSelector } from './RoleSelector';
-export { TopBar } from './TopBar';
-
+export { ProfileAvatar } from './ProfileAvatar';
+export { StatCard } from './StatCard';
+export { SuccessMessage } from './SuccessMessage';
+export { DeleteAccountModal } from './DeleteAccountModal';
+// export { TopBar } from './TopBar';
