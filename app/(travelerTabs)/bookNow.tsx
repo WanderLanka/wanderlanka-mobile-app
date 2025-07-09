@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-nativ
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/Colors';
-import { CustomTextInput, ThemedText, CustomButton } from '../../components';
+import { CustomTextInput, ThemedText, CustomButton, TopBar } from '../../components';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function BookNowScreen() {
@@ -12,14 +12,13 @@ export default function BookNowScreen() {
     <SafeAreaView style={styles.container}>
           <StatusBar style="light" />
           <View style={styles.darkTopBg} />
-          <View style={styles.topBar}>
-            <TouchableOpacity style={styles.iconButton} onPress={() => { /* open menu */ }}>
-              <Ionicons name="menu" size={28} color={Colors.white} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.iconButton} onPress={() => { /* open notifications */ }}>
-              <Ionicons name="notifications-outline" size={26} color={Colors.white} />
-            </TouchableOpacity>
-          </View>
+
+          <TopBar
+                  onProfilePress={() => { /* handle profile/account */ }}
+                  onNotificationsPress={() => { /* handle notifications */ }}
+                  // profileImage={require('../../assets/images/profile.jpg')} // Example usage
+                />
+
           <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
             <ThemedText variant="title" style={styles.greeting}>Book Now !</ThemedText>
             <ThemedText variant="caption" style={styles.caption}>You&#39;re just moments away from booking.</ThemedText>
@@ -135,4 +134,6 @@ const styles = StyleSheet.create({
     marginVertical: 5,
     borderRadius: 35,
   },
+
 });
+

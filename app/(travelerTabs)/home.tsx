@@ -6,6 +6,8 @@ import { Colors } from '../../constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { TopBar } from '@/components/TopBar';
+
 
 
 export default function TravelerHomeScreen() {
@@ -14,18 +16,18 @@ export default function TravelerHomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
-      <View style={styles.topBar}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => { /* open menu */ }}>
-          <Ionicons name="menu" size={28} color={Colors.white} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.iconButton} onPress={() => { /* open notifications */ }}>
-          <Ionicons name="notifications-outline" size={26} color={Colors.white} />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.darkTopBg} />
+
+      <View style={styles.darkTopBg1} />
+      <TopBar
+        onProfilePress={() => { /* handle profile/account */ }}
+        onNotificationsPress={() => { /* handle notifications */ }}
+        // profileImage={require('../../assets/images/profile.jpg')} // Example usage
+      />
+      
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        
-        <ThemedText variant="title" style={styles.greeting}>Hello Traveler !</ThemedText>
+      <View style={styles.darkTopBg2} />
+
+        <ThemedText variant="title" style={styles.greeting}>Welcome Machan!</ThemedText>
         <ThemedText variant="caption" style={styles.caption}>Explore Sri Lanka With Us!</ThemedText>
         <CustomTextInput
           label=''
@@ -34,12 +36,12 @@ export default function TravelerHomeScreen() {
           placeholder="Where do you want to go ?"
           leftIcon="search"
            containerStyle={{
-            shadowColor: '#000',
+            shadowColor: Colors.primary800,
             shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
+            shadowOpacity: 0.2,
             shadowRadius: 4,
-            elevation: 3,
             borderRadius:15,
+            elevation: 20,
           }}
         />
 
@@ -61,7 +63,7 @@ export default function TravelerHomeScreen() {
                 </View>
               </TouchableOpacity>
     
-            <ThemedText>Popular places go here</ThemedText>
+            <ThemedText>Recommended Places go here</ThemedText>
 
             <TouchableOpacity>
               <View style={styles.navArrowbg}>
@@ -73,8 +75,60 @@ export default function TravelerHomeScreen() {
 
         <View style={styles.section}>
           <ThemedText variant="subtitle" style={styles.sectionTitle}>Best Deals</ThemedText>
-          <View style={styles.placeholderBox}><Text>Best deals go here</Text></View>
-        </View>
+            <View style={styles.placeholderBox}>
+             <TouchableOpacity>
+                <View style={styles.navArrowbg}>
+                <Ionicons name="chevron-back-outline" size={20} color={Colors.primary700} />
+                </View>
+              </TouchableOpacity>
+    
+              <ThemedText>Re go here</ThemedText>
+
+              <TouchableOpacity>
+                <View style={styles.navArrowbg}>
+                <Ionicons name="chevron-forward-outline" size={20} color={Colors.primary700} />
+                </View>
+              </TouchableOpacity> 
+            </View>        
+          </View>
+
+          <View style={styles.section}>
+          <ThemedText variant="subtitle" style={styles.sectionTitle}>Best Deals</ThemedText>
+            <View style={styles.placeholderBox}>
+             <TouchableOpacity>
+                <View style={styles.navArrowbg}>
+                <Ionicons name="chevron-back-outline" size={20} color={Colors.primary700} />
+                </View>
+              </TouchableOpacity>
+    
+              <ThemedText>Re go here</ThemedText>
+
+              <TouchableOpacity>
+                <View style={styles.navArrowbg}>
+                <Ionicons name="chevron-forward-outline" size={20} color={Colors.primary700} />
+                </View>
+              </TouchableOpacity> 
+            </View>        
+          </View>
+
+          <View style={styles.section}>
+          <ThemedText variant="subtitle" style={styles.sectionTitle}>Best Deals</ThemedText>
+            <View style={styles.placeholderBox}>
+             <TouchableOpacity>
+                <View style={styles.navArrowbg}>
+                <Ionicons name="chevron-back-outline" size={20} color={Colors.primary700} />
+                </View>
+              </TouchableOpacity>
+    
+              <ThemedText>Re go here</ThemedText>
+
+              <TouchableOpacity>
+                <View style={styles.navArrowbg}>
+                <Ionicons name="chevron-forward-outline" size={20} color={Colors.primary700} />
+                </View>
+              </TouchableOpacity> 
+            </View>        
+          </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -87,24 +141,23 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
 
-  darkTopBg: {
+  darkTopBg1: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 210, // enough to cover greeting, subtitle, and half the input
+    height: 40, // enough to cover greeting, subtitle, and half the input
     backgroundColor: Colors.primary800,
     zIndex: 0,
   },
-
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingTop: 30,
-    paddingBottom: 10,
-    zIndex: 2,
+  darkTopBg2: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 130, // enough to cover greeting, subtitle, and half the input
+    backgroundColor: Colors.primary800,
+    zIndex: 0,
   },
 
   iconButton: {
@@ -132,7 +185,7 @@ const styles = StyleSheet.create({
   },
   caption: {
     color: Colors.primary100,
-    marginBottom: 30,
+    marginBottom: 20,
     zIndex: 2,
   },
   
