@@ -8,3 +8,4 @@ export { ProfileAvatar } from './ProfileAvatar';
 export { StatCard } from './StatCard';
 export { SuccessMessage } from './SuccessMessage';
 export { DeleteAccountModal } from './DeleteAccountModal';
+// export { TopBar } from './TopBar';
