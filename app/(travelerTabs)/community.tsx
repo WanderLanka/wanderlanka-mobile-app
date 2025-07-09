@@ -194,10 +194,7 @@ export default function CommunityScreen() {
       {/* Create Post Button */}
       <TouchableOpacity
         style={styles.createPostButton}
-        onPress={() => {
-          // TODO: Create create-post screen
-          console.log('Navigate to create post');
-        }}
+        onPress={() => router.push('/community/create-post' as any)}
       >
         <View style={styles.createPostContent}>
           <View style={styles.avatar}>
@@ -418,10 +415,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.light200,
+    maxHeight: 60,
+    height: 'auto',
   },
   tabsContent: {
     paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingVertical: 8,
+    alignItems: 'center',
+    minHeight: 44,
   },
   tab: {
     flexDirection: 'row',
@@ -431,6 +432,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
     borderRadius: 20,
     backgroundColor: Colors.light100,
+    height: 36,
   },
   activeTab: {
     backgroundColor: Colors.primary100,
