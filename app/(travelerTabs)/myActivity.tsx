@@ -17,7 +17,7 @@ export default function MyActivityScreen() {
       />
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.greetingContainer}>
-          <ThemedText variant="title" style={styles.greeting}>My Activity</ThemedText>
+          <ThemedText variant="title" style={styles.greeting}>My Activities</ThemedText>
           <ThemedText variant="caption" style={styles.caption}>See your recent bookings and actions here.</ThemedText>
         </View>
         {/* Add your activity content here */}

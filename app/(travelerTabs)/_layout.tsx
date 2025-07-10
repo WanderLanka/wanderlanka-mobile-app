@@ -1,15 +1,16 @@
 // app/(travelerTabs)/_layout.tsx
-import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/Colors'; 
+import { Tabs } from 'expo-router';
+import { Colors } from '../../constants/Colors';
 
 export default function TravelerTabsLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Colors.primary700,
+        tabBarActiveTintColor: Colors.primary800,
         tabBarInactiveTintColor: Colors.secondary400,
+        animation: 'fade', // Slide animation between tabs
       }}
     >
       <Tabs.Screen

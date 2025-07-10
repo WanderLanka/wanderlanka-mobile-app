@@ -2,7 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ThemedText, TopBar } from '../../components';
+import { ServicesTopBar, ThemedText } from '../../components';
 import { Colors } from '../../constants/Colors';
 
 export default function AccomodationHomeScreen() {
@@ -11,7 +11,7 @@ export default function AccomodationHomeScreen() {
     <SafeAreaView style={styles.container}>
       <View style={[styles.statusBarBackground, { height: insets.top }]} />
       <StatusBar style="light" translucent />
-      <TopBar
+      <ServicesTopBar 
         onProfilePress={() => {}}
         onNotificationsPress={() => {}}
       />

@@ -40,7 +40,7 @@ export default function BookNowScreen() {
             size="large"
             rightIcon={<Image source={vehicleIcon} style={styles.icon} />}
             style={styles.columnButton}
-            onPress={() => { /* handle vehicles */ }}
+            onPress={() => router.push('/transportation/tra_home')}
           />
           <CustomButton
             title="Tour Guides"
@@ -48,7 +48,7 @@ export default function BookNowScreen() {
             size="large"
             rightIcon={<Image source={guideIcon} style={styles.icon} />}
             style={styles.columnButton}
-            onPress={() => { /* handle guides */ }}
+            onPress={() => router.push('/tour_guides/gui_home')}
           />
         </View>
       </ScrollView>

@@ -4,9 +4,11 @@ export { CustomTextInput } from './CustomTextInput';
 export { DeleteAccountModal } from './DeleteAccountModal';
 export { ProfileAvatar } from './ProfileAvatar';
 export { RoleSelector } from './RoleSelector';
+export { ServicesTopBar } from './ServicesTopBar';
 export { StatCard } from './StatCard';
 export { SuccessMessage } from './SuccessMessage';
 export { ThemedText } from './ThemedText';
 export { ThemedView } from './ThemedView';
 export { TopBar } from './TopBar';
+
 
