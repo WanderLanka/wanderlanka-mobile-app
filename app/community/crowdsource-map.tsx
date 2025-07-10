@@ -691,10 +691,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.light200,
+    height: 'auto',
+    maxHeight: 50
   },
   filterContent: {
     paddingHorizontal: 20,
     paddingVertical: 10,
+    height: 50
   },
   filterTab: {
     flexDirection: 'row',
