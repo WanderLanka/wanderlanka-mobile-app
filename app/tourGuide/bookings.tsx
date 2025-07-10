@@ -4,27 +4,14 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 import { ThemedText } from '../../components';
-
-interface Booking {
-  id: string;
-  clientName: string;
-  clientEmail: string;
-  tourType: string;
-  date: string;
-  time: string;
-  duration: string;
-  location: string;
-  amount: number;
-  status: 'booked' | 'pending';
-  groupSize: number;
-  specialRequests?: string;
-}
+import Calendar from '../../components/Calendar';
+import DayBookings from '../../components/DayBookings';
+import { Booking } from '../../types/Calendar.types';
 
 export default function BookingsScreen() {
   const [activeTab, setActiveTab] = useState<'booked' | 'pending'>('booked');
   const [showCalendar, setShowCalendar] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [calendarView, setCalendarView] = useState<'month' | 'year'>('month');
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedDayBookings, setSelectedDayBookings] = useState<Booking[]>([]);
   const [showDayBookings, setShowDayBookings] = useState(false);
 
@@ -34,7 +21,7 @@ export default function BookingsScreen() {
       clientName: 'Sarah Johnson',
       clientEmail: 'sarah.johnson@email.com',
       tourType: 'Cultural Heritage Tour',
-      date: 'Dec 18, 2024',
+      date: 'July 20, 2025',
       time: '9:00 AM',
       duration: '6 hours',
       location: 'Kandy Temple Complex',
@@ -48,7 +35,7 @@ export default function BookingsScreen() {
       clientName: 'Mike Chen',
       clientEmail: 'mike.chen@email.com',
       tourType: 'Adventure Hiking',
-      date: 'Dec 20, 2024',
+      date: 'July 25, 2025',
       time: '6:00 AM',
       duration: '8 hours',
       location: 'Ella Rock Trail',
@@ -61,7 +48,7 @@ export default function BookingsScreen() {
       clientName: 'Emma Wilson',
       clientEmail: 'emma.wilson@email.com',
       tourType: 'Beach & Wildlife',
-      date: 'Dec 25, 2024',
+      date: 'Dec 25, 2025',
       time: '8:00 AM',
       duration: '10 hours',
       location: 'Mirissa & Yala National Park',
@@ -74,7 +61,7 @@ export default function BookingsScreen() {
       clientName: 'James Rodriguez',
       clientEmail: 'james.rodriguez@email.com',
       tourType: 'Mountain Adventure',
-      date: 'Dec 22, 2024',
+      date: 'Aug 2, 2025',
       time: '7:00 AM',
       duration: '12 hours',
       location: 'Adams Peak',
@@ -88,7 +75,7 @@ export default function BookingsScreen() {
       clientName: 'Lisa Parker',
       clientEmail: 'lisa.parker@email.com',
       tourType: 'Cultural Experience',
-      date: 'Dec 28, 2024',
+      date: 'Aug 20, 2025',
       time: '10:00 AM',
       duration: '5 hours',
       location: 'Galle Fort & Surroundings',
@@ -101,7 +88,7 @@ export default function BookingsScreen() {
       clientName: 'David Kim',
       clientEmail: 'david.kim@email.com',
       tourType: 'Tea Plantation Tour',
-      date: 'Dec 30, 2024',
+      date: 'Aug 30, 2025',
       time: '9:30 AM',
       duration: '7 hours',
       location: 'Nuwara Eliya',
@@ -113,222 +100,23 @@ export default function BookingsScreen() {
 
   const filteredBookings = bookings.filter(booking => booking.status === activeTab);
 
-  // Calendar helper functions
-  const getBookingsForDate = (date: Date) => {
-    const dateString = date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
-    });
-    return bookings.filter(booking => 
-      booking.status === 'booked' && 
-      booking.date.replace(',', '') === dateString.replace(',', '')
-    );
-  };
-
-  const getDaysInMonth = (date: Date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startingDayOfWeek = firstDay.getDay();
-    
-    const days = [];
-    
-    // Add empty cells for days before the first day of the month
-    for (let i = 0; i < startingDayOfWeek; i++) {
-      days.push(null);
-    }
-    
-    // Add days of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-      days.push(new Date(year, month, day));
-    }
-    
-    return days;
-  };
-
-  const getMonthsInYear = (year: number) => {
-    const months = [];
-    for (let month = 0; month < 12; month++) {
-      months.push(new Date(year, month, 1));
-    }
-    return months;
-  };
-
-  const navigateMonth = (direction: 'prev' | 'next') => {
-    const newDate = new Date(selectedDate);
-    if (direction === 'prev') {
-      newDate.setMonth(newDate.getMonth() - 1);
-    } else {
-      newDate.setMonth(newDate.getMonth() + 1);
-    }
-    setSelectedDate(newDate);
-  };
-
-  const navigateYear = (direction: 'prev' | 'next') => {
-    const newDate = new Date(selectedDate);
-    if (direction === 'prev') {
-      newDate.setFullYear(newDate.getFullYear() - 1);
-    } else {
-      newDate.setFullYear(newDate.getFullYear() + 1);
-    }
-    setSelectedDate(newDate);
-  };
-
-  const selectMonth = (month: Date) => {
-    setSelectedDate(month);
-    setCalendarView('month');
-  };
-
-  const selectDay = (day: Date) => {
-    const bookingsForDay = getBookingsForDate(day);
+  const handleDaySelect = (day: Date, bookingsForDay: Booking[]) => {
+    setSelectedDate(day);
     if (bookingsForDay.length > 0) {
       setSelectedDayBookings(bookingsForDay);
       setShowDayBookings(true);
+      setShowCalendar(false); // Close calendar when day is selected
     }
   };
 
-  const renderCalendarHeader = () => (
-    <View style={styles.calendarHeader}>
-      <TouchableOpacity 
-        onPress={() => calendarView === 'month' ? navigateMonth('prev') : navigateYear('prev')}
-        style={styles.calendarNavButton}
-      >
-        <Ionicons name="chevron-back" size={20} color={Colors.primary600} />
-      </TouchableOpacity>
-      
-      <TouchableOpacity 
-        onPress={() => setCalendarView(calendarView === 'month' ? 'year' : 'month')}
-        style={styles.calendarTitle}
-      >
-        <Text style={styles.calendarTitleText}>
-          {calendarView === 'month' 
-            ? selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-            : selectedDate.getFullYear().toString()
-          }
-        </Text>
-        <Ionicons name="chevron-down" size={16} color={Colors.primary600} />
-      </TouchableOpacity>
-      
-      <TouchableOpacity 
-        onPress={() => calendarView === 'month' ? navigateMonth('next') : navigateYear('next')}
-        style={styles.calendarNavButton}
-      >
-        <Ionicons name="chevron-forward" size={20} color={Colors.primary600} />
-      </TouchableOpacity>
-    </View>
-  );
-
-  const renderMonthView = () => {
-    const days = getDaysInMonth(selectedDate);
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    
-    return (
-      <View style={styles.monthView}>
-        {/* Day names header */}
-        <View style={styles.dayNamesRow}>
-          {dayNames.map((dayName) => (
-            <Text key={dayName} style={styles.dayNameText}>
-              {dayName}
-            </Text>
-          ))}
-        </View>
-        
-        {/* Calendar grid */}
-        <View style={styles.calendarGrid}>
-          {days.map((day, index) => {
-            if (!day) {
-              return <View key={index} style={styles.emptyDay} />;
-            }
-            
-            const bookingsForDay = getBookingsForDate(day);
-            const isToday = day.toDateString() === new Date().toDateString();
-            const hasBookings = bookingsForDay.length > 0;
-            
-            return (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.calendarDay,
-                  isToday && styles.todayDay,
-                  hasBookings && styles.dayWithBookings
-                ]}
-                onPress={() => selectDay(day)}
-              >
-                <Text style={[
-                  styles.dayText,
-                  isToday && styles.todayText,
-                  hasBookings && styles.dayWithBookingsText
-                ]}>
-                  {day.getDate()}
-                </Text>
-                {hasBookings && (
-                  <View style={styles.bookingDot} />
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-    );
+  const handleCalendarClose = () => {
+    setShowCalendar(false);
   };
 
-  const renderYearView = () => {
-    const months = getMonthsInYear(selectedDate.getFullYear());
-    
-    return (
-      <View style={styles.yearView}>
-        {months.map((month, index) => {
-          const monthBookings = bookings.filter(booking => {
-            const bookingDate = new Date(booking.date);
-            return bookingDate.getMonth() === month.getMonth() && 
-                   bookingDate.getFullYear() === month.getFullYear() &&
-                   booking.status === 'booked';
-          });
-          
-          return (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.monthItem,
-                monthBookings.length > 0 && styles.monthWithBookings
-              ]}
-              onPress={() => selectMonth(month)}
-            >
-              <Text style={[
-                styles.monthText,
-                monthBookings.length > 0 && styles.monthWithBookingsText
-              ]}>
-                {month.toLocaleDateString('en-US', { month: 'short' })}
-              </Text>
-              {monthBookings.length > 0 && (
-                <View style={styles.monthBookingIndicator}>
-                  <Text style={styles.monthBookingIndicatorText}>
-                    {monthBookings.length}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    );
+  const handleBookingAction = (bookingId: string, action: 'approve' | 'decline' | 'contact') => {
+    // Handle booking actions
+    console.log(`${action} booking ${bookingId}`);
   };
-
-  const renderCalendar = () => (
-    <View style={styles.calendarContainer}>
-      {renderCalendarHeader()}
-      {calendarView === 'month' ? renderMonthView() : renderYearView()}
-      <TouchableOpacity 
-        style={styles.closeCalendarButton}
-        onPress={() => setShowCalendar(false)}
-      >
-        <Text style={styles.closeCalendarText}>Close</Text>
-      </TouchableOpacity>
-    </View>
-  );
 
   const renderDayBookingsModal = () => (
     <View style={styles.dayBookingsModal}>
@@ -365,11 +153,6 @@ export default function BookingsScreen() {
       </ScrollView>
     </View>
   );
-
-  const handleBookingAction = (bookingId: string, action: 'approve' | 'decline' | 'contact') => {
-    // Handle booking actions
-    console.log(`${action} booking ${bookingId}`);
-  };
 
   const renderBookingCard = (booking: Booking) => (
     <View key={booking.id} style={styles.bookingCard}>
@@ -461,7 +244,7 @@ export default function BookingsScreen() {
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.calendarButton} 
-          onPress={() => setShowCalendar(!showCalendar)}
+          onPress={() => setShowCalendar(true)}
         >
           <Ionicons name="calendar" size={24} color={Colors.primary600} />
         </TouchableOpacity>
@@ -471,11 +254,24 @@ export default function BookingsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Calendar Modal */}
-      {showCalendar && renderCalendar()}
+      {/* Calendar Component */}
+      {showCalendar && (
+        <Calendar
+          bookings={bookings}
+          onClose={handleCalendarClose}
+          onDaySelect={handleDaySelect}
+        />
+      )}
 
       {/* Day Bookings Modal */}
-      {showDayBookings && renderDayBookingsModal()}
+      {showDayBookings && (
+        <DayBookings
+          selectedDate={selectedDate}
+          bookings={selectedDayBookings}
+          onClose={() => setShowDayBookings(false)}
+          onBookingPress={(booking) => console.log("Booking pressed:", booking.id)}
+        />
+      )}
 
       {/* Tab Navigation */}
       <View style={styles.tabContainer}>
@@ -548,10 +344,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: Colors.white,
-  },
-
-  headerLeft: {
-    width: 40, // Same width as filter button for balance
   },
 
   calendarButton: {
@@ -839,206 +631,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
     lineHeight: 20,
-  },
-
-  // Calendar styles
-  calendarContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: Colors.white,
-    zIndex: 1000,
-    padding: 20,
-  },
-
-  calendarHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.secondary200,
-    marginBottom: 20,
-  },
-
-  calendarNavButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: Colors.secondary50,
-  },
-
-  calendarTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: Colors.primary100,
-  },
-
-  calendarTitleText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.primary700,
-    marginRight: 8,
-  },
-
-  monthView: {
-    flex: 1,
-  },
-
-  dayNamesRow: {
-    flexDirection: 'row',
-    marginBottom: 10,
-  },
-
-  dayNameText: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.secondary500,
-    paddingVertical: 8,
-  },
-
-  calendarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-
-  emptyDay: {
-    width: '14.28%',
-    height: 50,
-  },
-
-  calendarDay: {
-    width: '14.28%',
-    height: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-
-  todayDay: {
-    backgroundColor: Colors.primary100,
-    borderRadius: 8,
-  },
-
-  dayWithBookings: {
-    backgroundColor: Colors.primary100,
-    borderRadius: 8,
-  },
-
-  dayText: {
-    fontSize: 16,
-    color: Colors.secondary700,
-  },
-
-  todayText: {
-    color: Colors.primary700,
-    fontWeight: '600',
-  },
-
-  dayWithBookingsText: {
-    color: Colors.success,
-    fontWeight: '600',
-  },
-
-  bookingIndicator: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: Colors.success,
-    borderRadius: 8,
-    width: 16,
-    height: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  bookingIndicatorText: {
-    fontSize: 10,
-    color: Colors.white,
-    fontWeight: '600',
-  },
-
-  yearView: {
-    flex: 1,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-
-  monthItem: {
-    width: '30%',
-    height: 80,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    borderRadius: 12,
-    backgroundColor: Colors.secondary50,
-    position: 'relative',
-  },
-
-  monthWithBookings: {
-    backgroundColor: Colors.primary100,
-    borderWidth: 2,
-    borderColor: Colors.success,
-  },
-
-  monthText: {
-    fontSize: 16,
-    color: Colors.secondary700,
-    fontWeight: '600',
-  },
-
-  monthWithBookingsText: {
-    color: Colors.success,
-  },
-
-  monthBookingIndicator: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: Colors.success,
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  monthBookingIndicatorText: {
-    fontSize: 12,
-    color: Colors.white,
-    fontWeight: '600',
-  },
-
-  closeCalendarButton: {
-    backgroundColor: Colors.primary600,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-
-  closeCalendarText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-
-  // Day booking dot indicator
-  bookingDot: {
-    position: 'absolute',
-    bottom: 4,
-    alignSelf: 'center',
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.success,
   },
 
   // Day bookings modal styles
