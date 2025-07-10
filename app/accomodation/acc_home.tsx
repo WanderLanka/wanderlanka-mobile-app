@@ -5,7 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ThemedText, TopBar } from '../../components';
 import { Colors } from '../../constants/Colors';
 
-export default function MyActivityScreen() {
+export default function AccomodationHomeScreen() {
   const insets = useSafeAreaInsets();
   return (
     <SafeAreaView style={styles.container}>
@@ -17,10 +17,10 @@ export default function MyActivityScreen() {
       />
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.greetingContainer}>
-          <ThemedText variant="title" style={styles.greeting}>My Activity</ThemedText>
-          <ThemedText variant="caption" style={styles.caption}>See your recent bookings and actions here.</ThemedText>
+          <ThemedText variant="title" style={styles.greeting}>Accommodations</ThemedText>
+          <ThemedText variant="caption" style={styles.caption}>Find and book your perfect stay.</ThemedText>
         </View>
-        {/* Add your activity content here */}
+        {/* Add your accommodation content here */}
       </ScrollView>
     </SafeAreaView>
   );

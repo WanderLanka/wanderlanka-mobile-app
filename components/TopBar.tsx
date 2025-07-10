@@ -1,6 +1,6 @@
-import React from 'react';
-import { View, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/Colors';
 
 interface TopBarProps {
@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 10,
-    zIndex: 5,
+    zIndex: 0,
     backgroundColor: Colors.primary800,
   },
   profileContainer: {

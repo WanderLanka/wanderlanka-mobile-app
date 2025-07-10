@@ -8,8 +8,8 @@ import {
   View
 } from 'react-native';
 
-import { Colors } from '../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
+import { Colors } from '../constants/Colors';
 
 interface CustomTextInputProps extends TextInputProps {
   label: string;

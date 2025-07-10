@@ -4,131 +4,131 @@ import { StatusBar } from 'expo-status-bar';
 import * as React from 'react';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CustomButton, CustomTextInput, ThemedText } from '../../components';
 import { Colors } from '../../constants/Colors';
 
-
-
 export default function TravelerHomeScreen() {
   const [destination, setDestination] = useState('');
+  const insets = useSafeAreaInsets(); // 👈 to handle status bar space
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="light" />
+      <View style={[styles.statusBarBackground, { height: insets.top }]} />
+      <StatusBar style="light" translucent />
 
-      <View style={styles.darkTopBg1} />
       <TopBar
-        onProfilePress={() => { /* handle profile/account */ }}
-        onNotificationsPress={() => { /* handle notifications */ }}
-        // profileImage={require('../../assets/images/profile.jpg')} // Example usage
+        onProfilePress={() => {}}
+        onNotificationsPress={() => {}}
       />
-      
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-      <View style={styles.darkTopBg2} />
+        <View style={styles.greetingContainer}>
+          <ThemedText variant="title" style={styles.greeting}>Welcome Machan!</ThemedText>
+          <ThemedText variant="caption" style={styles.caption}>Explore Sri Lanka With Us!</ThemedText>
+        </View>
 
-        <ThemedText variant="title" style={styles.greeting}>Welcome Machan!</ThemedText>
-        <ThemedText variant="caption" style={styles.caption}>Explore Sri Lanka With Us!</ThemedText>
-        <CustomTextInput
-          label=''
-          value={destination}
-          onChangeText={setDestination}
-          placeholder="Where do you want to go ?"
-          leftIcon="search"
-           containerStyle={{
-            shadowColor: Colors.primary800,
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.2,
-            shadowRadius: 4,
-            borderRadius:15,
-            elevation: 20,
-          }}
-        />
-
-        <View style = {styles.searchButtonArea}>
-        <CustomButton
+        <View style={styles.searchArea}>
+          <CustomTextInput
+            label=''
+            value={destination}
+            onChangeText={setDestination}
+            placeholder="Where do you want to go ?"
+            leftIcon="search"
+            containerStyle={styles.searchInput}
+          />
+          <CustomButton
             variant='primary'
             size='small'
             title="Start Planning"
             style={styles.searchButton}
-        />
+          />
         </View>
 
         <View style={styles.section}>
           <ThemedText variant="subtitle" style={styles.sectionTitle}>Popular Places</ThemedText>
           <View style={styles.placeholderBox}>
-             <TouchableOpacity>
-                <View style={styles.navArrowbg}>
-                <Ionicons name="chevron-back-outline" size={20} color={Colors.primary700} />
-                </View>
-              </TouchableOpacity>
-    
-            <ThemedText>Recommended Places go here</ThemedText>
-
             <TouchableOpacity>
               <View style={styles.navArrowbg}>
-              <Ionicons name="chevron-forward-outline" size={20} color={Colors.primary700} />
+                <Ionicons name="chevron-back-outline" size={20} color={Colors.primary700} />
               </View>
-            </TouchableOpacity> 
+            </TouchableOpacity>
+            <ThemedText>Recommended Places go here</ThemedText>
+            <TouchableOpacity>
+              <View style={styles.navArrowbg}>
+                <Ionicons name="chevron-forward-outline" size={20} color={Colors.primary700} />
+              </View>
+            </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.section}>
-          <ThemedText variant="subtitle" style={styles.sectionTitle}>Best Deals</ThemedText>
-            <View style={styles.placeholderBox}>
-             <TouchableOpacity>
-                <View style={styles.navArrowbg}>
+          <ThemedText variant="subtitle" style={styles.sectionTitle}>Popular Places</ThemedText>
+          <View style={styles.placeholderBox}>
+            <TouchableOpacity>
+              <View style={styles.navArrowbg}>
                 <Ionicons name="chevron-back-outline" size={20} color={Colors.primary700} />
-                </View>
-              </TouchableOpacity>
-    
-              <ThemedText>Re go here</ThemedText>
-
-              <TouchableOpacity>
-                <View style={styles.navArrowbg}>
+              </View>
+            </TouchableOpacity>
+            <ThemedText>Recommended Places go here</ThemedText>
+            <TouchableOpacity>
+              <View style={styles.navArrowbg}>
                 <Ionicons name="chevron-forward-outline" size={20} color={Colors.primary700} />
-                </View>
-              </TouchableOpacity> 
-            </View>        
+              </View>
+            </TouchableOpacity>
           </View>
+        </View>
 
-          <View style={styles.section}>
-          <ThemedText variant="subtitle" style={styles.sectionTitle}>Best Deals</ThemedText>
-            <View style={styles.placeholderBox}>
-             <TouchableOpacity>
-                <View style={styles.navArrowbg}>
+        <View style={styles.section}>
+          <ThemedText variant="subtitle" style={styles.sectionTitle}>Popular Places</ThemedText>
+          <View style={styles.placeholderBox}>
+            <TouchableOpacity>
+              <View style={styles.navArrowbg}>
                 <Ionicons name="chevron-back-outline" size={20} color={Colors.primary700} />
-                </View>
-              </TouchableOpacity>
-    
-              <ThemedText>Re go here</ThemedText>
-
-              <TouchableOpacity>
-                <View style={styles.navArrowbg}>
+              </View>
+            </TouchableOpacity>
+            <ThemedText>Recommended Places go here</ThemedText>
+            <TouchableOpacity>
+              <View style={styles.navArrowbg}>
                 <Ionicons name="chevron-forward-outline" size={20} color={Colors.primary700} />
-                </View>
-              </TouchableOpacity> 
-            </View>        
+              </View>
+            </TouchableOpacity>
           </View>
+        </View>
 
-          <View style={styles.section}>
-          <ThemedText variant="subtitle" style={styles.sectionTitle}>Best Deals</ThemedText>
-            <View style={styles.placeholderBox}>
-             <TouchableOpacity>
-                <View style={styles.navArrowbg}>
+        <View style={styles.section}>
+          <ThemedText variant="subtitle" style={styles.sectionTitle}>Popular Places</ThemedText>
+          <View style={styles.placeholderBox}>
+            <TouchableOpacity>
+              <View style={styles.navArrowbg}>
                 <Ionicons name="chevron-back-outline" size={20} color={Colors.primary700} />
-                </View>
-              </TouchableOpacity>
-    
-              <ThemedText>Re go here</ThemedText>
-
-              <TouchableOpacity>
-                <View style={styles.navArrowbg}>
+              </View>
+            </TouchableOpacity>
+            <ThemedText>Recommended Places go here</ThemedText>
+            <TouchableOpacity>
+              <View style={styles.navArrowbg}>
                 <Ionicons name="chevron-forward-outline" size={20} color={Colors.primary700} />
-                </View>
-              </TouchableOpacity> 
-            </View>        
+              </View>
+            </TouchableOpacity>
           </View>
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText variant="subtitle" style={styles.sectionTitle}>Popular Places</ThemedText>
+          <View style={styles.placeholderBox}>
+            <TouchableOpacity>
+              <View style={styles.navArrowbg}>
+                <Ionicons name="chevron-back-outline" size={20} color={Colors.primary700} />
+              </View>
+            </TouchableOpacity>
+            <ThemedText>Recommended Places go here</ThemedText>
+            <TouchableOpacity>
+              <View style={styles.navArrowbg}>
+                <Ionicons name="chevron-forward-outline" size={20} color={Colors.primary700} />
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+        {/* Add more sections... */}
       </ScrollView>
     </SafeAreaView>
   );
@@ -138,66 +138,86 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.secondary50,
-    position: 'relative',
   },
 
-  darkTopBg1: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 40, // enough to cover greeting, subtitle, and half the input
-    backgroundColor: Colors.primary800,
-    zIndex: 0,
-  },
-  darkTopBg2: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 130, // enough to cover greeting, subtitle, and half the input
-    backgroundColor: Colors.primary800,
-    zIndex: 0,
-  },
-
-  iconButton: {
-    padding: 8,
-  },
-  
   scrollView: {
     flex: 1,
     zIndex: 1,
   },
-  
+
   scrollContent: {
-    paddingHorizontal: 20,
     paddingBottom: 40,
     paddingTop: 0,
   },
-
+  
+  statusBarBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.primary800,
+    zIndex: 10,
+  },
+  greetingContainer: {
+    backgroundColor: Colors.primary800,
+    alignSelf: 'stretch',
+    width: '100%',
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
   greeting: {
     marginTop: 10,
     marginBottom: 4,
     fontSize: 24,
-    fontWeight: '300',
+    fontWeight: '400',
     color: Colors.white,
     zIndex: 2,
   },
+
   caption: {
     color: Colors.primary100,
     marginBottom: 20,
     zIndex: 2,
   },
-  
+
+  searchArea: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginBottom: 24,
+    paddingHorizontal: 20,
+  },
+
+  searchInput: {
+    alignSelf: 'stretch',
+    borderRadius: 15,
+
+    shadowColor: Colors.secondary500,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+
+    elevation: 25,
+
+  },
+
+  searchButton: {
+    width: 200,
+    backgroundColor: Colors.primary600,
+  },
+
   section: {
     marginBottom: 32,
+    paddingHorizontal: 20,
   },
+
   sectionTitle: {
     marginBottom: 12,
     fontSize: 18,
     fontWeight: '600',
     color: Colors.primary700,
   },
+
   placeholderBox: {
     flexDirection: 'row',
     height: 100,
@@ -205,17 +225,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  searchButtonArea:{
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  searchButton:{
-    marginTop: 5,
-    width: 200,
-    backgroundColor: Colors.primary600,
-  },
-  
-  navArrowbg:{
+  navArrowbg: {
     backgroundColor: Colors.primary100,
     borderRadius: 20,
     width: 25,
@@ -226,6 +236,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 2,
   }
-
 });
+
+
+
+
 
