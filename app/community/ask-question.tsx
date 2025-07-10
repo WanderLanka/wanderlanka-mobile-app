@@ -253,14 +253,7 @@ export default function AskQuestionScreen() {
     : MOCK_QUESTIONS.filter(question => question.category === selectedCategory);
 
   const handleAskQuestion = () => {
-    Alert.alert(
-      'Ask a Question',
-      'This feature will allow you to post your travel questions to the community.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Continue', onPress: () => console.log('Navigate to ask question form') },
-      ]
-    );
+    router.push('/community/ask-question-form');
   };
 
   return (
