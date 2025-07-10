@@ -12,6 +12,7 @@ import React, { useState } from 'react';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { formatTimeAgo } from '../../utils/timeFormat';
 import { router } from 'expo-router';
 
 // Mock Q&A data - easily replaceable with backend API
@@ -116,9 +117,6 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question }) => {
   const [votes, setVotes] = useState(question.votes);
   const [userVote, setUserVote] = useState<'up' | 'down' | null>(null);
 
-  const timeAgo = new Date().getTime() - new Date(question.askedDate).getTime();
-  const hoursAgo = Math.floor(timeAgo / (1000 * 60 * 60));
-
   const handleVote = (voteType: 'up' | 'down') => {
     if (userVote === voteType) {
       // Remove vote
@@ -134,8 +132,12 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question }) => {
     }
   };
 
+  const handleQuestionPress = () => {
+    router.push(`/community/question-detail?id=${question.id}`);
+  };
+
   return (
-    <TouchableOpacity style={styles.questionCard}>
+    <TouchableOpacity style={styles.questionCard} onPress={handleQuestionPress}>
       {/* Question Header */}
       <View style={styles.questionHeader}>
         <View style={styles.questionMeta}>
@@ -201,7 +203,10 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question }) => {
           <View style={styles.votingContainer}>
             <TouchableOpacity
               style={[styles.voteButton, userVote === 'up' && styles.voteButtonActive]}
-              onPress={() => handleVote('up')}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleVote('up');
+              }}
             >
               <Ionicons
                 name="chevron-up"
@@ -212,7 +217,10 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question }) => {
             <Text style={styles.voteCount}>{votes}</Text>
             <TouchableOpacity
               style={[styles.voteButton, userVote === 'down' && styles.voteButtonDown]}
-              onPress={() => handleVote('down')}
+              onPress={(e) => {
+                e.stopPropagation();
+                handleVote('down');
+              }}
             >
               <Ionicons
                 name="chevron-down"
@@ -238,7 +246,7 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question }) => {
           <Text style={styles.askedBy}>
             asked by {question.askedBy.name}
           </Text>
-          <Text style={styles.askedTime}>{hoursAgo}h ago</Text>
+          <Text style={styles.askedTime}>{formatTimeAgo(question.askedDate)}</Text>
         </View>
       </View>
     </TouchableOpacity>
