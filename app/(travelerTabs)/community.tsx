@@ -539,19 +539,38 @@ export default function CommunityScreen() {
       </TouchableOpacity>
 
       <View style={styles.mapFeatures}>
-        <TouchableOpacity style={styles.mapFeature}>
+        <TouchableOpacity 
+          style={styles.mapFeature}
+          onPress={() => router.push('/community/my-map-points' as any)}
+        >
+          <Ionicons name="person" size={20} color={Colors.info} />
+          <Text style={[styles.mapFeatureText, { color: Colors.info }]}>My Map Points</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.mapFeature}
+          onPress={() => router.push('/community/crowdsource-map?filter=poi' as any)}
+        >
           <Ionicons name="location" size={20} color={Colors.primary600} />
           <Text style={styles.mapFeatureText}>Add Points of Interest</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.mapFeature}>
+        <TouchableOpacity 
+          style={styles.mapFeature}
+          onPress={() => router.push('/community/crowdsource-map?filter=washroom' as any)}
+        >
           <Ionicons name="business" size={20} color={Colors.primary600} />
           <Text style={styles.mapFeatureText}>Sanitary Facilities</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.mapFeature}>
+        <TouchableOpacity 
+          style={styles.mapFeature}
+          onPress={() => router.push('/community/crowdsource-map?filter=restaurant' as any)}
+        >
           <Ionicons name="restaurant" size={20} color={Colors.primary600} />
           <Text style={styles.mapFeatureText}>Local Eateries</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.mapFeature}>
+        <TouchableOpacity 
+          style={styles.mapFeature}
+          onPress={() => router.push('/community/crowdsource-map?filter=wifi' as any)}
+        >
           <Ionicons name="wifi" size={20} color={Colors.primary600} />
           <Text style={styles.mapFeatureText}>WiFi Spots</Text>
         </TouchableOpacity>
