@@ -395,10 +395,16 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.light200,
+    maxHeight: 60,
+    height: 'auto'
   },
   categoryFilterContent: {
     paddingHorizontal: 20,
     paddingVertical: 10,
+    //minHeight: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'nowrap',
   },
   categoryTab: {
     paddingVertical: 8,
@@ -406,6 +412,11 @@ const styles = StyleSheet.create({
     marginRight: 8,
     borderRadius: 16,
     backgroundColor: Colors.light100,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 60,
+    height: 32, 
   },
   activeCategoryTab: {
     backgroundColor: Colors.primary600,
