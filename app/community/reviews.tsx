@@ -306,10 +306,7 @@ export default function ReviewsScreen() {
       <View style={styles.writeReviewContainer}>
         <TouchableOpacity
           style={styles.writeReviewButton}
-          onPress={() => {
-            // TODO: Create write-review screen
-            console.log('Navigate to write review');
-          }}
+          onPress={() => router.push('/community/write-review')}
         >
           <Ionicons name="add-circle-outline" size={20} color={Colors.primary600} />
           <Text style={styles.writeReviewText}>Write a Review</Text>
@@ -355,10 +352,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.light200,
+    maxHeight: 60,
+    height: 'auto', 
   },
   categoryFilterContent: {
     paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingVertical: 20,
+    minHeight: 44,
+    alignItems: 'center',
   },
   categoryTab: {
     flexDirection: 'row',
@@ -368,6 +369,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
     borderRadius: 16,
     backgroundColor: Colors.light100,
+    height: 36,
   },
   activeCategoryTab: {
     backgroundColor: Colors.primary600,
