@@ -33,6 +33,19 @@ export default function AccomodationHomeScreen() {
     setFilterVisible(false);
   };
 
+  const renderItemCard = (item: any, prefix: string, index: number) => (
+  <ItemCard
+    key={`${prefix}-${index}`}
+    image={item.image || ''}
+    title={item.title || ' '}
+    city={item.city}
+    price={item.price}
+    rating={item.rating}
+    type="accommodation"
+    style={styles.carouselCard}
+  />
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={[styles.statusBarBackground, { height: insets.top }]} />
@@ -69,14 +82,7 @@ export default function AccomodationHomeScreen() {
           <ThemedText variant = 'caption' style={styles.seeMore}>See more →</ThemedText>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
-          {featuredData.map((item, i) => (
-            <ItemCard 
-              key={i} 
-              {...item} 
-              style={styles.carouselCard} 
-              type="accommodation"
-            />
-          ))}
+           {featuredData.map((item, i) => renderItemCard(item, 'featured', i))}
         </ScrollView>
 
         <View style={styles.sectionHeader}>
@@ -413,29 +419,7 @@ const featuredData = [
     rating: 4.7,
   },
 ];
-const accommodationData = [
-  {
-    image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb',
-    title: 'Luxury Beach Resort',
-    city: 'Galle',
-    price: '$220/night',
-    rating: 4.8,
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd',
-    title: 'Mountain View Hotel',
-    city: 'Kandy',
-    price: '$180/night',
-    rating: 4.7,
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca',
-    title: 'City Center Inn',
-    city: 'Ella',
-    price: '$120/night',
-    rating: 4.5,
-  },
-];
+
 const recentData = [
   {
     image: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca',

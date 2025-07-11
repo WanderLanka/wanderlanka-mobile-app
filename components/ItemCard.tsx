@@ -16,7 +16,7 @@ interface ItemCardProps {
   style?: any;
 }
 
-export const ItemCard: React.FC<ItemCardProps> = ({ image, title, price, city, rating, onPress, buttonText = 'View Details', type, style }) => {
+export const ItemCard: React.FC<ItemCardProps> = ({ image, title, price, city, rating, onPress, buttonText = 'View Details', type, style }: ItemCardProps) => {
   const router = useRouter();
 
   const handlePress = () => {
@@ -39,20 +39,27 @@ export const ItemCard: React.FC<ItemCardProps> = ({ image, title, price, city, r
     <TouchableOpacity style={[styles.card, style]} onPress={handlePress} activeOpacity={0.5}>
       <Image source={{ uri: image }} style={styles.image} />
       <View style={styles.info}>
-        <Text style={styles.name} numberOfLines={1}>{title}</Text>
-        <Text style={styles.city} numberOfLines={1}>{city}</Text>
+        <Text style={styles.name} numberOfLines={1}> {title.trim() || ' '}</Text>
+        {city && <Text style={styles.city} numberOfLines={1}>{city.trim()}</Text>} {/* Added conditional */}        
         <View style={styles.row}>
-          {typeof rating === 'number' && (
-            <>
+          {typeof rating === 'number' ? (
+            <View style={styles.ratingContainer}>
               <Ionicons name="star" size={14} color={Colors.primary500} />
-              <Text style={styles.rating}>{rating.toFixed(1)}</Text>
-            </>
-          )}
-          {price && <Text style={styles.price}>{price}</Text>}
+              <Text style={styles.rating}>
+                {rating.toFixed(1)}
+              </Text>
+            </View>
+          ) : null}
+          
+          {price ? (
+            <Text style={styles.price}>
+              {price.trim()}
+            </Text>
+          ) : null}
         </View>
       </View>
       <TouchableOpacity style={styles.detailsBtn} onPress={handlePress}>
-        <Text style={styles.detailsText}>{buttonText}</Text>
+        <Text style={styles.detailsText}>{buttonText.trim()}</Text>
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -103,6 +110,10 @@ const styles = StyleSheet.create({
     color: Colors.primary700,
     marginLeft: 2,
     marginRight: 8,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   price: {
     fontSize: 15,

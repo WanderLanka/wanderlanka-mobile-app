@@ -160,31 +160,31 @@ export default function TransportationHomeScreen() {
           <View style={styles.filterRow}>
             {/* Selected filter chips - removable */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }}>
-              {selectedType ? (
+              {selectedType && (
                 <TouchableOpacity style={styles.selectedChip} onPress={() => setSelectedType('')}>
                   <Text style={styles.selectedChipText}>{selectedType} ✕</Text>
                 </TouchableOpacity>
-              ) : null}
-              {passengerCount ? (
+              )}
+              {passengerCount && (
                 <TouchableOpacity style={styles.selectedChip} onPress={() => setPassengerCount(null)}>
                   <Text style={styles.selectedChipText}>{passengerCount} Pax ✕</Text>
                 </TouchableOpacity>
-              ) : null}
-              {acPref ? (
+              )}
+              {acPref && (
                 <TouchableOpacity style={styles.selectedChip} onPress={() => setAcPref('')}>
                   <Text style={styles.selectedChipText}>{acPref} ✕</Text>
                 </TouchableOpacity>
-              ) : null}
-              {maxPrice ? (
+              )}
+              {maxPrice && (
                 <TouchableOpacity style={styles.selectedChip} onPress={() => setMaxPrice('')}>
                   <Text style={styles.selectedChipText}>${maxPrice}/day ✕</Text>
                 </TouchableOpacity>
-              ) : null}
-              {driverPref ? (
+              )}
+              {driverPref && (
                 <TouchableOpacity style={styles.selectedChip} onPress={() => setDriverPref('')}>
                   <Text style={styles.selectedChipText}>{driverPref} ✕</Text>
                 </TouchableOpacity>
-              ) : null}
+              )}
             </ScrollView>
             <TouchableOpacity onPress={() => setFilterVisible(true)} style={styles.addFilterLink}>
               <Text style={styles.addFilterText}>+ Add more filters</Text>
