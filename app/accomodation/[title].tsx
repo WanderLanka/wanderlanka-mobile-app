@@ -152,7 +152,7 @@ const handleScroll = (event: ScrollEvent) => {
             review="Beautiful location and friendly staff."
             profileImage="https://randomuser.me/api/portraits/women/2.jpg"
           />
-          <TouchableOpacity style={styles.seeMoreBtn}>
+          <TouchableOpacity style={styles.seeMoreBtn} onPress={() => router.push('/accomodation/reviews')}>
             <Text style={styles.seeMoreText}>See more</Text>
           </TouchableOpacity>
         </View>
