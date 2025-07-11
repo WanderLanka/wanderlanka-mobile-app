@@ -476,7 +476,7 @@ export default function LocalEventsScreen() {
       />
 
       {/* Create Event FAB */}
-      <TouchableOpacity style={styles.fab} onPress={() => Alert.alert('Create Event', 'Feature coming soon!')}>
+      <TouchableOpacity style={styles.fab} onPress={() => router.push('/community/create-event' as any)}>
         <Ionicons name="add" size={24} color={Colors.white} />
       </TouchableOpacity>
 
@@ -575,12 +575,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.light200,
-    maxHeight: 60,
   },
   categoriesContent: {
     paddingHorizontal: 20,
     paddingVertical: 12,
-    gap: 8,
+    alignItems: 'center',
   },
   categoryButton: {
     flexDirection: 'row',
@@ -589,7 +588,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: Colors.light100,
-    gap: 6,
+    marginRight: 8,
+    height: 36,
   },
   activeCategoryButton: {
     backgroundColor: Colors.primary100,
@@ -598,6 +598,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: Colors.secondary500,
+    marginLeft: 6,
   },
   activeCategoryButtonText: {
     color: Colors.primary600,
@@ -657,6 +658,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 12,
+    marginTop: 8
   },
   dateContainer: {
     alignItems: 'flex-start',
@@ -674,10 +676,11 @@ const styles = StyleSheet.create({
   categoryBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
     gap: 4,
+    marginTop: 8,
   },
   categoryText: {
     fontSize: 11,
@@ -766,13 +769,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginBottom: 16,
-    gap: 4,
+    marginTop: 4,
+    alignItems: 'center',
   },
   tag: {
     backgroundColor: Colors.primary100,
     borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginRight: 6,
+    marginBottom: 4,
   },
   tagText: {
     fontSize: 10,
@@ -783,6 +789,8 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: Colors.secondary500,
     fontStyle: 'italic',
+    marginLeft: 2,
+    alignSelf: 'center',
   },
   eventActions: {
     flexDirection: 'row',
