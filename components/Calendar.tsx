@@ -3,14 +3,18 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { CalendarProps, Booking } from '../types/Calendar.types';
+import DayBookings from './DayBookings';
 
 export default function Calendar({ bookings, onClose, onDaySelect }: CalendarProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [calendarView, setCalendarView] = useState<'month' | 'year'>('month');
+  const [showDayBookings, setShowDayBookings] = useState(false);
+  const [selectedDayBookings, setSelectedDayBookings] = useState<Booking[]>([]);
+  const [selectedDayDate, setSelectedDayDate] = useState<Date>(new Date());
 
   // Helper function to parse booking date and match with calendar date
   const parseBookingDate = (dateString: string): Date => {
-    // Handle formats like "Dec 18, 2024" or "December 18, 2024"
+    // Handle formats like "July 20, 2025", "Aug 2, 2025", "Dec 25, 2025"
     const cleanDateString = dateString.replace(',', '');
     return new Date(cleanDateString);
   };
@@ -89,7 +93,24 @@ export default function Calendar({ bookings, onClose, onDaySelect }: CalendarPro
 
   const selectDay = (day: Date) => {
     const bookingsForDay = getBookingsForDate(day);
-    onDaySelect(day, bookingsForDay);
+    if (bookingsForDay.length > 0) {
+      setSelectedDayDate(day);
+      setSelectedDayBookings(bookingsForDay);
+      setShowDayBookings(true);
+    }
+    // Still call the original callback if provided
+    if (onDaySelect) {
+      onDaySelect(day, bookingsForDay);
+    }
+  };
+
+  const handleCloseDayBookings = () => {
+    setShowDayBookings(false);
+  };
+
+  const handleBookingPress = (booking: Booking) => {
+    console.log("Booking pressed:", booking.id);
+    // You can add more logic here for handling booking press
   };
 
   // Render calendar header
@@ -248,6 +269,16 @@ export default function Calendar({ bookings, onClose, onDaySelect }: CalendarPro
       <TouchableOpacity style={calendarStyles.closeCalendarButton} onPress={onClose}>
         <Text style={calendarStyles.closeCalendarText}>Close Calendar</Text>
       </TouchableOpacity>
+
+      {/* DayBookings Modal */}
+      {showDayBookings && (
+        <DayBookings
+          selectedDate={selectedDayDate}
+          bookings={selectedDayBookings}
+          onClose={handleCloseDayBookings}
+          onBookingPress={handleBookingPress}
+        />
+      )}
     </View>
   );
 }

@@ -5,15 +5,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 import { ThemedText } from '../../components';
 import Calendar from '../../components/Calendar';
-import DayBookings from '../../components/DayBookings';
 import { Booking } from '../../types/Calendar.types';
 
 export default function BookingsScreen() {
   const [activeTab, setActiveTab] = useState<'booked' | 'pending'>('booked');
   const [showCalendar, setShowCalendar] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedDayBookings, setSelectedDayBookings] = useState<Booking[]>([]);
-  const [showDayBookings, setShowDayBookings] = useState(false);
 
   const bookings: Booking[] = [
     {
@@ -101,12 +97,8 @@ export default function BookingsScreen() {
   const filteredBookings = bookings.filter(booking => booking.status === activeTab);
 
   const handleDaySelect = (day: Date, bookingsForDay: Booking[]) => {
-    setSelectedDate(day);
-    if (bookingsForDay.length > 0) {
-      setSelectedDayBookings(bookingsForDay);
-      setShowDayBookings(true);
-      setShowCalendar(false); // Close calendar when day is selected
-    }
+    // Calendar component now handles showing the DayBookings modal internally
+    console.log(`Selected ${day.toDateString()} with ${bookingsForDay.length} bookings`);
   };
 
   const handleCalendarClose = () => {
@@ -117,42 +109,6 @@ export default function BookingsScreen() {
     // Handle booking actions
     console.log(`${action} booking ${bookingId}`);
   };
-
-  const renderDayBookingsModal = () => (
-    <View style={styles.dayBookingsModal}>
-      <View style={styles.dayBookingsHeader}>
-        <Text style={styles.dayBookingsTitle}>
-          Bookings for {selectedDayBookings.length > 0 ? selectedDayBookings[0].date : ''}
-        </Text>
-        <TouchableOpacity 
-          style={styles.closeDayBookingsButton}
-          onPress={() => setShowDayBookings(false)}
-        >
-          <Ionicons name="close" size={24} color={Colors.secondary600} />
-        </TouchableOpacity>
-      </View>
-      
-      <ScrollView style={styles.dayBookingsList}>
-        {selectedDayBookings.map((booking) => (
-          <View key={booking.id} style={styles.dayBookingItem}>
-            <View style={styles.dayBookingTime}>
-              <Text style={styles.dayBookingTimeText}>{booking.time}</Text>
-            </View>
-            <View style={styles.dayBookingDetails}>
-              <Text style={styles.dayBookingClient}>{booking.clientName}</Text>
-              <Text style={styles.dayBookingTour}>{booking.tourType}</Text>
-              <Text style={styles.dayBookingLocation}>📍 {booking.location}</Text>
-            </View>
-            <View style={styles.dayBookingAmount}>
-              <Text style={styles.dayBookingAmountText}>
-                Rs. {booking.amount.toLocaleString()}
-              </Text>
-            </View>
-          </View>
-        ))}
-      </ScrollView>
-    </View>
-  );
 
   const renderBookingCard = (booking: Booking) => (
     <View key={booking.id} style={styles.bookingCard}>
@@ -260,16 +216,6 @@ export default function BookingsScreen() {
           bookings={bookings}
           onClose={handleCalendarClose}
           onDaySelect={handleDaySelect}
-        />
-      )}
-
-      {/* Day Bookings Modal */}
-      {showDayBookings && (
-        <DayBookings
-          selectedDate={selectedDate}
-          bookings={selectedDayBookings}
-          onClose={() => setShowDayBookings(false)}
-          onBookingPress={(booking) => console.log("Booking pressed:", booking.id)}
         />
       )}
 
@@ -631,104 +577,5 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
     lineHeight: 20,
-  },
-
-  // Day bookings modal styles
-  dayBookingsModal: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: Colors.white,
-    zIndex: 1100,
-    padding: 20,
-  },
-
-  dayBookingsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.secondary200,
-    marginBottom: 20,
-  },
-
-  dayBookingsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.secondary700,
-    flex: 1,
-  },
-
-  closeDayBookingsButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: Colors.secondary50,
-  },
-
-  dayBookingsList: {
-    flex: 1,
-  },
-
-  dayBookingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.primary600,
-  },
-
-  dayBookingTime: {
-    alignItems: 'center',
-    marginRight: 16,
-    minWidth: 60,
-  },
-
-  dayBookingTimeText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.primary600,
-  },
-
-  dayBookingDetails: {
-    flex: 1,
-  },
-
-  dayBookingClient: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.secondary700,
-    marginBottom: 2,
-  },
-
-  dayBookingTour: {
-    fontSize: 14,
-    color: Colors.secondary600,
-    marginBottom: 2,
-  },
-
-  dayBookingLocation: {
-    fontSize: 12,
-    color: Colors.secondary500,
-  },
-
-  dayBookingAmount: {
-    alignItems: 'flex-end',
-  },
-
-  dayBookingAmountText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.success,
   },
 });
