@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/Colors';
@@ -10,31 +11,52 @@ interface ItemCardProps {
   city?: string;
   rating?: number;
   buttonText?: string;
-  onPress?: () => void;
+  type: 'accommodation' | 'vehicle' | 'guide';
+  onPress?: () => void; 
   style?: any;
 }
 
-export const ItemCard: React.FC<ItemCardProps> = ({ image, title, price, city, rating, buttonText = 'View Details', onPress, style }) => (
-  <TouchableOpacity style={[styles.card, style]} onPress={onPress} activeOpacity={0.5}>
-    <Image source={{ uri: image }} style={styles.image} />
-    <View style={styles.info}>
-      <Text style={styles.name} numberOfLines={1}>{title}</Text>
-      <Text style={styles.city} numberOfLines={1}>{city}</Text>
-      <View style={styles.row}>
-        {typeof rating === 'number' && (
-          <>
-            <Ionicons name="star" size={14} color={Colors.primary500} />
-            <Text style={styles.rating}>{rating.toFixed(1)}</Text>
-          </>
-        )}
-        {price && <Text style={styles.price}>{price}</Text>}
+export const ItemCard: React.FC<ItemCardProps> = ({ image, title, price, city, rating, onPress, buttonText = 'View Details', type, style }) => {
+  const router = useRouter();
+
+  const handlePress = () => {
+    const encodedTitle = encodeURIComponent(title);
+    let route = '';
+    if (type === 'accommodation') {
+      route = `/accomodation/${encodedTitle}`;
+    } else if (type === 'vehicle') {
+      route = `/transportation/${encodedTitle}`;
+    } else if (type === 'guide') {
+      route = `/tour_guides/${encodedTitle}`;
+    }
+    router.push(route as any);
+    if (onPress) {
+      onPress();
+    }
+  };
+
+  return (
+    <TouchableOpacity style={[styles.card, style]} onPress={handlePress} activeOpacity={0.5}>
+      <Image source={{ uri: image }} style={styles.image} />
+      <View style={styles.info}>
+        <Text style={styles.name} numberOfLines={1}>{title}</Text>
+        <Text style={styles.city} numberOfLines={1}>{city}</Text>
+        <View style={styles.row}>
+          {typeof rating === 'number' && (
+            <>
+              <Ionicons name="star" size={14} color={Colors.primary500} />
+              <Text style={styles.rating}>{rating.toFixed(1)}</Text>
+            </>
+          )}
+          {price && <Text style={styles.price}>{price}</Text>}
+        </View>
       </View>
-    </View>
-    <TouchableOpacity style={styles.detailsBtn} onPress={onPress}>
-      <Text style={styles.detailsText}>{buttonText}</Text>
+      <TouchableOpacity style={styles.detailsBtn} onPress={handlePress}>
+        <Text style={styles.detailsText}>{buttonText}</Text>
+      </TouchableOpacity>
     </TouchableOpacity>
-  </TouchableOpacity>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   card: {
@@ -102,3 +124,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 });
+
+

@@ -7,7 +7,6 @@ import { CustomButton, CustomTextInput, ServicesTopBar, ThemedText } from '../..
 import { ItemCard } from '../../components/ItemCard';
 import { Colors } from '../../constants/Colors';
 
-
 export default function AccomodationHomeScreen() {
   const insets = useSafeAreaInsets();
   // Modal and filter state
@@ -48,24 +47,22 @@ export default function AccomodationHomeScreen() {
           <ThemedText variant="caption" style={styles.caption}>Find and book your perfect stay.</ThemedText>
         </View>
 
-        <View style={styles.inputContent}>
           <View style={styles.searchArea}>
             <CustomTextInput
               label=''
               placeholder='Search Accomodations'
               leftIcon='location-outline'
-              containerStyle={styles.searchInput}
+              containerStyle={[styles.searchInput, { marginBottom: 0 }]}
             />
             <CustomButton
               variant='primary'
-              size='medium'
+              size='small'
               title=""
               rightIcon={<Ionicons name="filter" size={22} color="white" />}
               style={styles.filterButton}
               onPress={() => setFilterVisible(true)}
             />
           </View>
-        </View>
 
         <View style={styles.sectionHeader}>
           <ThemedText variant = 'title' style={styles.sectionTitle}>Top Rated Stays</ThemedText>
@@ -73,7 +70,12 @@ export default function AccomodationHomeScreen() {
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
           {featuredData.map((item, i) => (
-            <ItemCard key={i} {...item} style={styles.carouselCard} />
+            <ItemCard 
+              key={i} 
+              {...item} 
+              style={styles.carouselCard} 
+              type="accommodation"
+            />
           ))}
         </ScrollView>
 
@@ -83,7 +85,7 @@ export default function AccomodationHomeScreen() {
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
           {featuredData.map((item, i) => (
-            <ItemCard key={i} {...item} style={styles.carouselCard} />
+            <ItemCard key={i} {...item} style={styles.carouselCard} type="accommodation" />
           ))}
         </ScrollView>
 
@@ -93,7 +95,7 @@ export default function AccomodationHomeScreen() {
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
           {recentData.map((item, i) => (
-            <ItemCard key={i} {...item} style={styles.carouselCard} />
+            <ItemCard key={i} {...item} style={styles.carouselCard} type="accommodation" />
           ))}
         </ScrollView>
       </ScrollView>
@@ -236,33 +238,28 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     paddingTop: 0,
   },
-  inputContent: {
-    paddingHorizontal: 20,
-  },
   searchArea: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 5,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    gap: 10,
   },
+  
   searchInput: {
-    flex: 40,
+    flex: 1,
     height: 48,
     borderRadius: 12,
-    shadowColor: Colors.secondary500,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-
-    elevation: 25,
+    justifyContent: 'center',
   },
   filterButton: {
-    flex: 2,
     height: 48,
+    aspectRatio: 1, // makes it square
     borderRadius: 12,
-    marginLeft: 10,
     justifyContent: 'center',
     alignItems: 'center',
-  },
+    },
   toggleRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
