@@ -1,3 +1,4 @@
+
 import {
   Alert,
   Animated,
@@ -784,6 +785,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.secondary50,
   },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
