@@ -2,25 +2,25 @@ import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ThemedText, TopBar } from '../../components';
+import { ServicesTopBar, ThemedText } from '../../components';
 import { Colors } from '../../constants/Colors';
 
-export default function MyActivityScreen() {
+export default function TourGuidesHomeScreen() {
   const insets = useSafeAreaInsets();
   return (
     <SafeAreaView style={styles.container}>
       <View style={[styles.statusBarBackground, { height: insets.top }]} />
       <StatusBar style="light" translucent />
-      <TopBar
+      <ServicesTopBar 
         onProfilePress={() => {}}
         onNotificationsPress={() => {}}
       />
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.greetingContainer}>
-          <ThemedText variant="title" style={styles.greeting}>My Activities</ThemedText>
-          <ThemedText variant="caption" style={styles.caption}>See your recent bookings and actions here.</ThemedText>
+          <ThemedText variant="title" style={styles.greeting}>Tour Guides</ThemedText>
+          <ThemedText variant="caption" style={styles.caption}>Find the best guides for your journey.</ThemedText>
         </View>
-        {/* Add your activity content here */}
+        {/* Add your tour guides content here */}
       </ScrollView>
     </SafeAreaView>
   );
