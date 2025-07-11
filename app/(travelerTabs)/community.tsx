@@ -540,19 +540,38 @@ export default function CommunityScreen() {
       </TouchableOpacity>
 
       <View style={styles.mapFeatures}>
-        <TouchableOpacity style={styles.mapFeature}>
+        <TouchableOpacity 
+          style={styles.mapFeature}
+          onPress={() => router.push('/community/my-map-points' as any)}
+        >
+          <Ionicons name="person" size={20} color={Colors.info} />
+          <Text style={[styles.mapFeatureText, { color: Colors.info }]}>My Map Points</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.mapFeature}
+          onPress={() => router.push('/community/crowdsource-map?filter=poi' as any)}
+        >
           <Ionicons name="location" size={20} color={Colors.primary600} />
           <Text style={styles.mapFeatureText}>Add Points of Interest</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.mapFeature}>
+        <TouchableOpacity 
+          style={styles.mapFeature}
+          onPress={() => router.push('/community/crowdsource-map?filter=washroom' as any)}
+        >
           <Ionicons name="business" size={20} color={Colors.primary600} />
           <Text style={styles.mapFeatureText}>Sanitary Facilities</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.mapFeature}>
+        <TouchableOpacity 
+          style={styles.mapFeature}
+          onPress={() => router.push('/community/crowdsource-map?filter=restaurant' as any)}
+        >
           <Ionicons name="restaurant" size={20} color={Colors.primary600} />
           <Text style={styles.mapFeatureText}>Local Eateries</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.mapFeature}>
+        <TouchableOpacity 
+          style={styles.mapFeature}
+          onPress={() => router.push('/community/crowdsource-map?filter=wifi' as any)}
+        >
           <Ionicons name="wifi" size={20} color={Colors.primary600} />
           <Text style={styles.mapFeatureText}>WiFi Spots</Text>
         </TouchableOpacity>
@@ -562,21 +581,92 @@ export default function CommunityScreen() {
 
   const renderSocialContent = () => (
     <View style={styles.contentContainer}>
+      <View style={styles.connectionHeader}>
+        <Text style={styles.connectionTitle}>Connect & Explore</Text>
+        <Text style={styles.connectionSubtitle}>Build meaningful connections and discover new experiences</Text>
+      </View>
+
       <View style={styles.socialFeatures}>
-        <TouchableOpacity style={styles.socialFeature}>
-          <Ionicons name="people" size={24} color={Colors.primary600} />
-          <Text style={styles.socialFeatureTitle}>Find Travel Buddies</Text>
-          <Text style={styles.socialFeatureSubtitle}>Connect with fellow travelers</Text>
+        <TouchableOpacity 
+          style={styles.socialFeature}
+          onPress={() => router.push('/community/travel-buddies' as any)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.socialFeatureHeader}>
+            <View style={styles.socialFeatureIcon}>
+              <Ionicons name="people" size={24} color={Colors.primary600} />
+            </View>
+            <View style={styles.socialFeatureStats}>
+              <Text style={styles.socialFeatureNumber}>1,247</Text>
+              <Text style={styles.socialFeatureLabel}>Active</Text>
+            </View>
+          </View>
+          <Text style={styles.socialFeatureTitle}>Travel Buddies</Text>
+          <Text style={styles.socialFeatureSubtitle}>Connect with fellow travelers and find your perfect travel companion</Text>
+          <View style={styles.socialFeatureFooter}>
+            <Text style={styles.socialFeatureAction}>Find Buddies</Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.primary600} />
+          </View>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.socialFeature}>
-          <Ionicons name="calendar" size={24} color={Colors.primary600} />
+
+        <TouchableOpacity 
+          style={styles.socialFeature}
+          onPress={() => router.push('/community/local-events' as any)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.socialFeatureHeader}>
+            <View style={styles.socialFeatureIcon}>
+              <Ionicons name="calendar" size={24} color={Colors.success} />
+            </View>
+            <View style={styles.socialFeatureStats}>
+              <Text style={styles.socialFeatureNumber}>89</Text>
+              <Text style={styles.socialFeatureLabel}>This Week</Text>
+            </View>
+          </View>
           <Text style={styles.socialFeatureTitle}>Local Events</Text>
-          <Text style={styles.socialFeatureSubtitle}>Discover meetups & gatherings</Text>
+          <Text style={styles.socialFeatureSubtitle}>Discover meetups, cultural events, and local gatherings</Text>
+          <View style={styles.socialFeatureFooter}>
+            <Text style={styles.socialFeatureAction}>Browse Events</Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.success} />
+          </View>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.socialFeature}>
-          <Ionicons name="trophy" size={24} color={Colors.primary600} />
+
+        <TouchableOpacity 
+          style={styles.socialFeature}
+          onPress={() => router.push('/community/travel-challenges' as any)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.socialFeatureHeader}>
+            <View style={styles.socialFeatureIcon}>
+              <Ionicons name="trophy" size={24} color={Colors.warning} />
+            </View>
+            <View style={styles.socialFeatureStats}>
+              <Text style={styles.socialFeatureNumber}>12</Text>
+              <Text style={styles.socialFeatureLabel}>Active</Text>
+            </View>
+          </View>
           <Text style={styles.socialFeatureTitle}>Travel Challenges</Text>
-          <Text style={styles.socialFeatureSubtitle}>Join contests & competitions</Text>
+          <Text style={styles.socialFeatureSubtitle}>Join contests, competitions, and achievement challenges</Text>
+          <View style={styles.socialFeatureFooter}>
+            <Text style={styles.socialFeatureAction}>Join Challenge</Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.warning} />
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      {/* Quick Actions */}
+      <View style={styles.quickActions}>
+        <TouchableOpacity style={styles.quickAction}>
+          <Ionicons name="chatbubble-ellipses" size={20} color={Colors.primary600} />
+          <Text style={styles.quickActionText}>Community Chat</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.quickAction}>
+          <Ionicons name="camera" size={20} color={Colors.primary600} />
+          <Text style={styles.quickActionText}>Share Moment</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.quickAction}>
+          <Ionicons name="compass" size={20} color={Colors.primary600} />
+          <Text style={styles.quickActionText}>Discover</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -1296,25 +1386,108 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
   },
+  connectionHeader: {
+    marginBottom: 24,
+  },
+  connectionTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Colors.black,
+    marginBottom: 6,
+  },
+  connectionSubtitle: {
+    fontSize: 16,
+    color: Colors.secondary500,
+    lineHeight: 22,
+  },
   socialFeatures: {
     gap: 16,
   },
   socialFeature: {
     backgroundColor: Colors.white,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 20,
+    shadowColor: Colors.black,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  socialFeatureHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  socialFeatureIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: Colors.light100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  socialFeatureStats: {
+    alignItems: 'flex-end',
+  },
+  socialFeatureNumber: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.black,
+  },
+  socialFeatureLabel: {
+    fontSize: 12,
+    color: Colors.secondary500,
+    marginTop: 2,
   },
   socialFeatureTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: Colors.black,
-    marginTop: 8,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   socialFeatureSubtitle: {
     fontSize: 14,
     color: Colors.secondary500,
-    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  socialFeatureFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.light200,
+  },
+  socialFeatureAction: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primary600,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 24,
+    paddingTop: 20,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.light200,
+  },
+  quickAction: {
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: Colors.white,
+    flex: 1,
+    marginHorizontal: 4,
+  },
+  quickActionText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: Colors.primary600,
+    marginTop: 6,
   },
 });
