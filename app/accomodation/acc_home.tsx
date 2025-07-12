@@ -7,7 +7,6 @@ import { CustomButton, CustomTextInput, ServicesTopBar, ThemedText } from '../..
 import { ItemCard } from '../../components/ItemCard';
 import { Colors } from '../../constants/Colors';
 
-
 export default function AccomodationHomeScreen() {
   const insets = useSafeAreaInsets();
   // Modal and filter state
@@ -34,6 +33,19 @@ export default function AccomodationHomeScreen() {
     setFilterVisible(false);
   };
 
+  const renderItemCard = (item: any, prefix: string, index: number) => (
+  <ItemCard
+    key={`${prefix}-${index}`}
+    image={item.image || ''}
+    title={item.title || ' '}
+    city={item.city}
+    price={item.price}
+    rating={item.rating}
+    type="accommodation"
+    style={styles.carouselCard}
+  />
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={[styles.statusBarBackground, { height: insets.top }]} />
@@ -48,33 +60,29 @@ export default function AccomodationHomeScreen() {
           <ThemedText variant="caption" style={styles.caption}>Find and book your perfect stay.</ThemedText>
         </View>
 
-        <View style={styles.inputContent}>
           <View style={styles.searchArea}>
             <CustomTextInput
               label=''
               placeholder='Search Accomodations'
               leftIcon='location-outline'
-              containerStyle={styles.searchInput}
+              containerStyle={[styles.searchInput, { marginBottom: 0 }]}
             />
             <CustomButton
               variant='primary'
-              size='medium'
+              size='small'
               title=""
               rightIcon={<Ionicons name="filter" size={22} color="white" />}
               style={styles.filterButton}
               onPress={() => setFilterVisible(true)}
             />
           </View>
-        </View>
 
         <View style={styles.sectionHeader}>
           <ThemedText variant = 'title' style={styles.sectionTitle}>Top Rated Stays</ThemedText>
           <ThemedText variant = 'caption' style={styles.seeMore}>See more →</ThemedText>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
-          {featuredData.map((item, i) => (
-            <ItemCard key={i} {...item} style={styles.carouselCard} />
-          ))}
+           {featuredData.map((item, i) => renderItemCard(item, 'featured', i))}
         </ScrollView>
 
         <View style={styles.sectionHeader}>
@@ -83,7 +91,7 @@ export default function AccomodationHomeScreen() {
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
           {featuredData.map((item, i) => (
-            <ItemCard key={i} {...item} style={styles.carouselCard} />
+            <ItemCard key={i} {...item} style={styles.carouselCard} type="accommodation" />
           ))}
         </ScrollView>
 
@@ -93,7 +101,7 @@ export default function AccomodationHomeScreen() {
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
           {recentData.map((item, i) => (
-            <ItemCard key={i} {...item} style={styles.carouselCard} />
+            <ItemCard key={i} {...item} style={styles.carouselCard} type="accommodation" />
           ))}
         </ScrollView>
       </ScrollView>
@@ -236,33 +244,28 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     paddingTop: 0,
   },
-  inputContent: {
-    paddingHorizontal: 20,
-  },
   searchArea: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 5,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    gap: 10,
   },
+  
   searchInput: {
-    flex: 40,
+    flex: 1,
     height: 48,
     borderRadius: 12,
-    shadowColor: Colors.secondary500,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-
-    elevation: 25,
+    justifyContent: 'center',
   },
   filterButton: {
-    flex: 2,
     height: 48,
+    aspectRatio: 1, // makes it square
     borderRadius: 12,
-    marginLeft: 10,
     justifyContent: 'center',
     alignItems: 'center',
-  },
+    },
   toggleRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -416,29 +419,7 @@ const featuredData = [
     rating: 4.7,
   },
 ];
-const accommodationData = [
-  {
-    image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb',
-    title: 'Luxury Beach Resort',
-    city: 'Galle',
-    price: '$220/night',
-    rating: 4.8,
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd',
-    title: 'Mountain View Hotel',
-    city: 'Kandy',
-    price: '$180/night',
-    rating: 4.7,
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca',
-    title: 'City Center Inn',
-    city: 'Ella',
-    price: '$120/night',
-    rating: 4.5,
-  },
-];
+
 const recentData = [
   {
     image: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca',
