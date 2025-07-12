@@ -8,8 +8,8 @@ import {
   View
 } from 'react-native';
 
-import { Colors } from '../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
+import { Colors } from '../constants/Colors';
 
 interface CustomTextInputProps extends TextInputProps {
   label: string;
@@ -33,8 +33,11 @@ export const CustomTextInput: React.FC<CustomTextInputProps> = ({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={[
+    {label ? (
+        <Text style={styles.label}>
+          {typeof label === 'string' ? label : ''}
+        </Text>
+      ) : null}      <View style={[
         styles.inputContainer,
         isFocused && styles.inputContainerFocused,
         error && styles.inputContainerError,
