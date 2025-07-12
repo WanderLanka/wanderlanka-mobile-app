@@ -594,6 +594,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.secondary700,
     flex: 1,
+    textAlign: 'center',
   },
 
   addButton: {
