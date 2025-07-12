@@ -13,6 +13,7 @@ export const Colors = {
 
   // Secondary (Gray)
   secondary50: '#f8fafc',
+  secondary100: '#f1f5f9',
   secondary200: '#e2e8f0',
   secondary400: '#94a3b8',
   secondary500: '#64748b',
@@ -26,8 +27,13 @@ export const Colors = {
   light400: '#94a3b8',
   light500: '#64748b',
 
-  // Semantic colors
+  // Success colors (for booking indicators)
   success: '#10b981',
+  success100: '#dcfce7',
+  success600: '#059669',
+  success700: '#047857',
+
+  // Semantic colors
   warning: '#f59e0b',
   error: '#ef4444',
   info: '#3b82f6',

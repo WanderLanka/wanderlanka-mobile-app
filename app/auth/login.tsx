@@ -126,7 +126,7 @@ export default function LoginScreen() {
               onPress={() => router.push('/home')}
               loading={isLoading}
               style={styles.loginButton}
-            />  {/* Unlinked the handleSign function here */}
+            />
 
             <TouchableOpacity style={styles.forgotPassword} onPress={() => router.push('./forgotPassword')}>
               <Text style={styles.forgotPasswordText}>
