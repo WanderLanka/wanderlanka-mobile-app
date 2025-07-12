@@ -4,19 +4,27 @@
     "slug": "wanderlanka-web-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/wander_logo.png",
     "scheme": "wanderlankawebapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "config": {
+        "googleMapsApiKey": "AIzaSyClCL8iZ9n7AtjF3J3nVSCaQcoCJ5SaKtw"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyBV-XxyXh8Az3HpKr884W8rNjJ93m2qGmc"
+        }
+      }
     },
     "web": {
       "bundler": "metro",
@@ -34,7 +42,13 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "This app uses location to show nearby places and help with navigation."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
