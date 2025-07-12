@@ -33,11 +33,12 @@ export const CustomTextInput: React.FC<CustomTextInputProps> = ({
 
   return (
     <View style={[styles.container, containerStyle]}>
-    {label ? (
+      {label ? (
         <Text style={styles.label}>
           {typeof label === 'string' ? label : ''}
         </Text>
-      ) : null}      <View style={[
+      ) : null}
+      <View style={[
         styles.inputContainer,
         isFocused && styles.inputContainerFocused,
         error && styles.inputContainerError,

@@ -123,7 +123,7 @@ export default function LoginScreen() {
 
             <CustomButton
               title="Log In"
-              onPress={() => router.push('/home')}
+              onPress={() => router.push('/tourGuide/home')}
               loading={isLoading}
               style={styles.loginButton}
             />
