@@ -1,16 +1,30 @@
-import { TopBar } from '@/components/TopBar';
+import * as React from 'react';
+
+import { CustomButton, CustomTextInput, ThemedText } from '../../components';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+
+import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import * as React from 'react';
+import { TopBar } from '@/components/TopBar';
+import { router } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CustomButton, CustomTextInput, ThemedText } from '../../components';
-import { Colors } from '../../constants/Colors';
 
 export default function TravelerHomeScreen() {
   const [destination, setDestination] = useState('');
   const insets = useSafeAreaInsets(); // 👈 to handle status bar space
+
+  const handleStartPlanning = () => {
+    if (destination.trim()) {
+      router.push({
+        pathname: '/planning/route-selection' as any,
+        params: { destination: destination.trim() }
+      });
+    } else {
+      router.push('/planning/route-selection' as any);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -41,6 +55,7 @@ export default function TravelerHomeScreen() {
             size='small'
             title="Start Planning"
             style={styles.searchButton}
+            onPress={handleStartPlanning}
           />
         </View>
 
