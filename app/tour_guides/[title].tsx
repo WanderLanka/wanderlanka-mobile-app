@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Calendar } from 'react-native-calendars';
 import { CustomButton } from '../../components/CustomButton';
 import { ThemedText } from '../../components/ThemedText';
 import { UserReview } from '../../components/UserReview';
@@ -17,8 +18,9 @@ const mockGuides = [
 		expertise: ['History', 'Culture'],
 		bio: 'Expert in Sri Lankan history and culture. Passionate about sharing local stories and hidden gems with travelers.',
 		reviews: [
-			{ name: 'John D.', rating: 5, review: 'Amazing guide! Very knowledgeable.', profileImage: 'https://randomuser.me/api/portraits/men/1.jpg' },
-			{ name: 'Priya S.', rating: 4.8, review: 'Great experience, highly recommend.', profileImage: 'https://randomuser.me/api/portraits/women/2.jpg' },
+			{ name: 'John D.', rating: 5, review: 'Samantha was an incredible guide! She made history come alive and showed us hidden gems in Colombo.', profileImage: 'https://randomuser.me/api/portraits/men/1.jpg' },
+			{ name: 'Priya S.', rating: 4.8, review: 'Very knowledgeable and friendly. We learned so much about Sri Lankan culture.', profileImage: 'https://randomuser.me/api/portraits/women/2.jpg' },
+			{ name: 'Michael T.', rating: 4.7, review: 'Samantha tailored the tour to our interests and was a great storyteller.', profileImage: 'https://randomuser.me/api/portraits/men/4.jpg' },
 		],
 		availability: ['2025-07-15', '2025-07-16', '2025-07-18'],
 	},
@@ -31,7 +33,7 @@ const mockGuides = [
 		expertise: ['Nature', 'Wildlife'],
 		bio: 'Nature and wildlife specialist. Loves showing travelers the best of Sri Lanka’s outdoors.',
 		reviews: [
-			{ name: 'Alex T.', rating: 4.7, review: 'Saw so many animals! Ravi is awesome.', profileImage: 'https://randomuser.me/api/portraits/men/2.jpg' },
+			{ name: 'Alex T.', rating: 4.7, review: 'Ravi showed us amazing wildlife and nature spots. Highly recommended for outdoor lovers!', profileImage: 'https://randomuser.me/api/portraits/men/2.jpg' },
 		],
 		availability: ['2025-07-17', '2025-07-19'],
 	},
@@ -139,16 +141,49 @@ export default function GuideDetailScreen() {
 				</TouchableOpacity>
 				{/* Calendar Modal (simple placeholder) */}
 				{calendarVisible && (
-					<View style={styles.calendarModalOverlay}>
-						<View style={styles.calendarModalContainer}>
-							<Text style={styles.calendarModalTitle}>Full Calendar (Coming Soon)</Text>
-							<CustomButton title="Close" variant="secondary" onPress={() => setCalendarVisible(false)} />
-						</View>
-					</View>
-				)}
+                    <View style={styles.calendarModalOverlay}>
+                        <View style={styles.calendarModalContainer}>
+                          <ThemedText variant= 'subtitle' style={styles.calendarModalTitle}>Availability Calendar</ThemedText>
+                          <Calendar
+                            onDayPress={(day) => {
+                              setSelectedDate(day.dateString);
+                              setCalendarVisible(false);
+                            }}
+                            markedDates={{
+                              ...bookedDates.reduce((acc: Record<string, any>, date) => {
+                                acc[date] = {
+                                  selected: true,
+                                  selectedColor: 'rgba(255, 0, 0, 0.7)', 
+                                  dotColor: Colors.error,
+                                };
+                                return acc;
+                              }, {}),
+                              ...(selectedDate ? {
+                                [selectedDate]: {
+                                  selected: true,
+                                  selectedColor: Colors.primary600,
+                                  dotColor: Colors.success,
+                                  marked: true,
+                                }
+                              } : {})
+                            }}
+                            theme={{
+                              selectedDayBackgroundColor: Colors.primary600,
+                              todayTextColor: Colors.primary500,
+                              textDayFontSize: 12,
+                              arrowColor: Colors.primary600,
+                              textMonthFontSize: 14,          
+                              textMonthFontWeight: 'bold',    
+                              monthTextColor: Colors.primary800, 
+                            }}
+                          />
+                          <CustomButton title="Close" variant="outline" onPress={() => setCalendarVisible(false)} style={{ marginTop: 12 }} />
+                        </View>
+                    </View>
+                    )}
 				<ThemedText variant="subtitle" style={styles.sectionHeading}>Reviews</ThemedText>
 				<View style={styles.reviewsList}>
-					{details.reviews.map((r, i) => (
+					{details.reviews.slice(0, 3).map((r, i) => (
 						<UserReview
 							key={i}
 							name={r.name}
@@ -157,17 +192,21 @@ export default function GuideDetailScreen() {
 							profileImage={r.profileImage}
 						/>
 					))}
+					{details.reviews.length > 2 && (
+						<TouchableOpacity style={{ alignSelf: 'flex-end', marginTop: 8 }} onPress={() => router.push({ pathname: '/tour_guides/reviews', params: { title: details.title } })}>
+							<Text style={{ color: Colors.primary600, fontWeight: '600', fontSize: 15 }}>See more reviews</Text>
+						</TouchableOpacity>
+					)}
 				</View>
 				<View style={{ height: 80 }} />
 			</ScrollView>
 			<View style={styles.bottomBar}>
 				<CustomButton
-					title={selectedDate ? `Book for ${selectedDate}` : 'Select a date to book'}
+					title="Book Now"
 					variant="primary"
 					size="large"
 					style={styles.bookBtn}
-					disabled={!selectedDate}
-					onPress={() => {/* booking logic here */}}
+					disabled={false}
 				/>
 			</View>
 		</SafeAreaView>
@@ -310,7 +349,6 @@ const styles = StyleSheet.create({
 		marginBottom: 4,
 		minWidth: 54,
 		backgroundColor: Colors.secondary200,
-		borderBottomWidth: 2,
 	},
 	dateChipSelected: {
 		shadowColor: Colors.primary800,
@@ -389,22 +427,20 @@ const styles = StyleSheet.create({
 		left: 0,
 		right: 0,
 		bottom: 0,
-		backgroundColor: 'rgba(0,0,0,0.3)',
+		backgroundColor: 'rgba(0,0,0,0.5)',
 		justifyContent: 'center',
 		alignItems: 'center',
 		zIndex: 100,
 	},
 	calendarModalContainer: {
-		width: '90%',
+		width: '80%',
 		backgroundColor: Colors.white,
 		borderRadius: 20,
-		padding: 24,
-		alignItems: 'center',
+		padding: 20,
 	},
 	calendarModalTitle: {
 		fontSize: 20,
-		fontWeight: '700',
-		marginBottom: 18,
+		marginBottom: 5,
 		color: Colors.primary800,
 		textAlign: 'center',
 	},
