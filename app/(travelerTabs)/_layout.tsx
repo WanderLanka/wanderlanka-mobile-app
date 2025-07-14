@@ -4,11 +4,14 @@ import React, { useRef } from 'react';
 import {
   Pressable,
   StyleSheet,
-  Text,
   View
 } from 'react-native';
 import { Modalize } from 'react-native-modalize';
+import { CustomTextInput, ThemedText } from '../../components';
 import { Colors } from '../../constants/Colors';
+
+// If you get module not found errors, check that these files exist at app/ui/CustomTextInput.tsx and app/ui/ThemedText.tsx
+// If not, update the import paths to the correct location or create the missing files.
 
 export default function TravelerTabsLayout() {
   const modalRef = useRef<Modalize>(null);
@@ -97,8 +100,31 @@ export default function TravelerTabsLayout() {
       {/* Bottom Sheet */}
       <Modalize ref={modalRef} adjustToContentHeight>
         <View style={styles.bottomSheetContent}>
-          <Text style={styles.bottomSheetTitle}>Create a New Plan</Text>
-          <Text>Insert your custom options or UI here.</Text>
+          <View style={styles.sheetTitle}>
+            <ThemedText variant="title" style={styles.bottomSheetTitle}>Your Dream Trip Starts Here</ThemedText>
+          </View>
+          <View style={styles.sheetBody}>
+            <CustomTextInput
+              label="Where are you going?"
+              placeholder="Enter destination"
+              leftIcon="location-outline"
+              containerStyle={{ marginBottom: 16, alignSelf: 'stretch' }}
+            />
+            <View style={styles.dateRow}>
+              <CustomTextInput
+                label="Start Date"
+                placeholder="YYYY-MM-DD"
+                leftIcon="calendar-outline"
+                containerStyle={{ flex: 1, marginRight: 8, marginBottom: 0 }}
+              />
+              <CustomTextInput
+                label="End Date"
+                placeholder="YYYY-MM-DD"
+                leftIcon="calendar-outline"
+                containerStyle={{ flex: 1, marginLeft: 8, marginBottom: 0 }}
+              />
+            </View>
+          </View>
         </View>
       </Modalize>
     </>
@@ -123,12 +149,46 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   bottomSheetContent: {
-    padding: 20,
+    alignItems: 'stretch',
+    minHeight: 800,
+    alignSelf: 'center',
+    marginBottom: 24,
+    width: '100%',
+    backgroundColor: Colors.secondary50,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  sheetTitle: {
+    width: '100%',
+    backgroundColor: Colors.primary800,
+    paddingVertical: 28,
+    paddingHorizontal: 16,
     alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  sheetBody: {
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+    backgroundColor: Colors.secondary50,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+    alignItems: 'stretch',
+    gap: 0,
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 16,
+    gap: 12,
   },
   bottomSheetTitle: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: '600',
-    marginBottom: 10,
+    color: Colors.white,
+    marginBottom: 0,
+    alignSelf: 'center',
   },
+ 
 });
