@@ -3,11 +3,13 @@ import {
   Dimensions,
   FlatList,
   Image,
+  Keyboard,
   Modal,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { CustomButton, ThemedText } from '../../../components';
@@ -35,10 +37,24 @@ interface Place {
   rating?: number;
 }
 
+interface ChecklistItem {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+
+interface DayChecklist {
+  id: string;
+  title: string;
+  items: ChecklistItem[];
+}
+
 interface DayItinerary {
   date: string;
   dayNumber: number;
   places: Place[];
+  notes: string;
+  checklists: DayChecklist[];
 }
 
 // Google Places API configuration
@@ -54,6 +70,18 @@ export default function ItineraryPlanningScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Place[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  
+  // Notes and Checklists states
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [notesText, setNotesText] = useState('');
+  const [editingNotesDay, setEditingNotesDay] = useState<number | null>(null);
+  
+  const [showChecklistModal, setShowChecklistModal] = useState(false);
+  const [checklistTitle, setChecklistTitle] = useState('');
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
+  const [editingChecklistId, setEditingChecklistId] = useState<string | null>(null);
+  const [editingChecklistDay, setEditingChecklistDay] = useState<number | null>(null);
+  const [newChecklistItem, setNewChecklistItem] = useState('');
 
   // Generate days between start and end dates
   useEffect(() => {
@@ -69,6 +97,8 @@ export default function ItineraryPlanningScreen() {
         date: currentDate.toISOString().split('T')[0],
         dayNumber,
         places: [],
+        notes: '',
+        checklists: [],
       });
       currentDate.setDate(currentDate.getDate() + 1);
       dayNumber++;
@@ -297,6 +327,175 @@ export default function ItineraryPlanningScreen() {
     });
   };
 
+  // Notes functions
+  const handleEditNotes = (dayNumber: number) => {
+    const day = itinerary.find(d => d.dayNumber === dayNumber);
+    setNotesText(day?.notes || '');
+    setEditingNotesDay(dayNumber);
+    setShowNotesModal(true);
+  };
+
+  const handleSaveNotes = () => {
+    if (editingNotesDay === null) return;
+
+    // Dismiss keyboard before saving
+    Keyboard.dismiss();
+
+    setItinerary(prev => prev.map(day => {
+      if (day.dayNumber === editingNotesDay) {
+        return {
+          ...day,
+          notes: notesText,
+        };
+      }
+      return day;
+    }));
+
+    setShowNotesModal(false);
+    setNotesText('');
+    setEditingNotesDay(null);
+  };
+
+  const handleCancelNotes = () => {
+    Keyboard.dismiss();
+    setShowNotesModal(false);
+    setNotesText('');
+    setEditingNotesDay(null);
+  };
+
+  // Checklist functions
+  const handleAddChecklist = (dayNumber: number) => {
+    setChecklistTitle('');
+    setChecklistItems([]);
+    setEditingChecklistId(null);
+    setEditingChecklistDay(dayNumber);
+    setShowChecklistModal(true);
+  };
+
+  const handleEditChecklist = (dayNumber: number, checklistId: string) => {
+    const day = itinerary.find(d => d.dayNumber === dayNumber);
+    const checklist = day?.checklists.find(c => c.id === checklistId);
+    
+    if (checklist) {
+      setChecklistTitle(checklist.title);
+      setChecklistItems([...checklist.items]);
+      setEditingChecklistId(checklistId);
+      setEditingChecklistDay(dayNumber);
+      setShowChecklistModal(true);
+    }
+  };
+
+  const handleSaveChecklist = () => {
+    if (editingChecklistDay === null || !checklistTitle.trim()) return;
+
+    // Dismiss keyboard before saving
+    Keyboard.dismiss();
+
+    const checklistId = editingChecklistId || Date.now().toString();
+    const newChecklist: DayChecklist = {
+      id: checklistId,
+      title: checklistTitle.trim(),
+      items: checklistItems,
+    };
+
+    setItinerary(prev => prev.map(day => {
+      if (day.dayNumber === editingChecklistDay) {
+        if (editingChecklistId) {
+          // Update existing checklist
+          return {
+            ...day,
+            checklists: day.checklists.map(c => 
+              c.id === editingChecklistId ? newChecklist : c
+            ),
+          };
+        } else {
+          // Add new checklist
+          return {
+            ...day,
+            checklists: [...day.checklists, newChecklist],
+          };
+        }
+      }
+      return day;
+    }));
+
+    handleCancelChecklist();
+  };
+
+  const handleCancelChecklist = () => {
+    Keyboard.dismiss();
+    setShowChecklistModal(false);
+    setChecklistTitle('');
+    setChecklistItems([]);
+    setEditingChecklistId(null);
+    setEditingChecklistDay(null);
+    setNewChecklistItem('');
+  };
+
+  const handleDeleteChecklist = (dayNumber: number, checklistId: string) => {
+    Alert.alert(
+      'Delete Checklist',
+      'Are you sure you want to delete this checklist?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            setItinerary(prev => prev.map(day => {
+              if (day.dayNumber === dayNumber) {
+                return {
+                  ...day,
+                  checklists: day.checklists.filter(c => c.id !== checklistId),
+                };
+              }
+              return day;
+            }));
+          },
+        },
+      ]
+    );
+  };
+
+  const handleAddChecklistItem = () => {
+    if (!newChecklistItem.trim()) return;
+
+    const newItem: ChecklistItem = {
+      id: Date.now().toString(),
+      title: newChecklistItem.trim(),
+      completed: false,
+    };
+
+    setChecklistItems(prev => [...prev, newItem]);
+    setNewChecklistItem('');
+  };
+
+  const handleDeleteChecklistItem = (itemId: string) => {
+    setChecklistItems(prev => prev.filter(item => item.id !== itemId));
+  };
+
+  const handleToggleChecklistItem = (dayNumber: number, checklistId: string, itemId: string) => {
+    setItinerary(prev => prev.map(day => {
+      if (day.dayNumber === dayNumber) {
+        return {
+          ...day,
+          checklists: day.checklists.map(checklist => {
+            if (checklist.id === checklistId) {
+              return {
+                ...checklist,
+                items: checklist.items.map(item => 
+                  item.id === itemId ? { ...item, completed: !item.completed } : item
+                ),
+              };
+            }
+            return checklist;
+          }),
+        };
+      }
+      return day;
+    }));
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -431,6 +630,103 @@ export default function ItineraryPlanningScreen() {
                 <ThemedText style={styles.addPlaceText}>Add Place</ThemedText>
               </TouchableOpacity>
             </View>
+
+            {/* Notes Section */}
+            <View style={styles.notesSection}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="document-text-outline" size={20} color={Colors.secondary600} />
+                <ThemedText style={styles.sectionTitle}>Notes</ThemedText>
+                <TouchableOpacity onPress={() => handleEditNotes(day.dayNumber)}>
+                  <Ionicons name="pencil" size={16} color={Colors.primary600} />
+                </TouchableOpacity>
+              </View>
+              {day.notes ? (
+                <View style={styles.notesContent}>
+                  <ThemedText style={styles.notesText}>{day.notes}</ThemedText>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.addNotesButton}
+                  onPress={() => handleEditNotes(day.dayNumber)}
+                >
+                  <Ionicons name="add" size={16} color={Colors.primary600} />
+                  <ThemedText style={styles.addNotesText}>Add notes for this day</ThemedText>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Checklists Section */}
+            <View style={styles.checklistsSection}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="checkmark-circle-outline" size={20} color={Colors.secondary600} />
+                <ThemedText style={styles.sectionTitle}>Checklists</ThemedText>
+                <TouchableOpacity onPress={() => handleAddChecklist(day.dayNumber)}>
+                  <Ionicons name="add" size={16} color={Colors.primary600} />
+                </TouchableOpacity>
+              </View>
+              
+              {day.checklists.map((checklist) => (
+                <View key={checklist.id} style={styles.checklistCard}>
+                  <View style={styles.checklistHeader}>
+                    <ThemedText style={styles.checklistTitle}>{checklist.title}</ThemedText>
+                    <View style={styles.checklistActions}>
+                      <TouchableOpacity
+                        onPress={() => handleEditChecklist(day.dayNumber, checklist.id)}
+                        style={styles.checklistAction}
+                      >
+                        <Ionicons name="pencil" size={14} color={Colors.primary600} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleDeleteChecklist(day.dayNumber, checklist.id)}
+                        style={styles.checklistAction}
+                      >
+                        <Ionicons name="trash" size={14} color={Colors.error} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.checklistItems}>
+                    {checklist.items.map((item) => (
+                      <TouchableOpacity
+                        key={item.id}
+                        style={styles.checklistItem}
+                        onPress={() => handleToggleChecklistItem(day.dayNumber, checklist.id, item.id)}
+                      >
+                        <Ionicons
+                          name={item.completed ? "checkmark-circle" : "ellipse-outline"}
+                          size={20}
+                          color={item.completed ? Colors.success : Colors.secondary400}
+                        />
+                        <ThemedText
+                          style={[
+                            styles.checklistItemText,
+                            item.completed && styles.checklistItemCompleted
+                          ]}
+                        >
+                          {item.title}
+                        </ThemedText>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  
+                  <View style={styles.checklistProgress}>
+                    <ThemedText style={styles.checklistProgressText}>
+                      {checklist.items.filter(item => item.completed).length} of {checklist.items.length} completed
+                    </ThemedText>
+                  </View>
+                </View>
+              ))}
+
+              {day.checklists.length === 0 && (
+                <TouchableOpacity
+                  style={styles.addChecklistButton}
+                  onPress={() => handleAddChecklist(day.dayNumber)}
+                >
+                  <Ionicons name="add" size={16} color={Colors.primary600} />
+                  <ThemedText style={styles.addChecklistText}>Add checklist for this day</ThemedText>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         ))}
       </ScrollView>
@@ -511,6 +807,164 @@ export default function ItineraryPlanningScreen() {
             }
             style={styles.searchResults}
           />
+        </SafeAreaView>
+      </Modal>
+
+      {/* Notes Modal */}
+      <Modal
+        visible={showNotesModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <ThemedText style={styles.modalTitle}>
+              Notes for Day {editingNotesDay}
+            </ThemedText>
+            <TouchableOpacity onPress={handleCancelNotes}>
+              <Ionicons name="close" size={24} color={Colors.secondary700} />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.modalContent}>
+              <TextInput
+                style={styles.notesInput}
+                placeholder="Enter your notes for this day..."
+                placeholderTextColor={Colors.secondary400}
+                value={notesText}
+                onChangeText={setNotesText}
+                multiline
+                textAlignVertical="top"
+                autoFocus
+                returnKeyType="done"
+                blurOnSubmit={true}
+              />
+            </View>
+          </TouchableWithoutFeedback>
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={[styles.modalActionButton, styles.cancelButton]}
+              onPress={handleCancelNotes}
+            >
+              <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalActionButton, styles.saveButton]}
+              onPress={handleSaveNotes}
+            >
+              <ThemedText style={styles.saveButtonText}>Save Notes</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Checklist Modal */}
+      <Modal
+        visible={showChecklistModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <ThemedText style={styles.modalTitle}>
+              {editingChecklistId ? 'Edit Checklist' : 'New Checklist'} - Day {editingChecklistDay}
+            </ThemedText>
+            <TouchableOpacity onPress={handleCancelChecklist}>
+              <Ionicons name="close" size={24} color={Colors.secondary700} />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.modalContent}>
+              <TextInput
+                style={styles.checklistTitleInput}
+                placeholder="Checklist title (e.g., Packing List, Things to Do)"
+                placeholderTextColor={Colors.secondary400}
+                value={checklistTitle}
+                onChangeText={setChecklistTitle}
+                autoFocus
+                returnKeyType="done"
+                blurOnSubmit={true}
+              />
+
+              <View style={styles.checklistItemsContainer}>
+                <ThemedText style={styles.checklistItemsTitle}>Items:</ThemedText>
+                
+                {checklistItems.map((item) => (
+                  <View key={item.id} style={styles.checklistItemRow}>
+                    <TouchableOpacity
+                      style={styles.checklistItemToggle}
+                      onPress={() => {
+                        setChecklistItems(prev => prev.map(prevItem => 
+                          prevItem.id === item.id 
+                            ? { ...prevItem, completed: !prevItem.completed }
+                            : prevItem
+                        ));
+                      }}
+                    >
+                      <Ionicons
+                        name={item.completed ? "checkmark-circle" : "ellipse-outline"}
+                        size={20}
+                        color={item.completed ? Colors.success : Colors.secondary400}
+                      />
+                    </TouchableOpacity>
+                    <ThemedText
+                      style={[
+                        styles.checklistItemRowText,
+                        item.completed && styles.checklistItemRowCompleted
+                      ]}
+                    >
+                      {item.title}
+                    </ThemedText>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteChecklistItem(item.id)}
+                      style={styles.deleteItemButton}
+                    >
+                      <Ionicons name="trash" size={16} color={Colors.error} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+
+                <View style={styles.addItemContainer}>
+                  <TextInput
+                    style={styles.newItemInput}
+                    placeholder="Add new item..."
+                    placeholderTextColor={Colors.secondary400}
+                    value={newChecklistItem}
+                    onChangeText={setNewChecklistItem}
+                    onSubmitEditing={handleAddChecklistItem}
+                    returnKeyType="done"
+                    blurOnSubmit={false}
+                  />
+                  <TouchableOpacity
+                    style={styles.addItemButton}
+                    onPress={handleAddChecklistItem}
+                  >
+                    <Ionicons name="add" size={20} color={Colors.primary600} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={[styles.modalActionButton, styles.cancelButton]}
+              onPress={handleCancelChecklist}
+            >
+              <ThemedText style={styles.cancelButtonText}>Cancel</ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalActionButton, styles.saveButton]}
+              onPress={handleSaveChecklist}
+            >
+              <ThemedText style={styles.saveButtonText}>
+                {editingChecklistId ? 'Update List' : 'Save List'}
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
@@ -603,6 +1057,7 @@ const styles = StyleSheet.create({
   },
   placesContainer: {
     gap: 12,
+    marginBottom: 16,
   },
   placeCard: {
     flexDirection: 'row',
@@ -678,6 +1133,125 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 8,
   },
+  
+  // Notes section styles
+  notesSection: {
+    marginBottom: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.secondary700,
+    marginLeft: 8,
+    flex: 1,
+  },
+  notesContent: {
+    backgroundColor: Colors.secondary50,
+    borderRadius: 8,
+    padding: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primary600,
+  },
+  notesText: {
+    fontSize: 14,
+    color: Colors.secondary700,
+    lineHeight: 20,
+  },
+  addNotesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.secondary100,
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.secondary200,
+    borderStyle: 'dashed',
+  },
+  addNotesText: {
+    fontSize: 14,
+    color: Colors.primary600,
+    marginLeft: 8,
+  },
+  
+  // Checklist section styles
+  checklistsSection: {
+    marginBottom: 16,
+  },
+  checklistCard: {
+    backgroundColor: Colors.secondary50,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.success,
+  },
+  checklistHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  checklistTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.secondary700,
+    flex: 1,
+  },
+  checklistActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checklistAction: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  checklistItems: {
+    marginBottom: 8,
+  },
+  checklistItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  checklistItemText: {
+    fontSize: 14,
+    color: Colors.secondary700,
+    marginLeft: 8,
+    flex: 1,
+  },
+  checklistItemCompleted: {
+    textDecorationLine: 'line-through',
+    color: Colors.secondary500,
+  },
+  checklistProgress: {
+    alignItems: 'flex-end',
+  },
+  checklistProgressText: {
+    fontSize: 12,
+    color: Colors.secondary500,
+  },
+  addChecklistButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.secondary100,
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.secondary200,
+    borderStyle: 'dashed',
+  },
+  addChecklistText: {
+    fontSize: 14,
+    color: Colors.primary600,
+    marginLeft: 8,
+  },
+  
   bottomActions: {
     padding: 20,
     backgroundColor: Colors.white,
@@ -689,6 +1263,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 16,
   },
+  
+  // Modal styles
   modalContainer: {
     flex: 1,
     backgroundColor: Colors.secondary50,
@@ -708,6 +1284,44 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.secondary700,
   },
+  modalContent: {
+    flex: 1,
+    padding: 20,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    padding: 20,
+    backgroundColor: Colors.white,
+    borderTopWidth: 1,
+    borderTopColor: Colors.secondary200,
+  },
+  modalActionButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  saveButton: {
+    backgroundColor: Colors.primary600,
+    marginLeft: 8,
+  },
+  saveButtonText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cancelButton: {
+    backgroundColor: Colors.secondary200,
+    marginRight: 8,
+  },
+  cancelButtonText: {
+    color: Colors.secondary700,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  
+  // Search styles
   searchContainer: {
     paddingHorizontal: 20,
     paddingVertical: 16,
@@ -830,5 +1444,84 @@ const styles = StyleSheet.create({
     color: Colors.secondary400,
     textAlign: 'center',
     marginTop: 8,
+  },
+  
+  // Notes modal styles
+  notesInput: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: Colors.secondary700,
+    textAlignVertical: 'top',
+    minHeight: 120,
+    borderWidth: 1,
+    borderColor: Colors.secondary200,
+  },
+  
+  // Checklist modal styles
+  checklistTitleInput: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: Colors.secondary700,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.secondary200,
+  },
+  checklistItemsContainer: {
+    flex: 1,
+    marginBottom: 16,
+  },
+  checklistItemsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.secondary700,
+    marginBottom: 12,
+  },
+  checklistItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: Colors.white,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: Colors.secondary200,
+  },
+  checklistItemToggle: {
+    marginRight: 12,
+  },
+  checklistItemRowText: {
+    fontSize: 14,
+    color: Colors.secondary700,
+    flex: 1,
+  },
+  checklistItemRowCompleted: {
+    textDecorationLine: 'line-through',
+    color: Colors.secondary500,
+  },
+  deleteItemButton: {
+    padding: 4,
+  },
+  addItemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.secondary200,
+    paddingHorizontal: 12,
+  },
+  newItemInput: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.secondary700,
+    paddingVertical: 12,
+  },
+  addItemButton: {
+    padding: 8,
   },
 });
