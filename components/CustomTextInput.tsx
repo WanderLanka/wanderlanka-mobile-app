@@ -8,8 +8,8 @@ import {
   View
 } from 'react-native';
 
-import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
+import { Ionicons } from '@expo/vector-icons';
 
 interface CustomTextInputProps extends TextInputProps {
   label: string;
@@ -33,11 +33,12 @@ export const CustomTextInput: React.FC<CustomTextInputProps> = ({
 
   return (
     <View style={[styles.container, containerStyle]}>
-    {label ? (
+      {label && (
         <Text style={styles.label}>
-          {typeof label === 'string' ? label : ''}
+          {label}
         </Text>
-      ) : null}      <View style={[
+      )}
+      <View style={[
         styles.inputContainer,
         isFocused && styles.inputContainerFocused,
         error && styles.inputContainerError,
@@ -60,7 +61,10 @@ export const CustomTextInput: React.FC<CustomTextInputProps> = ({
           autoCorrect={false}
           spellCheck={false}
           textContentType="none"
-          blurOnSubmit={false}
+          clearButtonMode="while-editing"
+          keyboardType="default"
+          editable={true}
+          selectTextOnFocus={false}
           {...props}
         />
         {isPassword && (
