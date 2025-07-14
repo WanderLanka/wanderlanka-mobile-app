@@ -430,7 +430,7 @@ export default function TravelerTabsLayout() {
                 <View style={styles.tripSummaryItem}>
                   <Ionicons name="calendar" size={16} color={Colors.primary600} />
                   <Text style={styles.tripSummaryText}>
-                    {Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))} days
+                    {Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24) + 1)} days
                   </Text>
                 </View>
               </View>

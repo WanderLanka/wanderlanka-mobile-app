@@ -94,7 +94,9 @@ export default function ItineraryPlanningScreen() {
       // Text search for places in Sri Lanka
       const textSearchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?` +
         `query=${encodeURIComponent(query + ' Sri Lanka')}&` +
-        `key=${GOOGLE_PLACES_API_KEY}`;
+        `key=${GOOGLE_PLACES_API_KEY}&` +
+        `region=LK&` +
+        `language=en`;
 
       const response = await fetch(textSearchUrl);
       const data = await response.json();
@@ -102,56 +104,131 @@ export default function ItineraryPlanningScreen() {
       if (data.status === 'OK' && data.results) {
         const places: Place[] = await Promise.all(
           data.results.slice(0, 10).map(async (place: any) => {
-            // Get place details for more information
+            // Get comprehensive place details
             const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?` +
               `place_id=${place.place_id}&` +
-              `fields=name,formatted_address,photos,opening_hours,rating,editorial_summary&` +
+              `fields=name,formatted_address,photos,opening_hours,rating,editorial_summary,types,website,formatted_phone_number,price_level,reviews&` +
               `key=${GOOGLE_PLACES_API_KEY}`;
 
             try {
               const detailsResponse = await fetch(detailsUrl);
               const detailsData = await detailsResponse.json();
               
-              const placeDetails = detailsData.result || place;
-              
-              return {
-                id: place.place_id,
-                name: placeDetails.name || place.name,
-                address: placeDetails.formatted_address || place.formatted_address,
-                description: placeDetails.editorial_summary?.overview || 
-                           `Popular destination in ${destination}`,
-                coordinates: {
-                  latitude: place.geometry.location.lat,
-                  longitude: place.geometry.location.lng,
-                },
-                openingHours: placeDetails.opening_hours?.weekday_text?.[0] || 
-                             placeDetails.opening_hours?.open_now ? 'Open now' : 'Check hours',
-                rating: placeDetails.rating || place.rating,
-                image: placeDetails.photos?.[0] ? 
-                  `https://maps.googleapis.com/maps/api/place/photo?` +
-                  `maxwidth=400&photo_reference=${placeDetails.photos[0].photo_reference}&` +
-                  `key=${GOOGLE_PLACES_API_KEY}` : undefined,
-              };
+              if (detailsData.status === 'OK' && detailsData.result) {
+                const placeDetails = detailsData.result;
+                
+                // Format opening hours properly
+                let openingHours = 'Hours not available';
+                if (placeDetails.opening_hours) {
+                  if (placeDetails.opening_hours.open_now !== undefined) {
+                    openingHours = placeDetails.opening_hours.open_now ? 
+                      'Open now' : 'Closed now';
+                  }
+                  
+                  // Get today's hours if available
+                  const today = new Date().getDay();
+                  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                  
+                  if (placeDetails.opening_hours.weekday_text) {
+                    const todayHours = placeDetails.opening_hours.weekday_text.find(
+                      (day: string) => day.toLowerCase().includes(dayNames[today].toLowerCase())
+                    );
+                    if (todayHours) {
+                      openingHours = todayHours.replace(dayNames[today] + ': ', '');
+                    } else if (placeDetails.opening_hours.weekday_text.length > 0) {
+                      openingHours = placeDetails.opening_hours.weekday_text[0].split(': ')[1] || 'Check hours';
+                    }
+                  }
+                }
+                
+                // Get proper description
+                let description = '';
+                if (placeDetails.editorial_summary?.overview) {
+                  description = placeDetails.editorial_summary.overview;
+                } else if (placeDetails.reviews && placeDetails.reviews.length > 0) {
+                  // Use first review excerpt as description
+                  const review = placeDetails.reviews[0];
+                  if (review.text && review.text.length > 20) {
+                    description = review.text.substring(0, 150) + '...';
+                  }
+                } else if (placeDetails.types && placeDetails.types.length > 0) {
+                  // Generate description from place types
+                  const typeDescriptions: { [key: string]: string } = {
+                    'tourist_attraction': 'A popular tourist destination with cultural or historical significance',
+                    'restaurant': 'A dining establishment serving local and international cuisine',
+                    'lodging': 'Accommodation facility for travelers',
+                    'shopping_mall': 'Shopping center with various stores and services',
+                    'museum': 'Cultural institution with exhibits and historical artifacts',
+                    'park': 'Recreation area with natural beauty and outdoor activities',
+                    'place_of_worship': 'Sacred site for religious practices and ceremonies',
+                    'zoo': 'Wildlife park with diverse animal species',
+                    'amusement_park': 'Entertainment venue with rides and attractions',
+                    'beach': 'Coastal area perfect for relaxation and water activities',
+                    'hospital': 'Medical facility providing healthcare services',
+                    'school': 'Educational institution',
+                    'bank': 'Financial services center',
+                    'gas_station': 'Fuel station for vehicles',
+                    'pharmacy': 'Medical supplies and prescription services',
+                    'supermarket': 'Grocery store with daily necessities',
+                    'gym': 'Fitness facility with exercise equipment',
+                    'beauty_salon': 'Beauty and grooming services',
+                    'spa': 'Wellness center for relaxation and treatments',
+                    'temple': 'Buddhist or Hindu religious temple',
+                    'church': 'Christian place of worship',
+                    'mosque': 'Islamic place of worship'
+                  };
+                  
+                  const primaryType = placeDetails.types.find((type: string) => typeDescriptions[type]);
+                  if (primaryType) {
+                    description = typeDescriptions[primaryType];
+                  }
+                }
+                
+                // Fallback description if none found
+                if (!description) {
+                  description = `A notable place in ${destination || 'Sri Lanka'}`;
+                }
+                
+                return {
+                  id: place.place_id,
+                  name: placeDetails.name,
+                  address: placeDetails.formatted_address,
+                  description: description,
+                  coordinates: {
+                    latitude: place.geometry.location.lat,
+                    longitude: place.geometry.location.lng,
+                  },
+                  openingHours: openingHours,
+                  rating: placeDetails.rating,
+                  image: placeDetails.photos?.[0] ? 
+                    `https://maps.googleapis.com/maps/api/place/photo?` +
+                    `maxwidth=400&photo_reference=${placeDetails.photos[0].photo_reference}&` +
+                    `key=${GOOGLE_PLACES_API_KEY}` : undefined,
+                };
+              } else {
+                console.warn('Place details not found for:', place.name);
+                return null;
+              }
             } catch (error) {
-              console.warn('Error fetching place details:', error);
-              return {
-                id: place.place_id,
-                name: place.name,
-                address: place.formatted_address,
-                description: `Popular destination in ${destination}`,
-                coordinates: {
-                  latitude: place.geometry.location.lat,
-                  longitude: place.geometry.location.lng,
-                },
-                openingHours: 'Check hours',
-                rating: place.rating,
-              };
+              console.warn('Error fetching place details for:', place.name, error);
+              return null;
             }
           })
-        );
-
-        setSearchResults(places);
+        );                // Filter out null results
+                const validPlaces = places.filter(place => place !== null) as Place[];
+                
+                // Debug log to verify we're getting real data
+                console.log('🗺️ Places found:', validPlaces.length);
+                validPlaces.forEach(place => {
+                  console.log(`📍 ${place.name}:`);
+                  console.log(`   Hours: ${place.openingHours}`);
+                  console.log(`   Description: ${place.description?.substring(0, 100) || 'No description'}...`);
+                  console.log(`   Rating: ${place.rating || 'N/A'}`);
+                });
+                
+                setSearchResults(validPlaces);
       } else {
+        console.warn('Places API response:', data.status, data.error_message);
         setSearchResults([]);
       }
     } catch (error) {
@@ -263,10 +340,14 @@ export default function ItineraryPlanningScreen() {
           )}
         </View>
         {item.description && (
-          <ThemedText style={styles.placeDescription} numberOfLines={2}>
+          <ThemedText style={styles.placeDescription} numberOfLines={3}>
             {item.description}
           </ThemedText>
         )}
+        <View style={styles.placeActionHint}>
+          <Ionicons name="add-circle" size={16} color={Colors.primary600} />
+          <ThemedText style={styles.placeActionText}>Tap to add to itinerary</ThemedText>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -284,7 +365,7 @@ export default function ItineraryPlanningScreen() {
       </View>
 
       <View style={styles.tripSummary}>
-        <ThemedText style={styles.tripTitle}>{destination}</ThemedText>
+        <ThemedText style={styles.tripTitle}>Trip to {destination}</ThemedText>
         <ThemedText style={styles.tripSubtitle}>
           From {startPoint} • {itinerary.length} days
         </ThemedText>
@@ -320,10 +401,18 @@ export default function ItineraryPlanningScreen() {
                     <View style={styles.placeCardMeta}>
                       <Ionicons name="time-outline" size={12} color={Colors.secondary500} />
                       <ThemedText style={styles.placeCardHours}>{place.openingHours}</ThemedText>
+                      {place.rating && (
+                        <>
+                          <Ionicons name="star" size={12} color="#fbbf24" style={{ marginLeft: 8 }} />
+                          <ThemedText style={styles.placeCardRating}>{place.rating}</ThemedText>
+                        </>
+                      )}
                     </View>
-                    <ThemedText style={styles.placeCardDescription} numberOfLines={2}>
-                      {place.description}
-                    </ThemedText>
+                    {place.description && place.description !== 'Hours not available' && (
+                      <ThemedText style={styles.placeCardDescription} numberOfLines={2}>
+                        {place.description}
+                      </ThemedText>
+                    )}
                   </View>
                   <TouchableOpacity
                     style={styles.removePlaceButton}
@@ -373,13 +462,16 @@ export default function ItineraryPlanningScreen() {
           <View style={styles.searchContainer}>
             <TextInput
               style={styles.searchInput}
-              placeholder="Search for places, attractions, restaurants..."
+              placeholder={`Search places in ${destination}... (e.g., temples, restaurants, attractions)`}
+              placeholderTextColor={Colors.secondary400}
               value={searchQuery}
               onChangeText={(text) => {
                 setSearchQuery(text);
                 searchPlaces(text);
               }}
               autoFocus
+              autoCapitalize="words"
+              autoCorrect={true}
             />
           </View>
 
@@ -390,14 +482,31 @@ export default function ItineraryPlanningScreen() {
             ListEmptyComponent={
               isSearching ? (
                 <View style={styles.loadingContainer}>
-                  <ThemedText style={styles.loadingText}>Searching places...</ThemedText>
+                  <Ionicons name="refresh-outline" size={24} color={Colors.primary600} />
+                  <ThemedText style={styles.loadingText}>
+                    Searching places with Google Maps...
+                  </ThemedText>
                 </View>
               ) : searchQuery.length > 2 ? (
-                <ThemedText style={styles.noResultsText}>No places found</ThemedText>
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="location-outline" size={48} color={Colors.secondary400} />
+                  <ThemedText style={styles.noResultsText}>
+                    No places found for "{searchQuery}"
+                  </ThemedText>
+                  <ThemedText style={styles.noResultsSubtext}>
+                    Try different keywords or check spelling
+                  </ThemedText>
+                </View>
               ) : (
-                <ThemedText style={styles.noResultsText}>
-                  Start typing to search for places in {destination}
-                </ThemedText>
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="search-outline" size={48} color={Colors.secondary400} />
+                  <ThemedText style={styles.noResultsText}>
+                    Search for places in {destination}
+                  </ThemedText>
+                  <ThemedText style={styles.noResultsSubtext}>
+                    Try: temples, restaurants, attractions, hotels, etc.
+                  </ThemedText>
+                </View>
               )
             }
             style={styles.searchResults}
@@ -535,6 +644,11 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   placeCardHours: {
+    fontSize: 12,
+    color: Colors.secondary500,
+    marginLeft: 4,
+  },
+  placeCardRating: {
     fontSize: 12,
     color: Colors.secondary500,
     marginLeft: 4,
@@ -677,6 +791,20 @@ const styles = StyleSheet.create({
     marginTop: 4,
     lineHeight: 16,
   },
+  placeActionHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: Colors.secondary200,
+  },
+  placeActionText: {
+    fontSize: 12,
+    color: Colors.primary600,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
   loadingContainer: {
     padding: 40,
     alignItems: 'center',
@@ -684,11 +812,23 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     color: Colors.secondary500,
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    padding: 40,
+    alignItems: 'center',
   },
   noResultsText: {
     fontSize: 16,
     color: Colors.secondary500,
     textAlign: 'center',
-    padding: 40,
+    marginTop: 12,
+  },
+  noResultsSubtext: {
+    fontSize: 14,
+    color: Colors.secondary400,
+    textAlign: 'center',
+    marginTop: 8,
   },
 });
