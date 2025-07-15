@@ -224,12 +224,67 @@ export default function RouteDisplayScreen() {
           setMapRegion(newRegion);
           setInitialRegionSet(true);
         }
+        
+        // Calculate initial route info for the recommended route
+        if (allPlaces.length > 0 && startCoords) {
+          setIsLoadingRoute(true);
+          // Simulate route calculation with realistic data
+          setTimeout(() => {
+            calculateRouteInfo(selectedRouteType);
+          }, 1500);
+        }
       } catch (error) {
         console.error('Error parsing itinerary:', error);
         Alert.alert('Error', 'Failed to load itinerary data');
       }
     }
-  }, [itineraryString, startPoint, fadeAnim, slideAnim]);
+  }, [itineraryString, startPoint, fadeAnim, slideAnim, selectedRouteType]);
+
+  // Function to calculate route info based on route type
+  const calculateRouteInfo = (routeType: RouteType) => {
+    if (allPlaces.length === 0) {
+      setIsLoadingRoute(false);
+      return;
+    }
+
+    // Simulate route calculation based on places and route type
+    let totalDistance = 0;
+    let totalDuration = 0;
+
+    // Calculate approximate distance and duration
+    for (let i = 0; i < allPlaces.length; i++) {
+      // Simulate distance calculation between consecutive places
+      const baseDistance = Math.random() * 50 + 20; // 20-70 km per segment
+      const baseDuration = Math.random() * 45 + 30; // 30-75 minutes per segment
+      
+      // Adjust based on route type
+      switch (routeType) {
+        case 'shortest':
+          totalDistance += baseDistance * 0.8; // 20% shorter
+          totalDuration += baseDuration * 0.7; // 30% faster
+          break;
+        case 'scenic':
+          totalDistance += baseDistance * 1.3; // 30% longer
+          totalDuration += baseDuration * 1.5; // 50% longer
+          break;
+        case 'recommended':
+        default:
+          totalDistance += baseDistance;
+          totalDuration += baseDuration;
+          break;
+      }
+    }
+
+    // Set the calculated route info
+    setRouteInfo({
+      distance: `${totalDistance.toFixed(1)} km`,
+      duration: `${Math.round(totalDuration)} min`,
+      estimatedCost: calculateEstimatedCost(totalDistance, routeType),
+      routeType: routeType,
+    });
+    
+    setIsLoadingRoute(false);
+  };
 
   const handleRouteReady = (result: any) => {
     setIsLoadingRoute(false);
@@ -246,6 +301,11 @@ export default function RouteDisplayScreen() {
     setIsLoadingRoute(true);
     // Clear previous route info to trigger recalculation
     setRouteInfo(null);
+    
+    // Recalculate route info for the new route type
+    setTimeout(() => {
+      calculateRouteInfo(routeType);
+    }, 1000);
   };
 
   const handleOpenRouteModal = (routeType: RouteType) => {
@@ -662,17 +722,22 @@ export default function RouteDisplayScreen() {
       </LinearGradient>
 
       {/* Main Content Container */}
-      <Animated.View
-        style={[
-          styles.mainContent,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          },
-        ]}
+      <ScrollView
+        style={styles.mainContent}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
       >
-        {/* Trip Summary with Route Information */}
-        <View style={styles.compactSummary}>
+        <Animated.View
+          style={[
+            styles.animatedContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          {/* Trip Summary with Route Information */}
+          <View style={styles.compactSummary}>
           <View style={styles.tripLocation}>
             <Ionicons name="location" size={18} color={Colors.primary600} />
             <ThemedText style={styles.tripLocationText}>
@@ -713,7 +778,13 @@ export default function RouteDisplayScreen() {
                   styles.routeOptionCard,
                   selectedRouteType === option.id && [styles.routeOptionSelected, { backgroundColor: option.color + '15' }]
                 ]}
-                onPress={() => handleOpenRouteModal(option.id)}
+                onPress={() => {
+                  handleRouteSelection(option.id);
+                  // Also open modal after a short delay
+                  setTimeout(() => {
+                    handleOpenRouteModal(option.id);
+                  }, 300);
+                }}
               >
                 <View style={[
                   styles.routeOptionIconContainer,
@@ -956,19 +1027,20 @@ export default function RouteDisplayScreen() {
             style={styles.proceedButton}
           />
         </View>
+        </Animated.View>
+      </ScrollView>
 
-        {/* Route Modal - For detailed route view */}
-        <RouteModal
-          visible={isModalVisible}
-          onClose={handleCloseRouteModal}
-          routeType={modalRouteType}
-          startLocation={startLocation}
-          allPlaces={allPlaces}
-          itinerary={itinerary}
-          mapRegion={mapRegion}
-          calculateEstimatedCost={calculateEstimatedCost}
-        />
-      </Animated.View>
+      {/* Route Modal - For detailed route view */}
+      <RouteModal
+        visible={isModalVisible}
+        onClose={handleCloseRouteModal}
+        routeType={modalRouteType}
+        startLocation={startLocation}
+        allPlaces={allPlaces}
+        itinerary={itinerary}
+        mapRegion={mapRegion}
+        calculateEstimatedCost={calculateEstimatedCost}
+      />
     </SafeAreaView>
   );
 }
@@ -977,11 +1049,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.secondary50,
-  },
-  
-  // Animation Container
-  animatedContainer: {
-    flex: 1,
   },
   
   // Loading States
@@ -1421,6 +1488,11 @@ const styles = StyleSheet.create({
   // Main Content Container
   mainContent: {
     flex: 1,
+  },
+  
+  // Animation Container
+  animatedContainer: {
+    paddingBottom: 20,
   },
   
   // Compact Summary
