@@ -111,33 +111,33 @@ const handleScroll = (event: ScrollEvent) => {
             <ThemedText variant="title" style={styles.title}>{details.title}</ThemedText>
             <View style={styles.locationRow}>
               <Ionicons name="location-outline" size={16} color={Colors.primary600} />
-              <Text style={styles.city}>{details.city}</Text>
+              <ThemedText variant='caption' style={styles.city}>{details.city}</ThemedText>
             </View>
           </View>
           <View style={styles.ratingRow}>
             <Ionicons name="star" size={16} color={Colors.warning || '#FFD700'} />
-            <Text style={styles.rating}>{details.rating}</Text>
+            <ThemedText  variant='caption' style={styles.rating}>{details.rating}</ThemedText>
           </View>
         </View>
 
         <Text style={styles.price}>{details.price}</Text>
 
         <ThemedText variant="subtitle" style={styles.sectionHeading}>Description</ThemedText>
-        <Text style={styles.description}>{details.description}</Text>
+        <ThemedText variant='caption' style={styles.description}>{details.description}</ThemedText>
 
         <ThemedText variant="subtitle" style={styles.sectionHeading}>Amenities</ThemedText>
         <View style={styles.amenitiesList}>
           {details.amenities.map((amenity, i) => (
             <View key={i} style={styles.amenityRow}>
               <Ionicons name="checkmark-circle" size={18} color={Colors.primary600} />
-              <Text style={styles.amenityText}>{amenity}</Text>
+              <ThemedText variant='caption' style={styles.amenityText}>{amenity}</ThemedText>
             </View>
           ))}
         </View>
         <ThemedText variant="subtitle" style={styles.sectionHeading}>Location</ThemedText>
-        <View style={styles.mapPlaceholder}>
-          <Text style={styles.mapText}>[Map will be shown here]</Text>
-        </View>
+       <View style={styles.mapPlaceholder}>
+          <ThemedText variant='caption' style={styles.mapText}>[Map will be shown here]</ThemedText>
+      </View>
         <ThemedText variant="subtitle" style={styles.sectionHeading}>Reviews</ThemedText>
         <View style={styles.reviewsList}>
           <UserReview
@@ -153,10 +153,10 @@ const handleScroll = (event: ScrollEvent) => {
             profileImage="https://randomuser.me/api/portraits/women/2.jpg"
           />
           <TouchableOpacity style={styles.seeMoreBtn} onPress={() => router.push('/accomodation/reviews')}>
-            <Text style={styles.seeMoreText}>See more</Text>
+            <ThemedText variant='caption' style={styles.seeMoreText}>See more</ThemedText>
           </TouchableOpacity>
         </View>
-        <View style={{ height: 80 }} /> {/* Spacer for bottom bar */}
+        <View style={{ height: 80 }} />
       </ScrollView>
       <View style={styles.bottomBar}>
         <CustomButton
@@ -164,7 +164,7 @@ const handleScroll = (event: ScrollEvent) => {
           variant="primary"
           size="large"
           style={styles.bookBtn}
-          onPress={() => {/* booking logic here */}}
+          onPress={() => {}}
         />
       </View>
     </SafeAreaView>

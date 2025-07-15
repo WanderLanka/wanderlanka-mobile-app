@@ -84,11 +84,19 @@ export default function AccomodationHomeScreen() {
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
            {featuredData.map((item, i) => renderItemCard(item, 'featured', i))}
+            <ItemCard
+        image="https://images.unsplash.com/photo-1506744038136-46273834b3fb"
+        title="Test Hotel"
+        city="Colombo"
+        price="$100/night"
+        rating={4.5}
+        type="accommodation"
+      />
         </ScrollView>
 
         <View style={styles.sectionHeader}>
-          <ThemedText style={styles.sectionTitle}>Budget Friendly Stays</ThemedText>
-          <ThemedText style={styles.seeMore}>See more →</ThemedText>
+          <ThemedText variant = 'subtitle' style={styles.sectionTitle}>Budget Friendly Stays</ThemedText>
+          <ThemedText variant = 'subtitle' style={styles.seeMore}>See more →</ThemedText>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
           {featuredData.map((item, i) => (
@@ -97,8 +105,8 @@ export default function AccomodationHomeScreen() {
         </ScrollView>
 
         <View style={styles.sectionHeader}>
-          <ThemedText style={styles.sectionTitle}>Recent Searches</ThemedText>
-          <ThemedText style={styles.seeMore}>See more →</ThemedText>
+          <ThemedText  variant = 'subtitle' style={styles.sectionTitle}>Recent Searches</ThemedText>
+          <ThemedText  variant = 'subtitle' style={styles.seeMore}>See more →</ThemedText>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
           {recentData.map((item, i) => (
@@ -107,7 +115,6 @@ export default function AccomodationHomeScreen() {
         </ScrollView>
       </ScrollView>
 
-      {/* Filter Modal */}
       <Modal
         visible={filterVisible}
         animationType="slide"
@@ -120,10 +127,10 @@ export default function AccomodationHomeScreen() {
               <ThemedText variant="title" style={styles.modalTitle}>Set Your Preferences</ThemedText>
               {/* Price Range */}
               <View style={styles.modalSection}>
-                <ThemedText style={styles.modalLabel}>Price Range ($)</ThemedText>
+                <ThemedText variant = 'subtitle' style={styles.modalLabel}>Price Range ($)</ThemedText>
                 <View style={{ flexDirection: 'row'}}>
                   <CustomTextInput
-                    label=""
+                    label=''
                     placeholder="Min"
                     keyboardType="numeric"
                     value={minPrice}
@@ -131,7 +138,7 @@ export default function AccomodationHomeScreen() {
                     containerStyle={[styles.modalInput, { flex: 1 }]}
                   />
                   <CustomTextInput
-                    label=""
+                    label=''
                     placeholder="Max"
                     keyboardType="numeric"
                     value={maxPrice}
@@ -140,9 +147,9 @@ export default function AccomodationHomeScreen() {
                   />
                 </View>
               </View>
-              {/* Location */}
+
               <View style={styles.modalSection}>
-                <ThemedText style={styles.modalLabel}>Location</ThemedText>
+                <ThemedText variant = 'subtitle' style={styles.modalLabel}>Location</ThemedText>
                 <CustomTextInput
                   label=""
                   placeholder="Enter location"
@@ -150,9 +157,9 @@ export default function AccomodationHomeScreen() {
                   onChangeText={setLocation}
                 />
               </View>
-              {/* Minimum Rating */}
+
               <View style={styles.modalSection}>
-                <ThemedText style={[styles.modalLabel,{marginBottom : 20}]}>Minimum Rating</ThemedText>
+                <ThemedText variant = 'subtitle' style={[styles.modalLabel,{marginBottom : 20}]}>Minimum Rating</ThemedText>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                   {[1,2,3,4,5].map((r) => (
                     <TouchableOpacity
@@ -165,9 +172,9 @@ export default function AccomodationHomeScreen() {
                   ))}
                 </View>
               </View>
-              {/* Property Types */}
+
               <View style={styles.modalSection}>
-                <ThemedText style={[styles.modalLabel,{marginBottom : 20}]}>Property Type</ThemedText>
+                <ThemedText variant = 'subtitle' style={[styles.modalLabel,{marginBottom : 20}]}>Property Type</ThemedText>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                   {propertyTypeOptions.map((type) => (
                     <TouchableOpacity
@@ -181,7 +188,7 @@ export default function AccomodationHomeScreen() {
                 </View>
               </View>
             </ScrollView>
-            {/* Modal Actions */}
+            
             <View style={styles.modalActions}>
               <CustomButton
                 title="Cancel"
