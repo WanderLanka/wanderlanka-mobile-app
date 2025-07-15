@@ -238,7 +238,7 @@ export default function RouteDisplayScreen() {
         Alert.alert('Error', 'Failed to load itinerary data');
       }
     }
-  }, [itineraryString, startPoint, fadeAnim, slideAnim, selectedRouteType]);
+  }, [itineraryString, startPoint, fadeAnim, slideAnim]);
 
   // Function to calculate route info based on route type
   const calculateRouteInfo = (routeType: RouteType) => {
@@ -297,6 +297,10 @@ export default function RouteDisplayScreen() {
   };
 
   const handleRouteSelection = (routeType: RouteType) => {
+    if (routeType === selectedRouteType) {
+      return; // Don't recalculate if same route type is selected
+    }
+    
     setSelectedRouteType(routeType);
     setIsLoadingRoute(true);
     // Clear previous route info to trigger recalculation
@@ -308,14 +312,64 @@ export default function RouteDisplayScreen() {
     }, 1000);
   };
 
+  // Add state to prevent rapid modal operations
+  const [isModalOperating, setIsModalOperating] = useState(false);
+  const modalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
   const handleOpenRouteModal = (routeType: RouteType) => {
+    // Prevent rapid operations and check if modal is already visible
+    if (isModalOperating || isModalVisible) return;
+    
+    console.log('Opening modal for route type:', routeType);
+    
+    setIsModalOperating(true);
+    
+    // Clear any existing timeout
+    if (modalTimeoutRef.current) {
+      clearTimeout(modalTimeoutRef.current);
+    }
+    
+    // Set modal state immediately
     setModalRouteType(routeType);
     setIsModalVisible(true);
+    
+    // Reset the flag after modal is fully opened
+    modalTimeoutRef.current = setTimeout(() => {
+      setIsModalOperating(false);
+    }, 1000); // Increased delay to ensure modal is fully opened
   };
 
   const handleCloseRouteModal = () => {
+    // Prevent rapid operations and check if modal is already hidden
+    if (isModalOperating || !isModalVisible) return;
+    
+    console.log('Closing modal');
+    
+    setIsModalOperating(true);
+    
+    // Clear any existing timeout
+    if (modalTimeoutRef.current) {
+      clearTimeout(modalTimeoutRef.current);
+    }
+    
+    // Close modal immediately
     setIsModalVisible(false);
+    
+    // Reset state after modal is fully closed
+    modalTimeoutRef.current = setTimeout(() => {
+      setModalRouteType('recommended');
+      setIsModalOperating(false);
+    }, 500); // Delay to ensure modal is fully closed
   };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (modalTimeoutRef.current) {
+        clearTimeout(modalTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleRouteError = (error: any) => {
     setIsLoadingRoute(false);
@@ -505,7 +559,8 @@ export default function RouteDisplayScreen() {
     const handleModalRouteError = (error: any) => {
       setIsModalLoading(false);
       console.error('Modal route error:', error);
-      Alert.alert('Route Error', 'Unable to calculate route. Please try again.');
+      // Don't show alert for every error to avoid UI freezing
+      // Alert.alert('Route Error', 'Unable to calculate route. Please try again.');
     };
 
     const getMarkerColor = (dayNumber: number) => {
@@ -545,14 +600,30 @@ export default function RouteDisplayScreen() {
       if (visible) {
         setIsModalLoading(true);
         setModalRouteInfo(null);
+        // Small delay to ensure modal is fully rendered before starting route calculation
+        const timer = setTimeout(() => {
+          // Only start loading if modal is still visible
+          if (visible) {
+            setIsModalLoading(true);
+          }
+        }, 100);
+        
+        return () => clearTimeout(timer);
+      } else {
+        // Clear state when modal is hidden
+        setIsModalLoading(false);
+        setModalRouteInfo(null);
       }
-    }, [visible, routeType]);
+    }, [visible, routeType]); // Added routeType as dependency
 
     return (
       <Modal
         visible={visible}
         animationType="slide"
         presentationStyle="fullScreen"
+        onRequestClose={onClose}
+        supportedOrientations={['portrait']}
+        hardwareAccelerated={true}
       >
         <SafeAreaView style={styles.modalContainer}>
           <StatusBar barStyle="light-content" backgroundColor={currentRoute?.color} />
@@ -562,7 +633,12 @@ export default function RouteDisplayScreen() {
             colors={[currentRoute?.color || Colors.primary600, `${currentRoute?.color || Colors.primary600}CC`]}
             style={styles.modalHeader}
           >
-            <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
+            <TouchableOpacity 
+              onPress={onClose} 
+              style={styles.modalCloseButton}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
               <Ionicons name="close" size={24} color={Colors.white} />
             </TouchableOpacity>
             <View style={styles.modalHeaderCenter}>
@@ -780,10 +856,6 @@ export default function RouteDisplayScreen() {
                 ]}
                 onPress={() => {
                   handleRouteSelection(option.id);
-                  // Also open modal after a short delay
-                  setTimeout(() => {
-                    handleOpenRouteModal(option.id);
-                  }, 300);
                 }}
               >
                 <View style={[
@@ -809,17 +881,24 @@ export default function RouteDisplayScreen() {
                   {option.description}
                 </ThemedText>
                 <View style={styles.routeOptionAction}>
-                  <Ionicons 
-                    name="map-outline" 
-                    size={16} 
-                    color={selectedRouteType === option.id ? option.color : Colors.secondary400} 
-                  />
-                  <ThemedText style={[
-                    styles.routeOptionActionText,
-                    selectedRouteType === option.id && { color: option.color }
-                  ]}>
-                    View on Map
-                  </ThemedText>
+                  <TouchableOpacity
+                    style={styles.routeOptionMapButton}
+                    onPress={() => handleOpenRouteModal(option.id)}
+                    disabled={isModalOperating}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons 
+                      name="map-outline" 
+                      size={16} 
+                      color={selectedRouteType === option.id ? option.color : Colors.secondary400} 
+                    />
+                    <ThemedText style={[
+                      styles.routeOptionActionText,
+                      selectedRouteType === option.id && { color: option.color }
+                    ]}>
+                      View on Map
+                    </ThemedText>
+                  </TouchableOpacity>
                 </View>
                 {selectedRouteType === option.id && (
                   <View style={[styles.selectedIndicator, { backgroundColor: option.color }]}>
@@ -958,6 +1037,8 @@ export default function RouteDisplayScreen() {
             <TouchableOpacity 
               style={styles.viewAllRoutesButton}
               onPress={() => handleOpenRouteModal(selectedRouteType)}
+              disabled={isModalOperating}
+              activeOpacity={0.7}
             >
               <ThemedText style={styles.viewAllRoutesText}>View on Map</ThemedText>
               <Ionicons name="map-outline" size={16} color={Colors.primary600} />
@@ -1031,16 +1112,18 @@ export default function RouteDisplayScreen() {
       </ScrollView>
 
       {/* Route Modal - For detailed route view */}
-      <RouteModal
-        visible={isModalVisible}
-        onClose={handleCloseRouteModal}
-        routeType={modalRouteType}
-        startLocation={startLocation}
-        allPlaces={allPlaces}
-        itinerary={itinerary}
-        mapRegion={mapRegion}
-        calculateEstimatedCost={calculateEstimatedCost}
-      />
+      {isModalVisible && !isModalOperating && (
+        <RouteModal
+          visible={isModalVisible}
+          onClose={handleCloseRouteModal}
+          routeType={modalRouteType}
+          startLocation={startLocation}
+          allPlaces={allPlaces}
+          itinerary={itinerary}
+          mapRegion={mapRegion}
+          calculateEstimatedCost={calculateEstimatedCost}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -1268,6 +1351,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 4,
     marginTop: 4,
+  },
+  routeOptionMapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: Colors.secondary100,
   },
   routeOptionActionText: {
     fontSize: 12,
