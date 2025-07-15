@@ -97,7 +97,6 @@ import { Colors } from '../../constants/Colors';
             />
           </Tabs>
         </View>
-        {/* Bottom Sheet */}
         <Modalize ref={modalRef} adjustToContentHeight>
           <View style={styles.bottomSheetContent}>
             <View style={styles.sheetTitle}>
