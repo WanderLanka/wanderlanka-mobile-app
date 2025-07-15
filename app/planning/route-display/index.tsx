@@ -67,6 +67,39 @@ const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
                            process.env.GOOGLE_MAPS_API_KEY || 
                            process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY;
 
+// Google Directions API configuration (separate key)
+const GOOGLE_DIRECTIONS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_KEY || 
+                                 process.env.GOOGLE_MAPS_DIRECTIONS_API_KEY ||
+                                 process.env.GOOGLE_DIRECTIONS_API_KEY ||
+                                 GOOGLE_MAPS_API_KEY; // fallback to general API key
+
+// Debug: Check API key availability
+console.log('=== API Keys Debug ===');
+console.log('Available env vars:');
+console.log('EXPO_PUBLIC_GOOGLE_MAPS_API_KEY:', process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ? 'YES' : 'NO');
+console.log('EXPO_PUBLIC_GOOGLE_PLACES_API_KEY:', process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY ? 'YES' : 'NO');
+console.log('EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_KEY:', process.env.EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_KEY ? 'YES' : 'NO');
+console.log('GOOGLE_MAPS_DIRECTIONS_API_KEY:', process.env.GOOGLE_MAPS_DIRECTIONS_API_KEY ? 'YES' : 'NO');
+console.log('Final API keys:');
+console.log('GOOGLE_MAPS_API_KEY (first 10 chars):', GOOGLE_MAPS_API_KEY ? GOOGLE_MAPS_API_KEY.substring(0, 10) + '...' : 'MISSING');
+console.log('GOOGLE_DIRECTIONS_API_KEY (first 10 chars):', GOOGLE_DIRECTIONS_API_KEY ? GOOGLE_DIRECTIONS_API_KEY.substring(0, 10) + '...' : 'MISSING');
+console.log('=====================');
+
+if (!GOOGLE_MAPS_API_KEY) {
+  console.error('❌ Google Maps API key not found. Available env vars:', {
+    EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: !!process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
+    GOOGLE_MAPS_API_KEY: !!process.env.GOOGLE_MAPS_API_KEY,
+    EXPO_PUBLIC_GOOGLE_PLACES_API_KEY: !!process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY,
+  });
+}
+if (!GOOGLE_DIRECTIONS_API_KEY) {
+  console.error('❌ Google Directions API key not found. Available env vars:', {
+    EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_KEY: !!process.env.EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_KEY,
+    GOOGLE_MAPS_DIRECTIONS_API_KEY: !!process.env.GOOGLE_MAPS_DIRECTIONS_API_KEY,
+    GOOGLE_DIRECTIONS_API_KEY: !!process.env.GOOGLE_DIRECTIONS_API_KEY,
+  });
+}
+
 // Route options
 const ROUTE_OPTIONS: RouteOption[] = [
   {
@@ -149,6 +182,110 @@ export default function RouteDisplayScreen() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalRouteType, setModalRouteType] = useState<RouteType>('recommended');
 
+  // Add geocoding function using Google Places API
+  const geocodeStartPoint = async (locationName: string): Promise<{ latitude: number; longitude: number } | null> => {
+    console.log('Geocoding start point:', locationName);
+    
+    if (!GOOGLE_MAPS_API_KEY) {
+      console.warn('Google Maps API key not found, using fallback geocoding');
+      return getFallbackLocationCoords(locationName);
+    }
+
+    try {
+      const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(locationName)}&region=LK&key=${GOOGLE_MAPS_API_KEY}`;
+      console.log('Geocoding URL:', url);
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      console.log('Geocoding response:', data);
+      
+      if (data.status === 'OK' && data.results.length > 0) {
+        const location = data.results[0].geometry.location;
+        const result = {
+          latitude: location.lat,
+          longitude: location.lng
+        };
+        console.log(`Successfully geocoded "${locationName}" to:`, result);
+        return result;
+      } else {
+        console.warn('Geocoding failed:', data.status, data.error_message);
+        return getFallbackLocationCoords(locationName);
+      }
+    } catch (error) {
+      console.error('Error geocoding location:', error);
+      return getFallbackLocationCoords(locationName);
+    }
+  };
+
+  // Fallback geocoding for when API is not available
+  const getFallbackLocationCoords = (locationName: string): { latitude: number; longitude: number } => {
+    console.log('Using fallback geocoding for:', locationName);
+    
+    const locationMap: { [key: string]: { latitude: number; longitude: number } } = {
+      'Colombo': { latitude: 6.9271, longitude: 79.8612 },
+      'Kandy': { latitude: 7.2936, longitude: 80.6417 },
+      'Galle': { latitude: 6.0329, longitude: 80.217 },
+      'Negombo': { latitude: 7.2083, longitude: 79.8358 },
+      'Bandaranaike International Airport': { latitude: 7.1808, longitude: 79.8841 },
+      'Ella': { latitude: 6.8667, longitude: 81.0469 },
+      'Nuwara Eliya': { latitude: 6.9497, longitude: 80.7891 },
+      'Anuradhapura': { latitude: 8.3114, longitude: 80.4037 },
+      'Polonnaruwa': { latitude: 7.9403, longitude: 81.0188 },
+      'Sigiriya': { latitude: 7.9570, longitude: 80.7600 },
+      'Panadura': { latitude: 6.7133, longitude: 79.9067 },
+      'Kalutara': { latitude: 6.5854, longitude: 79.9607 },
+      'Matara': { latitude: 5.9549, longitude: 80.5550 },
+      'Ratnapura': { latitude: 6.6828, longitude: 80.4126 },
+      'Batticaloa': { latitude: 7.7170, longitude: 81.7000 },
+      'Trincomalee': { latitude: 8.5874, longitude: 81.2152 },
+      'Jaffna': { latitude: 9.6615, longitude: 80.0255 },
+      'Kurunegala': { latitude: 7.4863, longitude: 80.3623 },
+      'Puttalam': { latitude: 8.0362, longitude: 79.8283 },
+      'Kegalle': { latitude: 7.2513, longitude: 80.3464 },
+      'Badulla': { latitude: 6.9934, longitude: 81.0550 },
+      'Hambantota': { latitude: 6.1241, longitude: 81.1185 },
+      'Ampara': { latitude: 7.2956, longitude: 81.6744 },
+      'Monaragala': { latitude: 6.8720, longitude: 81.3512 },
+      'Vavuniya': { latitude: 8.7514, longitude: 80.4971 },
+      'Mannar': { latitude: 8.9800, longitude: 79.9200 },
+      'Mullaitivu': { latitude: 9.2672, longitude: 80.8142 },
+      'Kilinochchi': { latitude: 9.3847, longitude: 80.4037 },
+    };
+    
+    // Try exact match first
+    const exactMatch = locationMap[locationName];
+    if (exactMatch) {
+      console.log(`Found exact match for "${locationName}":`, exactMatch);
+      return exactMatch;
+    }
+    
+    // Try case-insensitive match
+    const lowerName = locationName.toLowerCase();
+    const matchedKey = Object.keys(locationMap).find(key => 
+      key.toLowerCase() === lowerName
+    );
+    
+    if (matchedKey) {
+      console.log(`Found case-insensitive match for "${locationName}":`, locationMap[matchedKey]);
+      return locationMap[matchedKey];
+    }
+    
+    // Try partial match
+    const partialMatch = Object.keys(locationMap).find(key => 
+      key.toLowerCase().includes(lowerName) || lowerName.includes(key.toLowerCase())
+    );
+    
+    if (partialMatch) {
+      console.log(`Found partial match for "${locationName}":`, locationMap[partialMatch]);
+      return locationMap[partialMatch];
+    }
+    
+    // Default to Colombo if no match found
+    console.warn(`Location "${locationName}" not found in mapping, defaulting to Colombo`);
+    return { latitude: 6.9271, longitude: 79.8612 };
+  };
+
   useEffect(() => {
     // Animate component entrance
     Animated.parallel([
@@ -173,66 +310,59 @@ export default function RouteDisplayScreen() {
         const places = parsedItinerary.flatMap(day => day.places);
         setAllPlaces(places);
         
-        // Get start location coordinates from startPoint
-        let startCoords: { latitude: number; longitude: number } | null = null;
+        // Get start location coordinates from startPoint using proper geocoding
         if (startPoint && typeof startPoint === 'string') {
-          // Simple geocoding for major Sri Lankan cities
-          const locationMap: { [key: string]: { latitude: number; longitude: number } } = {
-            'Colombo': { latitude: 6.9271, longitude: 79.8612 },
-            'Kandy': { latitude: 7.2936, longitude: 80.6417 },
-            'Galle': { latitude: 6.0329, longitude: 80.217 },
-            'Negombo': { latitude: 7.2083, longitude: 79.8358 },
-            'Bandaranaike International Airport': { latitude: 7.1808, longitude: 79.8841 },
-            'Ella': { latitude: 6.8667, longitude: 81.0469 },
-            'Nuwara Eliya': { latitude: 6.9497, longitude: 80.7891 },
-            'Anuradhapura': { latitude: 8.3114, longitude: 80.4037 },
-            'Polonnaruwa': { latitude: 7.9403, longitude: 81.0188 },
-            'Sigiriya': { latitude: 7.9570, longitude: 80.7600 },
-          };
-          
-          startCoords = locationMap[startPoint] || { latitude: 6.9271, longitude: 79.8612 };
-          setStartLocation(startCoords);
+          geocodeStartPoint(startPoint)
+            .then(startCoords => {
+              if (startCoords) {
+                console.log(`Geocoded "${startPoint}" to:`, startCoords);
+                setStartLocation(startCoords);
+                
+                // Calculate map region to show all places including start point
+                const allCoordinates = [...places.map(place => place.coordinates), startCoords];
+                
+                if (allCoordinates.length > 0 && !initialRegionSet) {
+                  const latitudes = allCoordinates.map(coord => coord.latitude);
+                  const longitudes = allCoordinates.map(coord => coord.longitude);
+                  
+                  const minLat = Math.min(...latitudes);
+                  const maxLat = Math.max(...latitudes);
+                  const minLng = Math.min(...longitudes);
+                  const maxLng = Math.max(...longitudes);
+                  
+                  const centerLat = (minLat + maxLat) / 2;
+                  const centerLng = (minLng + maxLng) / 2;
+                  const deltaLat = (maxLat - minLat) * 1.3;
+                  const deltaLng = (maxLng - minLng) * 1.3;
+                  
+                  const newRegion = {
+                    latitude: centerLat,
+                    longitude: centerLng,
+                    latitudeDelta: Math.max(deltaLat, 0.05),
+                    longitudeDelta: Math.max(deltaLng, 0.05),
+                  };
+                  
+                  setMapRegion(newRegion);
+                  setInitialRegionSet(true);
+                }
+                
+                // Calculate initial route info for the recommended route
+                if (allPlaces.length > 0) {
+                  setIsLoadingRoute(true);
+                  setTimeout(() => {
+                    calculateRouteInfo(selectedRouteType);
+                  }, 1500);
+                }
+              }
+            })
+            .catch(error => {
+              console.error('Error geocoding start point:', error);
+              // Fallback to default location
+              const fallbackCoords = getFallbackLocationCoords(startPoint);
+              setStartLocation(fallbackCoords);
+            });
         }
         
-        // Calculate map region to show all places including start point
-        const allCoordinates = [...places.map(place => place.coordinates)];
-        if (startCoords) {
-          allCoordinates.push(startCoords);
-        }
-        
-        if (allCoordinates.length > 0 && !initialRegionSet) {
-          const latitudes = allCoordinates.map(coord => coord.latitude);
-          const longitudes = allCoordinates.map(coord => coord.longitude);
-          
-          const minLat = Math.min(...latitudes);
-          const maxLat = Math.max(...latitudes);
-          const minLng = Math.min(...longitudes);
-          const maxLng = Math.max(...longitudes);
-          
-          const centerLat = (minLat + maxLat) / 2;
-          const centerLng = (minLng + maxLng) / 2;
-          const deltaLat = (maxLat - minLat) * 1.3; // Reduced padding
-          const deltaLng = (maxLng - minLng) * 1.3; // Reduced padding
-          
-          const newRegion = {
-            latitude: centerLat,
-            longitude: centerLng,
-            latitudeDelta: Math.max(deltaLat, 0.05), // Minimum zoom level
-            longitudeDelta: Math.max(deltaLng, 0.05), // Minimum zoom level
-          };
-          
-          setMapRegion(newRegion);
-          setInitialRegionSet(true);
-        }
-        
-        // Calculate initial route info for the recommended route
-        if (allPlaces.length > 0 && startCoords) {
-          setIsLoadingRoute(true);
-          // Simulate route calculation with realistic data
-          setTimeout(() => {
-            calculateRouteInfo(selectedRouteType);
-          }, 1500);
-        }
       } catch (error) {
         console.error('Error parsing itinerary:', error);
         Alert.alert('Error', 'Failed to load itinerary data');
@@ -247,32 +377,43 @@ export default function RouteDisplayScreen() {
       return;
     }
 
-    // Simulate route calculation based on places and route type
+    // Calculate more realistic distance and duration based on coordinates
     let totalDistance = 0;
     let totalDuration = 0;
 
-    // Calculate approximate distance and duration
-    for (let i = 0; i < allPlaces.length; i++) {
-      // Simulate distance calculation between consecutive places
-      const baseDistance = Math.random() * 50 + 20; // 20-70 km per segment
-      const baseDuration = Math.random() * 45 + 30; // 30-75 minutes per segment
+    // Add starting point distance if available
+    if (startLocation) {
+      const firstPlace = allPlaces[0];
+      const startDistance = calculateDistance(startLocation, firstPlace.coordinates);
+      totalDistance += startDistance;
+      totalDuration += calculateDrivingTime(startDistance, routeType);
+    }
+
+    // Calculate distance between consecutive places
+    for (let i = 0; i < allPlaces.length - 1; i++) {
+      const currentPlace = allPlaces[i];
+      const nextPlace = allPlaces[i + 1];
+      const segmentDistance = calculateDistance(currentPlace.coordinates, nextPlace.coordinates);
       
-      // Adjust based on route type
-      switch (routeType) {
-        case 'shortest':
-          totalDistance += baseDistance * 0.8; // 20% shorter
-          totalDuration += baseDuration * 0.7; // 30% faster
-          break;
-        case 'scenic':
-          totalDistance += baseDistance * 1.3; // 30% longer
-          totalDuration += baseDuration * 1.5; // 50% longer
-          break;
-        case 'recommended':
-        default:
-          totalDistance += baseDistance;
-          totalDuration += baseDuration;
-          break;
-      }
+      totalDistance += segmentDistance;
+      totalDuration += calculateDrivingTime(segmentDistance, routeType);
+    }
+
+    // Apply route-specific adjustments
+    switch (routeType) {
+      case 'shortest':
+        totalDistance *= 0.9; // 10% shorter due to optimized route
+        totalDuration *= 0.8; // 20% faster due to highways
+        break;
+      case 'scenic':
+        totalDistance *= 1.4; // 40% longer due to scenic detours
+        totalDuration *= 1.6; // 60% longer due to avoiding highways
+        break;
+      case 'recommended':
+      default:
+        totalDistance *= 1.1; // 10% longer for balanced route
+        totalDuration *= 1.1; // 10% longer for balanced route
+        break;
     }
 
     // Set the calculated route info
@@ -284,6 +425,39 @@ export default function RouteDisplayScreen() {
     });
     
     setIsLoadingRoute(false);
+  };
+
+  // Helper function to calculate distance between two coordinates (Haversine formula)
+  const calculateDistance = (point1: { latitude: number; longitude: number }, point2: { latitude: number; longitude: number }): number => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (point2.latitude - point1.latitude) * Math.PI / 180;
+    const dLon = (point2.longitude - point1.longitude) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(point1.latitude * Math.PI / 180) * Math.cos(point2.latitude * Math.PI / 180) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  // Helper function to calculate driving time based on distance and route type
+  const calculateDrivingTime = (distance: number, routeType: RouteType): number => {
+    let averageSpeed; // km/h
+    
+    switch (routeType) {
+      case 'shortest':
+        averageSpeed = 60; // Higher speed on highways
+        break;
+      case 'scenic':
+        averageSpeed = 35; // Lower speed on scenic routes
+        break;
+      case 'recommended':
+      default:
+        averageSpeed = 45; // Balanced speed
+        break;
+    }
+    
+    return (distance / averageSpeed) * 60; // Convert to minutes
   };
 
   const handleRouteReady = (result: any) => {
@@ -381,10 +555,6 @@ export default function RouteDisplayScreen() {
     return 'DRIVING'; // All routes use driving mode
   };
 
-  const getRouteOptimization = (routeType: RouteType): boolean => {
-    return routeType === 'shortest'; // Only optimize waypoints for shortest route
-  };
-
   // Enhanced route parameters to create truly different routes
   const getRouteParameters = (routeType: RouteType) => {
     switch (routeType) {
@@ -428,6 +598,45 @@ export default function RouteDisplayScreen() {
     }
   };
 
+  // Enhanced route optimization for different types
+  const getRouteOptimization = (routeType: RouteType): boolean => {
+    switch (routeType) {
+      case 'shortest':
+        return true; // Optimize waypoints for shortest route
+      case 'scenic':
+        return false; // Don't optimize for scenic - maintain order for better views
+      case 'recommended':
+      default:
+        return false; // Balanced approach
+    }
+  };
+
+  // Get route-specific stroke width for visual differentiation
+  const getRouteStrokeWidth = (routeType: RouteType): number => {
+    switch (routeType) {
+      case 'shortest':
+        return 6; // Thinner line for direct routes
+      case 'scenic':
+        return 10; // Thicker line for scenic routes
+      case 'recommended':
+      default:
+        return 8; // Standard width
+    }
+  };
+
+  // Get route-specific stroke pattern for visual differentiation
+  const getRouteStrokePattern = (routeType: RouteType): number[] | undefined => {
+    switch (routeType) {
+      case 'shortest':
+        return undefined; // Solid line for direct routes
+      case 'scenic':
+        return [10, 5]; // Dashed line for scenic routes
+      case 'recommended':
+      default:
+        return undefined; // Solid line for recommended
+    }
+  };
+
   const getRouteColor = (routeType: RouteType): string => {
     const option = ROUTE_OPTIONS.find(opt => opt.id === routeType);
     return option?.color || Colors.primary600;
@@ -435,7 +644,15 @@ export default function RouteDisplayScreen() {
 
   // Helper function to create ordered waypoints from itinerary
   const createOrderedWaypoints = (allPlaces: Place[], itinerary: DayItinerary[]): { latitude: number; longitude: number }[] => {
-    if (allPlaces.length <= 1) return [];
+    console.log('🗺️ createOrderedWaypoints called with:', {
+      allPlacesCount: allPlaces.length,
+      itineraryDays: itinerary.length
+    });
+    
+    if (allPlaces.length <= 1) {
+      console.log('❌ Not enough places for waypoints');
+      return [];
+    }
     
     const sortedPlaces: Place[] = [];
     
@@ -443,26 +660,100 @@ export default function RouteDisplayScreen() {
     itinerary
       .sort((a, b) => a.dayNumber - b.dayNumber)
       .forEach(day => {
-        sortedPlaces.push(...day.places);
+        console.log(`🗺️ Processing day ${day.dayNumber} with ${day.places.length} places`);
+        
+        // Validate places in the day
+        const validPlaces = day.places.filter(place => 
+          place.coordinates && 
+          typeof place.coordinates.latitude === 'number' && 
+          typeof place.coordinates.longitude === 'number' &&
+          !isNaN(place.coordinates.latitude) && 
+          !isNaN(place.coordinates.longitude)
+        );
+        
+        console.log(`✅ Day ${day.dayNumber}: ${validPlaces.length} valid places out of ${day.places.length}`);
+        sortedPlaces.push(...validPlaces);
       });
     
     // Return all but the last place (which becomes the destination)
-    return sortedPlaces.slice(0, -1).map(place => place.coordinates);
+    const waypoints = sortedPlaces.slice(0, -1).map(place => place.coordinates);
+    
+    console.log('🗺️ Generated waypoints:', {
+      totalPlaces: sortedPlaces.length,
+      waypointsCount: waypoints.length,
+      waypoints: waypoints.map((wp, index) => ({
+        index,
+        coordinates: wp,
+        place: sortedPlaces[index]?.name
+      }))
+    });
+    
+    return waypoints;
   };
 
   // Helper function to get the final destination
   const getFinalDestination = (allPlaces: Place[], itinerary: DayItinerary[]): { latitude: number; longitude: number } | undefined => {
-    if (allPlaces.length === 0) return undefined;
+    console.log('🎯 getFinalDestination called with:', {
+      allPlacesCount: allPlaces.length,
+      itineraryDays: itinerary.length,
+      itinerary: itinerary.map(day => ({ dayNumber: day.dayNumber, placesCount: day.places.length }))
+    });
+    
+    if (allPlaces.length === 0) {
+      console.log('❌ No places available for destination');
+      return undefined;
+    }
     
     // Get the last place from the last day
     const lastDay = Math.max(...itinerary.map(day => day.dayNumber));
     const lastDayItinerary = itinerary.find(day => day.dayNumber === lastDay);
     
+    console.log('🎯 Last day analysis:', {
+      lastDayNumber: lastDay,
+      lastDayItinerary: lastDayItinerary ? {
+        dayNumber: lastDayItinerary.dayNumber,
+        placesCount: lastDayItinerary.places.length,
+        places: lastDayItinerary.places.map(p => ({ name: p.name, coordinates: p.coordinates }))
+      } : null
+    });
+    
     if (lastDayItinerary && lastDayItinerary.places.length > 0) {
-      return lastDayItinerary.places[lastDayItinerary.places.length - 1].coordinates;
+      const lastPlace = lastDayItinerary.places[lastDayItinerary.places.length - 1];
+      
+      console.log('🎯 Last place from last day:', {
+        name: lastPlace.name,
+        coordinates: lastPlace.coordinates
+      });
+      
+      // Validate coordinates
+      if (lastPlace.coordinates && 
+          typeof lastPlace.coordinates.latitude === 'number' && 
+          typeof lastPlace.coordinates.longitude === 'number' &&
+          !isNaN(lastPlace.coordinates.latitude) && 
+          !isNaN(lastPlace.coordinates.longitude)) {
+        console.log('✅ Valid final destination found:', lastPlace.coordinates);
+        return lastPlace.coordinates;
+      }
     }
     
-    return allPlaces[allPlaces.length - 1].coordinates;
+    // Fallback to last place from all places
+    const lastPlace = allPlaces[allPlaces.length - 1];
+    console.log('🎯 Fallback to last place from all places:', {
+      name: lastPlace?.name,
+      coordinates: lastPlace?.coordinates
+    });
+    
+    if (lastPlace && lastPlace.coordinates && 
+        typeof lastPlace.coordinates.latitude === 'number' && 
+        typeof lastPlace.coordinates.longitude === 'number' &&
+        !isNaN(lastPlace.coordinates.latitude) && 
+        !isNaN(lastPlace.coordinates.longitude)) {
+      console.log('✅ Valid fallback destination found:', lastPlace.coordinates);
+      return lastPlace.coordinates;
+    }
+    
+    console.log('❌ No valid destination found');
+    return undefined;
   };
 
   const calculateEstimatedCost = (distance: number, routeType: RouteType): string => {
@@ -543,24 +834,61 @@ export default function RouteDisplayScreen() {
   }) => {
     const [modalRouteInfo, setModalRouteInfo] = useState<RouteInfo | null>(null);
     const [isModalLoading, setIsModalLoading] = useState(false);
+    const [currentMapRegion, setCurrentMapRegion] = useState(mapRegion);
+    const [shouldRenderRoute, setShouldRenderRoute] = useState(false);
 
     const currentRoute = ROUTE_OPTIONS.find(option => option.id === routeType);
 
     const handleModalRouteReady = (result: any) => {
+      console.log('✅ MapViewDirections Success - Route loaded!');
+      console.log('Distance:', result.distance);
+      console.log('Duration:', result.duration);
+      console.log('================================');
+      
       setIsModalLoading(false);
-      setModalRouteInfo({
-        distance: `${result.distance.toFixed(1)} km`,
-        duration: `${Math.round(result.duration)} min`,
-        estimatedCost: calculateEstimatedCost(result.distance, routeType),
-        routeType: routeType,
-      });
+      
+      if (result.distance && result.duration) {
+        const routeData = {
+          distance: `${result.distance.toFixed(1)} km`,
+          duration: `${Math.round(result.duration)} min`,
+          estimatedCost: calculateEstimatedCost(result.distance, routeType),
+          routeType: routeType,
+        };
+        
+        console.log('✅ Route info set:', routeData);
+        setModalRouteInfo(routeData);
+        
+        // Fit map to route
+        if (result.coordinates && result.coordinates.length > 0) {
+          const coordinates = result.coordinates;
+          const latitudes = coordinates.map((coord: any) => coord.latitude);
+          const longitudes = coordinates.map((coord: any) => coord.longitude);
+          
+          const minLat = Math.min(...latitudes);
+          const maxLat = Math.max(...latitudes);
+          const minLng = Math.min(...longitudes);
+          const maxLng = Math.max(...longitudes);
+          
+          const centerLat = (minLat + maxLat) / 2;
+          const centerLng = (minLng + maxLng) / 2;
+          const deltaLat = (maxLat - minLat) * 1.2;
+          const deltaLng = (maxLng - minLng) * 1.2;
+          
+          const newRegion = {
+            latitude: centerLat,
+            longitude: centerLng,
+            latitudeDelta: Math.max(deltaLat, 0.01),
+            longitudeDelta: Math.max(deltaLng, 0.01),
+          };
+          
+          setCurrentMapRegion(newRegion);
+        }
+      }
     };
 
     const handleModalRouteError = (error: any) => {
+      console.error('❌ MapViewDirections Error:', error);
       setIsModalLoading(false);
-      console.error('Modal route error:', error);
-      // Don't show alert for every error to avoid UI freezing
-      // Alert.alert('Route Error', 'Unable to calculate route. Please try again.');
     };
 
     const getMarkerColor = (dayNumber: number) => {
@@ -568,53 +896,67 @@ export default function RouteDisplayScreen() {
       return colors[(dayNumber - 1) % colors.length];
     };
 
-    // Enhanced route optimization based on route type
-    const getRouteOptimization = (routeType: RouteType): boolean => {
-      return routeType === 'shortest';
-    };
-
-    // Get route avoid parameters based on route type
-    const getRouteAvoid = (routeType: RouteType): string => {
-      switch (routeType) {
-        case 'shortest':
-          return 'tolls'; // Avoid tolls for shortest route
-        case 'scenic':
-          return 'highways'; // Avoid highways for scenic route
-        case 'recommended':
-        default:
-          return ''; // No avoidances for recommended route
-      }
-    };
-
     // Get proper destination for the route
     const getDestination = (): { latitude: number; longitude: number } | undefined => {
-      return getFinalDestination(allPlaces, itinerary);
+      const finalDestination = getFinalDestination(allPlaces, itinerary);
+      
+      // Validate that destination has valid coordinates
+      if (finalDestination && 
+          typeof finalDestination.latitude === 'number' && 
+          typeof finalDestination.longitude === 'number' &&
+          !isNaN(finalDestination.latitude) && 
+          !isNaN(finalDestination.longitude)) {
+        return finalDestination;
+      }
+      
+      console.warn('Invalid destination coordinates, using fallback');
+      return undefined;
     };
 
     // Get waypoints ordered by day and sequence
     const getOrderedWaypoints = (): { latitude: number; longitude: number }[] => {
-      return createOrderedWaypoints(allPlaces, itinerary);
+      const waypoints = createOrderedWaypoints(allPlaces, itinerary);
+      
+      // Filter out invalid waypoints
+      return waypoints.filter(wp => 
+        wp && 
+        typeof wp.latitude === 'number' && 
+        typeof wp.longitude === 'number' &&
+        !isNaN(wp.latitude) && 
+        !isNaN(wp.longitude)
+      );
     };
 
     useEffect(() => {
       if (visible) {
+        console.log('🔄 Modal opened - initializing route');
         setIsModalLoading(true);
         setModalRouteInfo(null);
-        // Small delay to ensure modal is fully rendered before starting route calculation
-        const timer = setTimeout(() => {
-          // Only start loading if modal is still visible
-          if (visible) {
-            setIsModalLoading(true);
-          }
-        }, 100);
+        setCurrentMapRegion(mapRegion);
         
-        return () => clearTimeout(timer);
+        // Validate required data
+        const destination = getDestination();
+        const validationWaypoints = getOrderedWaypoints();
+        
+        if (startLocation && destination && GOOGLE_DIRECTIONS_API_KEY) {
+          console.log('✅ All requirements met - will render route');
+          setShouldRenderRoute(true);
+        } else {
+          console.log('❌ Missing requirements:', {
+            startLocation: !!startLocation,
+            destination: !!destination,
+            apiKey: !!GOOGLE_DIRECTIONS_API_KEY
+          });
+          setIsModalLoading(false);
+          setShouldRenderRoute(false);
+        }
       } else {
-        // Clear state when modal is hidden
+        console.log('🔄 Modal closed - clearing state');
         setIsModalLoading(false);
         setModalRouteInfo(null);
+        setShouldRenderRoute(false);
       }
-    }, [visible, routeType]); // Added routeType as dependency
+    }, [visible, routeType]);
 
     return (
       <Modal
@@ -687,7 +1029,8 @@ export default function RouteDisplayScreen() {
             <MapView
               style={styles.modalMap}
               provider={PROVIDER_GOOGLE}
-              initialRegion={mapRegion}
+              region={currentMapRegion}
+              onRegionChangeComplete={setCurrentMapRegion}
               showsUserLocation={true}
               showsMyLocationButton={true}
               showsCompass={true}
@@ -730,29 +1073,52 @@ export default function RouteDisplayScreen() {
                 .flat()
               }
 
-              {/* ENHANCED ROUTE DISPLAY with proper Google Maps Directions API implementation */}
-              {GOOGLE_MAPS_API_KEY && startLocation && allPlaces.length > 0 && (
-                <MapViewDirections
-                  key={`modal-${routeType}-${Date.now()}`}
-                  origin={startLocation}
-                  destination={getDestination()}
-                  waypoints={getOrderedWaypoints()}
-                  apikey={GOOGLE_MAPS_API_KEY}
-                  strokeWidth={8}
-                  strokeColor={currentRoute?.color || Colors.primary600}
-                  mode="DRIVING"
-                  optimizeWaypoints={getRouteOptimization(routeType)}
-                  language="en"
-                  region="LK"
-                  onReady={handleModalRouteReady}
-                  onError={handleModalRouteError}
-                  resetOnChange={true}
-                  precision="high"
-                  timePrecision="now"
-                  splitWaypoints={false}
-                />
+              {/* ROUTE DISPLAY - Render only when conditions are met */}
+              {shouldRenderRoute && GOOGLE_DIRECTIONS_API_KEY && (
+                (() => {
+                  console.log('🚀 Rendering MapViewDirections for', routeType);
+                  
+                  const finalDestination = getFinalDestination(allPlaces, itinerary);
+                  const routeWaypoints = createOrderedWaypoints(allPlaces, itinerary);
+                  
+                  if (!startLocation || !finalDestination) {
+                    console.log('❌ Missing coordinates for route');
+                    return null;
+                  }
+                  
+                  const routeKey = `${routeType}-${startLocation.latitude}-${startLocation.longitude}-${finalDestination.latitude}-${finalDestination.longitude}`;
+                  
+                  return (
+                    <MapViewDirections
+                      key={routeKey}
+                      origin={startLocation}
+                      destination={finalDestination}
+                      waypoints={routeWaypoints.length > 0 ? routeWaypoints : undefined}
+                      apikey={GOOGLE_DIRECTIONS_API_KEY}
+                      strokeWidth={6}
+                      strokeColor={currentRoute?.color || Colors.primary600}
+                      mode="DRIVING"
+                      precision="high"
+                      optimizeWaypoints={routeType === 'shortest'}
+                      onReady={handleModalRouteReady}
+                      onError={handleModalRouteError}
+                    />
+                  );
+                })()
               )}
             </MapView>
+            
+            {/* Loading overlay when route is being calculated */}
+            {isModalLoading && (
+              <View style={[styles.modalLoadingContainer, { position: 'absolute', top: '50%', left: '50%', transform: [{ translateX: -50 }, { translateY: -50 }] }]}>
+                <View style={styles.modalLoadingSpinner}>
+                  <Ionicons name="refresh" size={24} color={currentRoute?.color} />
+                </View>
+                <ThemedText style={styles.modalLoadingText}>
+                  Loading {routeType} route...
+                </ThemedText>
+              </View>
+            )}
           </View>
           </View>
 
