@@ -625,7 +625,7 @@ export default function RouteDisplayScreen() {
         supportedOrientations={['portrait']}
         hardwareAccelerated={true}
       >
-        <SafeAreaView style={styles.modalContainer}>
+        <View style={styles.modalContainer}>
           <StatusBar barStyle="light-content" backgroundColor={currentRoute?.color} />
           
           {/* Modal Header */}
@@ -650,38 +650,40 @@ export default function RouteDisplayScreen() {
             </View>
           </LinearGradient>
 
-          {/* Route Statistics */}
-          {isModalLoading ? (
-            <View style={styles.modalLoadingContainer}>
-              <View style={styles.modalLoadingSpinner}>
-                <Ionicons name="refresh" size={24} color={currentRoute?.color} />
+          {/* Modal Content with background */}
+          <View style={styles.modalContent}>
+            {/* Route Statistics */}
+            {isModalLoading ? (
+              <View style={styles.modalLoadingContainer}>
+                <View style={styles.modalLoadingSpinner}>
+                  <Ionicons name="refresh" size={24} color={currentRoute?.color} />
+                </View>
+                <ThemedText style={styles.modalLoadingText}>
+                  Calculating {routeType} route from {startLocation ? 'start point' : 'origin'} through {allPlaces.length} destinations...
+                </ThemedText>
               </View>
-              <ThemedText style={styles.modalLoadingText}>
-                Calculating {routeType} route from {startLocation ? 'start point' : 'origin'} through {allPlaces.length} destinations...
-              </ThemedText>
-            </View>
-          ) : modalRouteInfo ? (
-            <View style={styles.modalRouteStats}>
-              <View style={styles.modalStatCard}>
-                <Ionicons name="speedometer-outline" size={20} color={currentRoute?.color} />
-                <ThemedText style={styles.modalStatValue}>{modalRouteInfo.distance}</ThemedText>
-                <ThemedText style={styles.modalStatLabel}>Distance</ThemedText>
+            ) : modalRouteInfo ? (
+              <View style={styles.modalRouteStats}>
+                <View style={styles.modalStatCard}>
+                  <Ionicons name="speedometer-outline" size={20} color={currentRoute?.color} />
+                  <ThemedText style={styles.modalStatValue}>{modalRouteInfo.distance}</ThemedText>
+                  <ThemedText style={styles.modalStatLabel}>Distance</ThemedText>
+                </View>
+                <View style={styles.modalStatCard}>
+                  <Ionicons name="time-outline" size={20} color={currentRoute?.color} />
+                  <ThemedText style={styles.modalStatValue}>{modalRouteInfo.duration}</ThemedText>
+                  <ThemedText style={styles.modalStatLabel}>Duration</ThemedText>
+                </View>
+                <View style={styles.modalStatCard}>
+                  <Ionicons name="wallet-outline" size={20} color={currentRoute?.color} />
+                  <ThemedText style={styles.modalStatValue}>{modalRouteInfo.estimatedCost}</ThemedText>
+                  <ThemedText style={styles.modalStatLabel}>Est. Cost</ThemedText>
+                </View>
               </View>
-              <View style={styles.modalStatCard}>
-                <Ionicons name="time-outline" size={20} color={currentRoute?.color} />
-                <ThemedText style={styles.modalStatValue}>{modalRouteInfo.duration}</ThemedText>
-                <ThemedText style={styles.modalStatLabel}>Duration</ThemedText>
-              </View>
-              <View style={styles.modalStatCard}>
-                <Ionicons name="wallet-outline" size={20} color={currentRoute?.color} />
-                <ThemedText style={styles.modalStatValue}>{modalRouteInfo.estimatedCost}</ThemedText>
-                <ThemedText style={styles.modalStatLabel}>Est. Cost</ThemedText>
-              </View>
-            </View>
-          ) : null}
+            ) : null}
 
-          {/* Full Screen Map */}
-          <View style={styles.modalMapContainer}>
+            {/* Full Screen Map */}
+            <View style={styles.modalMapContainer}>
             <MapView
               style={styles.modalMap}
               provider={PROVIDER_GOOGLE}
@@ -752,6 +754,7 @@ export default function RouteDisplayScreen() {
               )}
             </MapView>
           </View>
+          </View>
 
           {/* Bottom Action */}
           <View style={styles.modalBottomAction}>
@@ -766,7 +769,7 @@ export default function RouteDisplayScreen() {
               style={[styles.modalSelectButton, { backgroundColor: currentRoute?.color }]}
             />
           </View>
-        </SafeAreaView>
+        </View>
       </Modal>
     );
   };
@@ -1676,17 +1679,21 @@ const styles = StyleSheet.create({
   // Modal Styles
   modalContainer: {
     flex: 1,
+    backgroundColor: 'transparent',
+  },
+  modalContent: {
+    flex: 1,
     backgroundColor: Colors.secondary50,
   },
   modalHeader: {
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    paddingTop: Platform.OS === 'ios' ? 60 : (StatusBar.currentHeight || 24) + 20, // Increased padding for safe area
     paddingBottom: 20,
     paddingHorizontal: 20,
     alignItems: 'center',
   },
   modalCloseButton: {
     position: 'absolute',
-    top: Platform.OS === 'android' ? StatusBar.currentHeight || 0 + 16 : 16,
+    top: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight || 24) + 10, // Positioned in safe touchable area
     left: 20,
     width: 40,
     height: 40,
@@ -1698,7 +1705,7 @@ const styles = StyleSheet.create({
   },
   modalHeaderCenter: {
     alignItems: 'center',
-    marginTop: 60,
+    marginTop: 10,
   },
   modalHeaderIcon: {
     width: 60,
