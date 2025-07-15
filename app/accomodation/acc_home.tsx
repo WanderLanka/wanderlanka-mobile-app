@@ -61,12 +61,13 @@ export default function AccomodationHomeScreen() {
         </View>
 
           <View style={styles.searchArea}>
+  
             <CustomTextInput
               label=''
               placeholder='Search Accomodations'
               leftIcon='location-outline'
               containerStyle={[styles.searchInput, { marginBottom: 0 }]}
-            />
+              />
             <CustomButton
               variant='primary'
               size='small'
