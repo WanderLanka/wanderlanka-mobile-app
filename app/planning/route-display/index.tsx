@@ -33,6 +33,7 @@ interface RouteOption {
   description: string;
   icon: string;
   color: string;
+  benefits: string[];
 }
 
 // Types
@@ -55,6 +56,24 @@ interface DayItinerary {
   places: Place[];
 }
 
+interface GeneratedRoute {
+  id: RouteType;
+  name: string;
+  type: RouteType;
+  color: string;
+  totalDistance: number;
+  totalDuration: number;
+  segments: any[];
+  coordinates: { latitude: number; longitude: number }[];
+  polyline: string;
+  instructions: string[];
+  bounds: {
+    northeast: { latitude: number; longitude: number };
+    southwest: { latitude: number; longitude: number };
+  };
+  highlights: string[];
+}
+
 interface RouteInfo {
   distance: string;
   duration: string;
@@ -73,59 +92,35 @@ const GOOGLE_DIRECTIONS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_
                                  process.env.GOOGLE_DIRECTIONS_API_KEY ||
                                  GOOGLE_MAPS_API_KEY; // fallback to general API key
 
-// Debug: Check API key availability
-console.log('=== API Keys Debug ===');
-console.log('Available env vars:');
-console.log('EXPO_PUBLIC_GOOGLE_MAPS_API_KEY:', process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ? 'YES' : 'NO');
-console.log('EXPO_PUBLIC_GOOGLE_PLACES_API_KEY:', process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY ? 'YES' : 'NO');
-console.log('EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_KEY:', process.env.EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_KEY ? 'YES' : 'NO');
-console.log('GOOGLE_MAPS_DIRECTIONS_API_KEY:', process.env.GOOGLE_MAPS_DIRECTIONS_API_KEY ? 'YES' : 'NO');
-console.log('Final API keys:');
-console.log('GOOGLE_MAPS_API_KEY (first 10 chars):', GOOGLE_MAPS_API_KEY ? GOOGLE_MAPS_API_KEY.substring(0, 10) + '...' : 'MISSING');
-console.log('GOOGLE_DIRECTIONS_API_KEY (first 10 chars):', GOOGLE_DIRECTIONS_API_KEY ? GOOGLE_DIRECTIONS_API_KEY.substring(0, 10) + '...' : 'MISSING');
-console.log('=====================');
-
-if (!GOOGLE_MAPS_API_KEY) {
-  console.error('❌ Google Maps API key not found. Available env vars:', {
-    EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: !!process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
-    GOOGLE_MAPS_API_KEY: !!process.env.GOOGLE_MAPS_API_KEY,
-    EXPO_PUBLIC_GOOGLE_PLACES_API_KEY: !!process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY,
-  });
-}
-if (!GOOGLE_DIRECTIONS_API_KEY) {
-  console.error('❌ Google Directions API key not found. Available env vars:', {
-    EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_KEY: !!process.env.EXPO_PUBLIC_GOOGLE_DIRECTIONS_API_KEY,
-    GOOGLE_MAPS_DIRECTIONS_API_KEY: !!process.env.GOOGLE_MAPS_DIRECTIONS_API_KEY,
-    GOOGLE_DIRECTIONS_API_KEY: !!process.env.GOOGLE_DIRECTIONS_API_KEY,
-  });
-}
-
-// Route options
+// Route options with contrasting colors for better visual differentiation
 const ROUTE_OPTIONS: RouteOption[] = [
   {
     id: 'recommended',
     name: 'Recommended',
     description: 'Balanced route with best attractions',
     icon: 'star',
-    color: Colors.primary600,
+    color: '#3b82f6',
+    benefits: ['Optimized for tourism', 'Popular attractions', 'Good road conditions'],
   },
   {
     id: 'shortest',
     name: 'Shortest',
-    description: 'Fastest route to destination',
+    description: 'Fastest route avoiding tolls',
     icon: 'flash',
-    color: Colors.success,
+    color: '#10b981',
+    benefits: ['Fastest route', 'Fuel efficient', 'Direct path'],
   },
   {
     id: 'scenic',
     name: 'Scenic',
-    description: 'Most beautiful route with views',
+    description: 'Most beautiful route avoiding highways',
     icon: 'camera',
-    color: Colors.info,
+    color: '#f59e0b',
+    benefits: ['Beautiful views', 'Cultural sites', 'Local experiences'],
   },
 ];
 
-export default function RouteDisplayScreen() {
+function RouteDisplayScreen() {
   const params = useLocalSearchParams();
   const { destination, startPoint, startDate, endDate, itinerary: itineraryString } = params;
   
@@ -135,10 +130,33 @@ export default function RouteDisplayScreen() {
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
   
+  // New state for route generation
+  const [generatedRoutes, setGeneratedRoutes] = useState<GeneratedRoute[]>([]);
+  const [selectedRoute, setSelectedRoute] = useState<GeneratedRoute | null>(null);
+  const [isGeneratingRoutes, setIsGeneratingRoutes] = useState(false);
+  const [routesGenerated, setRoutesGenerated] = useState(false);
+  const [showRouteComparison, setShowRouteComparison] = useState(false);
+  
   // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
   const spinAnim = useRef(new Animated.Value(0)).current;
+
+  // Initialize animations
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   // Start spinning animation for loading
   useEffect(() => {
@@ -225,1274 +243,978 @@ export default function RouteDisplayScreen() {
     const locationMap: { [key: string]: { latitude: number; longitude: number } } = {
       'Colombo': { latitude: 6.9271, longitude: 79.8612 },
       'Kandy': { latitude: 7.2936, longitude: 80.6417 },
-      'Galle': { latitude: 6.0329, longitude: 80.217 },
-      'Negombo': { latitude: 7.2083, longitude: 79.8358 },
-      'Bandaranaike International Airport': { latitude: 7.1808, longitude: 79.8841 },
-      'Ella': { latitude: 6.8667, longitude: 81.0469 },
-      'Nuwara Eliya': { latitude: 6.9497, longitude: 80.7891 },
+      'Galle': { latitude: 6.0535, longitude: 80.2210 },
+      'Nuwara Eliya': { latitude: 6.9708, longitude: 80.7580 },
       'Anuradhapura': { latitude: 8.3114, longitude: 80.4037 },
       'Polonnaruwa': { latitude: 7.9403, longitude: 81.0188 },
-      'Sigiriya': { latitude: 7.9570, longitude: 80.7600 },
-      'Panadura': { latitude: 6.7133, longitude: 79.9067 },
-      'Kalutara': { latitude: 6.5854, longitude: 79.9607 },
-      'Matara': { latitude: 5.9549, longitude: 80.5550 },
-      'Ratnapura': { latitude: 6.6828, longitude: 80.4126 },
-      'Batticaloa': { latitude: 7.7170, longitude: 81.7000 },
+      'Sigiriya': { latitude: 7.9571, longitude: 80.7601 },
+      'Ella': { latitude: 6.8721, longitude: 81.0461 },
+      'Arugam Bay': { latitude: 6.8405, longitude: 81.8364 },
       'Trincomalee': { latitude: 8.5874, longitude: 81.2152 },
       'Jaffna': { latitude: 9.6615, longitude: 80.0255 },
-      'Kurunegala': { latitude: 7.4863, longitude: 80.3623 },
-      'Puttalam': { latitude: 8.0362, longitude: 79.8283 },
-      'Kegalle': { latitude: 7.2513, longitude: 80.3464 },
-      'Badulla': { latitude: 6.9934, longitude: 81.0550 },
-      'Hambantota': { latitude: 6.1241, longitude: 81.1185 },
-      'Ampara': { latitude: 7.2956, longitude: 81.6744 },
-      'Monaragala': { latitude: 6.8720, longitude: 81.3512 },
-      'Vavuniya': { latitude: 8.7514, longitude: 80.4971 },
-      'Mannar': { latitude: 8.9800, longitude: 79.9200 },
-      'Mullaitivu': { latitude: 9.2672, longitude: 80.8142 },
-      'Kilinochchi': { latitude: 9.3847, longitude: 80.4037 },
+      'Bentota': { latitude: 6.4260, longitude: 79.9956 },
+      'Mirissa': { latitude: 5.9490, longitude: 80.4607 },
+      'Hikkaduwa': { latitude: 6.1391, longitude: 80.1014 },
+      'Pinnawala': { latitude: 7.2939, longitude: 80.3889 },
+      'Dambulla': { latitude: 7.8562, longitude: 80.6510 },
+      'Yala National Park': { latitude: 6.3782, longitude: 81.5061 },
+      'Udawalawe National Park': { latitude: 6.4390, longitude: 80.8856 },
+      'Horton Plains': { latitude: 6.8069, longitude: 80.8044 },
+      'Adam\'s Peak': { latitude: 6.8092, longitude: 80.4992 },
     };
-    
-    // Try exact match first
-    const exactMatch = locationMap[locationName];
-    if (exactMatch) {
-      console.log(`Found exact match for "${locationName}":`, exactMatch);
-      return exactMatch;
-    }
-    
-    // Try case-insensitive match
-    const lowerName = locationName.toLowerCase();
-    const matchedKey = Object.keys(locationMap).find(key => 
-      key.toLowerCase() === lowerName
+
+    const normalizedName = Object.keys(locationMap).find(key => 
+      key.toLowerCase().includes(locationName.toLowerCase()) || 
+      locationName.toLowerCase().includes(key.toLowerCase())
     );
-    
-    if (matchedKey) {
-      console.log(`Found case-insensitive match for "${locationName}":`, locationMap[matchedKey]);
-      return locationMap[matchedKey];
+
+    if (normalizedName && locationMap[normalizedName]) {
+      console.log(`Found fallback coordinates for "${locationName}":`, locationMap[normalizedName]);
+      return locationMap[normalizedName];
     }
-    
-    // Try partial match
-    const partialMatch = Object.keys(locationMap).find(key => 
-      key.toLowerCase().includes(lowerName) || lowerName.includes(key.toLowerCase())
-    );
-    
-    if (partialMatch) {
-      console.log(`Found partial match for "${locationName}":`, locationMap[partialMatch]);
-      return locationMap[partialMatch];
-    }
-    
-    // Default to Colombo if no match found
-    console.warn(`Location "${locationName}" not found in mapping, defaulting to Colombo`);
-    return { latitude: 6.9271, longitude: 79.8612 };
+
+    console.log(`No fallback found for "${locationName}", using default Colombo coordinates`);
+    return locationMap['Colombo'];
   };
 
+  // Initialize data
   useEffect(() => {
-    // Animate component entrance
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    const initializeData = async () => {
+      console.log('Initializing route display with params:', { destination, startPoint, startDate, endDate });
 
-    if (itineraryString) {
-      try {
-        const parsedItinerary: DayItinerary[] = JSON.parse(itineraryString as string);
-        setItinerary(parsedItinerary);
-        
-        // Extract all places from all days
-        const places = parsedItinerary.flatMap(day => day.places);
-        setAllPlaces(places);
-        
-        // Get start location coordinates from startPoint using proper geocoding
-        if (startPoint && typeof startPoint === 'string') {
-          geocodeStartPoint(startPoint)
-            .then(startCoords => {
-              if (startCoords) {
-                console.log(`Geocoded "${startPoint}" to:`, startCoords);
-                setStartLocation(startCoords);
-                
-                // Calculate map region to show all places including start point
-                const allCoordinates = [...places.map(place => place.coordinates), startCoords];
-                
-                if (allCoordinates.length > 0 && !initialRegionSet) {
-                  const latitudes = allCoordinates.map(coord => coord.latitude);
-                  const longitudes = allCoordinates.map(coord => coord.longitude);
-                  
-                  const minLat = Math.min(...latitudes);
-                  const maxLat = Math.max(...latitudes);
-                  const minLng = Math.min(...longitudes);
-                  const maxLng = Math.max(...longitudes);
-                  
-                  const centerLat = (minLat + maxLat) / 2;
-                  const centerLng = (minLng + maxLng) / 2;
-                  const deltaLat = (maxLat - minLat) * 1.3;
-                  const deltaLng = (maxLng - minLng) * 1.3;
-                  
-                  const newRegion = {
-                    latitude: centerLat,
-                    longitude: centerLng,
-                    latitudeDelta: Math.max(deltaLat, 0.05),
-                    longitudeDelta: Math.max(deltaLng, 0.05),
-                  };
-                  
-                  setMapRegion(newRegion);
-                  setInitialRegionSet(true);
-                }
-                
-                // Calculate initial route info for the recommended route
-                if (allPlaces.length > 0) {
-                  setIsLoadingRoute(true);
-                  setTimeout(() => {
-                    calculateRouteInfo(selectedRouteType);
-                  }, 1500);
-                }
-              }
-            })
-            .catch(error => {
-              console.error('Error geocoding start point:', error);
-              // Fallback to default location
-              const fallbackCoords = getFallbackLocationCoords(startPoint);
-              setStartLocation(fallbackCoords);
-            });
+      // Initialize default route info
+      const defaultRouteInfo = calculateRouteInfo('recommended');
+      setRouteInfo(defaultRouteInfo);
+
+      // Set default location if no start point
+      if (!startPoint) {
+        console.log('No start point provided, using default Colombo location');
+        setStartLocation({ latitude: 6.9271, longitude: 79.8612 });
+      } else {
+        // First, geocode start point if provided
+        console.log('Geocoding start point:', startPoint);
+        const coords = await geocodeStartPoint(startPoint as string);
+        if (coords) {
+          console.log('Start location coordinates:', coords);
+          setStartLocation(coords);
+        } else {
+          console.log('Geocoding failed, using default Colombo location');
+          setStartLocation({ latitude: 6.9271, longitude: 79.8612 });
         }
-        
-      } catch (error) {
-        console.error('Error parsing itinerary:', error);
-        Alert.alert('Error', 'Failed to load itinerary data');
       }
-    }
-  }, [itineraryString, startPoint, fadeAnim, slideAnim]);
 
-  // Function to calculate route info based on route type
-  const calculateRouteInfo = (routeType: RouteType) => {
-    if (allPlaces.length === 0) {
-      setIsLoadingRoute(false);
-      return;
-    }
+      if (itineraryString) {
+        try {
+          const parsedItinerary = JSON.parse(itineraryString as string);
+          console.log('Parsed itinerary:', parsedItinerary);
+          setItinerary(parsedItinerary);
 
-    // Calculate more realistic distance and duration based on coordinates
-    let totalDistance = 0;
-    let totalDuration = 0;
+          const places: Place[] = [];
+          parsedItinerary.forEach((day: DayItinerary) => {
+            places.push(...day.places);
+          });
+          setAllPlaces(places);
+          console.log('All places extracted:', places.length);
 
-    // Add starting point distance if available
-    if (startLocation) {
-      const firstPlace = allPlaces[0];
-      const startDistance = calculateDistance(startLocation, firstPlace.coordinates);
-      totalDistance += startDistance;
-      totalDuration += calculateDrivingTime(startDistance, routeType);
-    }
+          // Set initial map region based on first place
+          if (places.length > 0) {
+            const firstPlace = places[0];
+            const newRegion = {
+              latitude: firstPlace.coordinates.latitude,
+              longitude: firstPlace.coordinates.longitude,
+              latitudeDelta: 0.5,
+              longitudeDelta: 0.5,
+            };
+            console.log('Setting initial map region to first place:', newRegion);
+            setMapRegion(newRegion);
+            setInitialRegionSet(true);
+            
+            // Set fallback start location if not already set
+            if (!startLocation && startPoint) {
+              const fallbackStart = await geocodeStartPoint(startPoint as string);
+              if (fallbackStart) {
+                setStartLocation(fallbackStart);
+              } else {
+                // Use first place as fallback start location
+                setStartLocation(firstPlace.coordinates);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error parsing itinerary:', error);
+          Alert.alert('Error', 'Failed to load itinerary data');
+        }
+      } else {
+        console.log('No itinerary data provided');
+        // Set some default places for testing
+        const defaultPlaces: Place[] = [
+          {
+            id: '1',
+            name: 'Kandy',
+            address: 'Kandy, Sri Lanka',
+            coordinates: { latitude: 7.2936, longitude: 80.6417 }
+          },
+          {
+            id: '2',
+            name: 'Nuwara Eliya',
+            address: 'Nuwara Eliya, Sri Lanka',
+            coordinates: { latitude: 6.9708, longitude: 80.7580 }
+          }
+        ];
+        setAllPlaces(defaultPlaces);
+        setMapRegion({
+          latitude: 7.2936,
+          longitude: 80.6417,
+          latitudeDelta: 0.5,
+          longitudeDelta: 0.5,
+        });
+        setInitialRegionSet(true);
+      }
+    };
 
-    // Calculate distance between consecutive places
-    for (let i = 0; i < allPlaces.length - 1; i++) {
-      const currentPlace = allPlaces[i];
-      const nextPlace = allPlaces[i + 1];
-      const segmentDistance = calculateDistance(currentPlace.coordinates, nextPlace.coordinates);
-      
-      totalDistance += segmentDistance;
-      totalDuration += calculateDrivingTime(segmentDistance, routeType);
-    }
+    initializeData();
+  }, [destination, startPoint, startDate, endDate, itineraryString]);
 
-    // Apply route-specific adjustments
+  // Calculate route information based on type
+  const calculateRouteInfo = (routeType: RouteType): RouteInfo => {
+    // Mock calculation - in real app, this would call Google Directions API
+    const baseDistance = 150; // km
+    const baseDuration = 180; // minutes
+    
+    let distance: number, duration: number, cost: number;
+    
     switch (routeType) {
       case 'shortest':
-        totalDistance *= 0.9; // 10% shorter due to optimized route
-        totalDuration *= 0.8; // 20% faster due to highways
+        distance = baseDistance * 0.9; // 10% shorter
+        duration = baseDuration * 0.8; // 20% faster
+        cost = 1500; // LKR
         break;
       case 'scenic':
-        totalDistance *= 1.4; // 40% longer due to scenic detours
-        totalDuration *= 1.6; // 60% longer due to avoiding highways
+        distance = baseDistance * 1.2; // 20% longer
+        duration = baseDuration * 1.4; // 40% longer
+        cost = 2000; // LKR
         break;
       case 'recommended':
       default:
-        totalDistance *= 1.1; // 10% longer for balanced route
-        totalDuration *= 1.1; // 10% longer for balanced route
+        distance = baseDistance;
+        duration = baseDuration;
+        cost = 1750; // LKR
         break;
     }
 
-    // Set the calculated route info
-    setRouteInfo({
-      distance: `${totalDistance.toFixed(1)} km`,
-      duration: `${Math.round(totalDuration)} min`,
-      estimatedCost: calculateEstimatedCost(totalDistance, routeType),
-      routeType: routeType,
-    });
-    
-    setIsLoadingRoute(false);
+    return {
+      distance: `${Math.round(distance)} km`,
+      duration: `${Math.floor(duration / 60)}h ${duration % 60}m`,
+      estimatedCost: `LKR ${cost}`,
+      routeType,
+    };
   };
 
-  // Helper function to calculate distance between two coordinates (Haversine formula)
-  const calculateDistance = (point1: { latitude: number; longitude: number }, point2: { latitude: number; longitude: number }): number => {
-    const R = 6371; // Earth's radius in kilometers
-    const dLat = (point2.latitude - point1.latitude) * Math.PI / 180;
-    const dLon = (point2.longitude - point1.longitude) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(point1.latitude * Math.PI / 180) * Math.cos(point2.latitude * Math.PI / 180) *
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  };
-
-  // Helper function to calculate driving time based on distance and route type
-  const calculateDrivingTime = (distance: number, routeType: RouteType): number => {
-    let averageSpeed; // km/h
+  // Handle route selection from modal
+  const handleRouteSelect = async (routeType: RouteType) => {
+    console.log('Route selected:', routeType);
     
-    switch (routeType) {
-      case 'shortest':
-        averageSpeed = 60; // Higher speed on highways
-        break;
-      case 'scenic':
-        averageSpeed = 35; // Lower speed on scenic routes
-        break;
-      case 'recommended':
-      default:
-        averageSpeed = 45; // Balanced speed
-        break;
-    }
-    
-    return (distance / averageSpeed) * 60; // Convert to minutes
-  };
-
-  const handleRouteReady = (result: any) => {
-    setIsLoadingRoute(false);
-    setRouteInfo({
-      distance: `${result.distance.toFixed(1)} km`,
-      duration: `${Math.round(result.duration)} min`,
-      estimatedCost: calculateEstimatedCost(result.distance, selectedRouteType),
-      routeType: selectedRouteType,
-    });
-  };
-
-  const handleRouteSelection = (routeType: RouteType) => {
-    if (routeType === selectedRouteType) {
-      return; // Don't recalculate if same route type is selected
-    }
-    
-    setSelectedRouteType(routeType);
-    setIsLoadingRoute(true);
-    // Clear previous route info to trigger recalculation
-    setRouteInfo(null);
-    
-    // Recalculate route info for the new route type
-    setTimeout(() => {
-      calculateRouteInfo(routeType);
-    }, 1000);
-  };
-
-  // Add state to prevent rapid modal operations
-  const [isModalOperating, setIsModalOperating] = useState(false);
-  const modalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
-  const handleOpenRouteModal = (routeType: RouteType) => {
-    // Prevent rapid operations and check if modal is already visible
-    if (isModalOperating || isModalVisible) return;
-    
-    console.log('Opening modal for route type:', routeType);
-    
-    setIsModalOperating(true);
-    
-    // Clear any existing timeout
-    if (modalTimeoutRef.current) {
-      clearTimeout(modalTimeoutRef.current);
-    }
-    
-    // Set modal state immediately
+    // Set the modal route type and show modal
     setModalRouteType(routeType);
     setIsModalVisible(true);
     
-    // Reset the flag after modal is fully opened
-    modalTimeoutRef.current = setTimeout(() => {
-      setIsModalOperating(false);
-    }, 1000); // Increased delay to ensure modal is fully opened
+    // Also update the main screen selection
+    setSelectedRouteType(routeType);
+    const info = calculateRouteInfo(routeType);
+    setRouteInfo(info);
   };
 
-  const handleCloseRouteModal = () => {
-    // Prevent rapid operations and check if modal is already hidden
-    if (isModalOperating || !isModalVisible) return;
-    
-    console.log('Closing modal');
-    
-    setIsModalOperating(true);
-    
-    // Clear any existing timeout
-    if (modalTimeoutRef.current) {
-      clearTimeout(modalTimeoutRef.current);
-    }
-    
-    // Close modal immediately
+  // Handle route confirmation
+  const handleRouteConfirm = () => {
+    setSelectedRouteType(modalRouteType);
     setIsModalVisible(false);
-    
-    // Reset state after modal is fully closed
-    modalTimeoutRef.current = setTimeout(() => {
-      setModalRouteType('recommended');
-      setIsModalOperating(false);
-    }, 500); // Delay to ensure modal is fully closed
+    Alert.alert(
+      'Route Selected',
+      `You have selected the ${modalRouteType} route. You can now proceed to book services for your trip.`,
+      [
+        { 
+          text: 'Book Services', 
+          onPress: () => {
+            router.push('/planning/booking');
+          }
+        },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
   };
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (modalTimeoutRef.current) {
-        clearTimeout(modalTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleRouteError = (error: any) => {
-    setIsLoadingRoute(false);
-    console.error('Directions error:', error);
-    Alert.alert('Route Error', 'Unable to calculate route. Please check your connection and try again.');
-  };
-
-  const getRouteMode = (routeType: RouteType): 'DRIVING' | 'WALKING' | 'TRANSIT' => {
-    return 'DRIVING'; // All routes use driving mode
-  };
-
-  // Enhanced route parameters to create truly different routes
+  // Get route parameters for directions
   const getRouteParameters = (routeType: RouteType) => {
+    const params: any = {
+      optimizeWaypoints: false,
+      precision: 'high' as const,
+    };
+
     switch (routeType) {
       case 'shortest':
-        return {
-          optimize: true,
-          avoid: 'tolls',
-          region: 'LK',
-          units: 'metric',
-          alternatives: false,
-        };
-      case 'scenic':
-        return {
-          optimize: false,
-          avoid: 'highways',
-          region: 'LK',
-          units: 'metric',
-          alternatives: false,
-        };
-      case 'recommended':
-      default:
-        return {
-          optimize: false,
-          avoid: '',
-          region: 'LK',
-          units: 'metric',
-          alternatives: false,
-        };
-    }
-  };
-
-  const getRouteAvoidances = (routeType: RouteType): string[] => {
-    switch (routeType) {
-      case 'shortest':
-        return ['tolls']; // Avoid tolls for shortest route
-      case 'scenic':
-        return ['highways']; // Avoid highways for scenic route
-      case 'recommended':
-      default:
-        return []; // No avoidances for recommended route
-    }
-  };
-
-  // Enhanced route optimization for different types
-  const getRouteOptimization = (routeType: RouteType): boolean => {
-    switch (routeType) {
-      case 'shortest':
-        return true; // Optimize waypoints for shortest route
-      case 'scenic':
-        return false; // Don't optimize for scenic - maintain order for better views
-      case 'recommended':
-      default:
-        return false; // Balanced approach
-    }
-  };
-
-  // Get route-specific stroke width for visual differentiation
-  const getRouteStrokeWidth = (routeType: RouteType): number => {
-    switch (routeType) {
-      case 'shortest':
-        return 6; // Thinner line for direct routes
-      case 'scenic':
-        return 10; // Thicker line for scenic routes
-      case 'recommended':
-      default:
-        return 8; // Standard width
-    }
-  };
-
-  // Get route-specific stroke pattern for visual differentiation
-  const getRouteStrokePattern = (routeType: RouteType): number[] | undefined => {
-    switch (routeType) {
-      case 'shortest':
-        return undefined; // Solid line for direct routes
-      case 'scenic':
-        return [10, 5]; // Dashed line for scenic routes
-      case 'recommended':
-      default:
-        return undefined; // Solid line for recommended
-    }
-  };
-
-  const getRouteColor = (routeType: RouteType): string => {
-    const option = ROUTE_OPTIONS.find(opt => opt.id === routeType);
-    return option?.color || Colors.primary600;
-  };
-
-  // Helper function to create ordered waypoints from itinerary
-  const createOrderedWaypoints = (allPlaces: Place[], itinerary: DayItinerary[]): { latitude: number; longitude: number }[] => {
-    console.log('🗺️ createOrderedWaypoints called with:', {
-      allPlacesCount: allPlaces.length,
-      itineraryDays: itinerary.length
-    });
-    
-    if (allPlaces.length <= 1) {
-      console.log('❌ Not enough places for waypoints');
-      return [];
-    }
-    
-    const sortedPlaces: Place[] = [];
-    
-    // Sort places by day number and maintain order within each day
-    itinerary
-      .sort((a, b) => a.dayNumber - b.dayNumber)
-      .forEach(day => {
-        console.log(`🗺️ Processing day ${day.dayNumber} with ${day.places.length} places`);
-        
-        // Validate places in the day
-        const validPlaces = day.places.filter(place => 
-          place.coordinates && 
-          typeof place.coordinates.latitude === 'number' && 
-          typeof place.coordinates.longitude === 'number' &&
-          !isNaN(place.coordinates.latitude) && 
-          !isNaN(place.coordinates.longitude)
-        );
-        
-        console.log(`✅ Day ${day.dayNumber}: ${validPlaces.length} valid places out of ${day.places.length}`);
-        sortedPlaces.push(...validPlaces);
-      });
-    
-    // Return all but the last place (which becomes the destination)
-    const waypoints = sortedPlaces.slice(0, -1).map(place => place.coordinates);
-    
-    console.log('🗺️ Generated waypoints:', {
-      totalPlaces: sortedPlaces.length,
-      waypointsCount: waypoints.length,
-      waypoints: waypoints.map((wp, index) => ({
-        index,
-        coordinates: wp,
-        place: sortedPlaces[index]?.name
-      }))
-    });
-    
-    return waypoints;
-  };
-
-  // Helper function to get the final destination
-  const getFinalDestination = (allPlaces: Place[], itinerary: DayItinerary[]): { latitude: number; longitude: number } | undefined => {
-    console.log('🎯 getFinalDestination called with:', {
-      allPlacesCount: allPlaces.length,
-      itineraryDays: itinerary.length,
-      itinerary: itinerary.map(day => ({ dayNumber: day.dayNumber, placesCount: day.places.length }))
-    });
-    
-    if (allPlaces.length === 0) {
-      console.log('❌ No places available for destination');
-      return undefined;
-    }
-    
-    // Get the last place from the last day
-    const lastDay = Math.max(...itinerary.map(day => day.dayNumber));
-    const lastDayItinerary = itinerary.find(day => day.dayNumber === lastDay);
-    
-    console.log('🎯 Last day analysis:', {
-      lastDayNumber: lastDay,
-      lastDayItinerary: lastDayItinerary ? {
-        dayNumber: lastDayItinerary.dayNumber,
-        placesCount: lastDayItinerary.places.length,
-        places: lastDayItinerary.places.map(p => ({ name: p.name, coordinates: p.coordinates }))
-      } : null
-    });
-    
-    if (lastDayItinerary && lastDayItinerary.places.length > 0) {
-      const lastPlace = lastDayItinerary.places[lastDayItinerary.places.length - 1];
-      
-      console.log('🎯 Last place from last day:', {
-        name: lastPlace.name,
-        coordinates: lastPlace.coordinates
-      });
-      
-      // Validate coordinates
-      if (lastPlace.coordinates && 
-          typeof lastPlace.coordinates.latitude === 'number' && 
-          typeof lastPlace.coordinates.longitude === 'number' &&
-          !isNaN(lastPlace.coordinates.latitude) && 
-          !isNaN(lastPlace.coordinates.longitude)) {
-        console.log('✅ Valid final destination found:', lastPlace.coordinates);
-        return lastPlace.coordinates;
-      }
-    }
-    
-    // Fallback to last place from all places
-    const lastPlace = allPlaces[allPlaces.length - 1];
-    console.log('🎯 Fallback to last place from all places:', {
-      name: lastPlace?.name,
-      coordinates: lastPlace?.coordinates
-    });
-    
-    if (lastPlace && lastPlace.coordinates && 
-        typeof lastPlace.coordinates.latitude === 'number' && 
-        typeof lastPlace.coordinates.longitude === 'number' &&
-        !isNaN(lastPlace.coordinates.latitude) && 
-        !isNaN(lastPlace.coordinates.longitude)) {
-      console.log('✅ Valid fallback destination found:', lastPlace.coordinates);
-      return lastPlace.coordinates;
-    }
-    
-    console.log('❌ No valid destination found');
-    return undefined;
-  };
-
-  const calculateEstimatedCost = (distance: number, routeType: RouteType): string => {
-    let baseCost = 20; // Base cost in USD
-    let costPerKm = 0.5; // Cost per km
-    
-    switch (routeType) {
-      case 'shortest':
-        costPerKm = 0.4; // Cheaper due to shorter distance
+        params.avoid = ['tolls'] as const;
+        params.mode = 'DRIVING' as const;
         break;
       case 'scenic':
-        costPerKm = 0.6; // More expensive due to scenic route
-        baseCost = 30; // Higher base cost for scenic experience
+        params.avoid = ['highways'] as const;
+        params.mode = 'DRIVING' as const;
         break;
       case 'recommended':
       default:
-        costPerKm = 0.5; // Standard cost
+        params.mode = 'DRIVING' as const;
         break;
     }
-    
-    return `$${Math.round(distance * costPerKm + baseCost)}`;
-  };
 
-  const handleProceedToBooking = () => {
-    router.push({
-      pathname: '/planning/booking',
-      params: {
-        destination,
-        startPoint,
-        startDate,
-        endDate,
-        itinerary: itineraryString,
-        routeInfo: JSON.stringify(routeInfo),
-      },
-    });
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  const getMarkerColor = (dayNumber: number) => {
-    const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'];
-    return colors[(dayNumber - 1) % colors.length];
+    return params;
   };
 
   // Route Modal Component
-  interface RouteModalProps {
-    visible: boolean;
-    onClose: () => void;
-    routeType: RouteType;
-    startLocation: { latitude: number; longitude: number } | null;
-    allPlaces: Place[];
-    itinerary: DayItinerary[];
-    mapRegion: {
-      latitude: number;
-      longitude: number;
-      latitudeDelta: number;
-      longitudeDelta: number;
-    };
-    calculateEstimatedCost: (distance: number, routeType: RouteType) => string;
-  }
-
-  const RouteModal: React.FC<RouteModalProps> = ({
-    visible,
-    onClose,
-    routeType,
-    startLocation,
-    allPlaces,
-    itinerary,
-    mapRegion,
-    calculateEstimatedCost,
-  }) => {
-    const [modalRouteInfo, setModalRouteInfo] = useState<RouteInfo | null>(null);
-    const [isModalLoading, setIsModalLoading] = useState(false);
-    const [currentMapRegion, setCurrentMapRegion] = useState(mapRegion);
-    const [shouldRenderRoute, setShouldRenderRoute] = useState(false);
-
-    const currentRoute = ROUTE_OPTIONS.find(option => option.id === routeType);
-
-    const handleModalRouteReady = (result: any) => {
-      console.log('✅ MapViewDirections Success - Route loaded!');
-      console.log('Distance:', result.distance);
-      console.log('Duration:', result.duration);
-      console.log('================================');
-      
-      setIsModalLoading(false);
-      
-      if (result.distance && result.duration) {
-        const routeData = {
-          distance: `${result.distance.toFixed(1)} km`,
-          duration: `${Math.round(result.duration)} min`,
-          estimatedCost: calculateEstimatedCost(result.distance, routeType),
-          routeType: routeType,
-        };
-        
-        console.log('✅ Route info set:', routeData);
-        setModalRouteInfo(routeData);
-        
-        // Fit map to route
-        if (result.coordinates && result.coordinates.length > 0) {
-          const coordinates = result.coordinates;
-          const latitudes = coordinates.map((coord: any) => coord.latitude);
-          const longitudes = coordinates.map((coord: any) => coord.longitude);
-          
-          const minLat = Math.min(...latitudes);
-          const maxLat = Math.max(...latitudes);
-          const minLng = Math.min(...longitudes);
-          const maxLng = Math.max(...longitudes);
-          
-          const centerLat = (minLat + maxLat) / 2;
-          const centerLng = (minLng + maxLng) / 2;
-          const deltaLat = (maxLat - minLat) * 1.2;
-          const deltaLng = (maxLng - minLng) * 1.2;
-          
-          const newRegion = {
-            latitude: centerLat,
-            longitude: centerLng,
-            latitudeDelta: Math.max(deltaLat, 0.01),
-            longitudeDelta: Math.max(deltaLng, 0.01),
-          };
-          
-          setCurrentMapRegion(newRegion);
-        }
-      }
-    };
-
-    const handleModalRouteError = (error: any) => {
-      console.error('❌ MapViewDirections Error:', error);
-      setIsModalLoading(false);
-    };
-
-    const getMarkerColor = (dayNumber: number) => {
-      const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'];
-      return colors[(dayNumber - 1) % colors.length];
-    };
-
-    // Get proper destination for the route
-    const getDestination = (): { latitude: number; longitude: number } | undefined => {
-      const finalDestination = getFinalDestination(allPlaces, itinerary);
-      
-      // Validate that destination has valid coordinates
-      if (finalDestination && 
-          typeof finalDestination.latitude === 'number' && 
-          typeof finalDestination.longitude === 'number' &&
-          !isNaN(finalDestination.latitude) && 
-          !isNaN(finalDestination.longitude)) {
-        return finalDestination;
-      }
-      
-      console.warn('Invalid destination coordinates, using fallback');
-      return undefined;
-    };
-
-    // Get waypoints ordered by day and sequence
-    const getOrderedWaypoints = (): { latitude: number; longitude: number }[] => {
-      const waypoints = createOrderedWaypoints(allPlaces, itinerary);
-      
-      // Filter out invalid waypoints
-      return waypoints.filter(wp => 
-        wp && 
-        typeof wp.latitude === 'number' && 
-        typeof wp.longitude === 'number' &&
-        !isNaN(wp.latitude) && 
-        !isNaN(wp.longitude)
-      );
-    };
-
-    useEffect(() => {
-      if (visible) {
-        console.log('🔄 Modal opened - initializing route');
-        setIsModalLoading(true);
-        setModalRouteInfo(null);
-        setCurrentMapRegion(mapRegion);
-        
-        // Validate required data
-        const destination = getDestination();
-        const validationWaypoints = getOrderedWaypoints();
-        
-        if (startLocation && destination && GOOGLE_DIRECTIONS_API_KEY) {
-          console.log('✅ All requirements met - will render route');
-          setShouldRenderRoute(true);
-        } else {
-          console.log('❌ Missing requirements:', {
-            startLocation: !!startLocation,
-            destination: !!destination,
-            apiKey: !!GOOGLE_DIRECTIONS_API_KEY
-          });
-          setIsModalLoading(false);
-          setShouldRenderRoute(false);
-        }
-      } else {
-        console.log('🔄 Modal closed - clearing state');
-        setIsModalLoading(false);
-        setModalRouteInfo(null);
-        setShouldRenderRoute(false);
-      }
-    }, [visible, routeType]);
-
+  const RouteModal = () => {
+    const routeOption = ROUTE_OPTIONS.find(option => option.id === modalRouteType);
+    const currentRouteInfo = calculateRouteInfo(modalRouteType);
+    
     return (
       <Modal
-        visible={visible}
+        visible={isModalVisible}
         animationType="slide"
         presentationStyle="fullScreen"
-        onRequestClose={onClose}
-        supportedOrientations={['portrait']}
-        hardwareAccelerated={true}
+        onRequestClose={() => setIsModalVisible(false)}
       >
         <View style={styles.modalContainer}>
-          <StatusBar barStyle="light-content" backgroundColor={currentRoute?.color} />
-          
-          {/* Modal Header */}
-          <LinearGradient
-            colors={[currentRoute?.color || Colors.primary600, `${currentRoute?.color || Colors.primary600}CC`]}
-            style={styles.modalHeader}
-          >
-            <TouchableOpacity 
-              onPress={onClose} 
-              style={styles.modalCloseButton}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name="close" size={24} color={Colors.white} />
-            </TouchableOpacity>
-            <View style={styles.modalHeaderCenter}>
-              <View style={styles.modalHeaderIcon}>
-                <Ionicons name={currentRoute?.icon as any} size={24} color={Colors.white} />
+          {/* Fixed Header */}
+          <View style={styles.modalFixedHeader}>
+            <View style={styles.modalHeaderTop}>
+              <TouchableOpacity
+                style={styles.modalBackButton}
+                onPress={() => setIsModalVisible(false)}
+              >
+                <Ionicons name="arrow-back" size={24} color={Colors.white} />
+              </TouchableOpacity>
+              
+              <View style={styles.modalHeaderCenter}>
+                <View style={styles.modalRouteTypeInfo}>
+                  <View style={[styles.modalRouteTypeIcon, { backgroundColor: routeOption?.color + '30' }]}>
+                    <Ionicons 
+                      name={routeOption?.icon as any} 
+                      size={20} 
+                      color={Colors.white} 
+                    />
+                  </View>
+                  <ThemedText style={styles.modalRouteTypeName}>
+                    {routeOption?.name} Route
+                  </ThemedText>
+                </View>
               </View>
-              <ThemedText style={styles.modalHeaderTitle}>{currentRoute?.name} Route</ThemedText>
-              <ThemedText style={styles.modalHeaderSubtitle}>{currentRoute?.description}</ThemedText>
+              
+              <View style={styles.modalHeaderRight}>
+                <View style={styles.modalRouteStats}>
+                  <View style={styles.modalStatItem}>
+                    <Ionicons name="speedometer" size={16} color={Colors.white} />
+                    <ThemedText style={styles.modalStatText}>
+                      {Math.round(parseFloat(currentRouteInfo.distance))} km
+                    </ThemedText>
+                  </View>
+                  <View style={styles.modalStatItem}>
+                    <Ionicons name="time" size={16} color={Colors.white} />
+                    <ThemedText style={styles.modalStatText}>
+                      {Math.round(parseFloat(currentRouteInfo.duration.split('h')[0]) || 0)}h {Math.round(parseFloat(currentRouteInfo.duration.split('h')[1]?.replace('m', '')) || 0)}m
+                    </ThemedText>
+                  </View>
+                </View>
+              </View>
             </View>
-          </LinearGradient>
+          </View>
 
-          {/* Modal Content with background */}
-          <View style={styles.modalContent}>
-            {/* Route Statistics */}
-            {isModalLoading ? (
-              <View style={styles.modalLoadingContainer}>
-                <View style={styles.modalLoadingSpinner}>
-                  <Ionicons name="refresh" size={24} color={currentRoute?.color} />
-                </View>
-                <ThemedText style={styles.modalLoadingText}>
-                  Calculating {routeType} route from {startLocation ? 'start point' : 'origin'} through {allPlaces.length} destinations...
-                </ThemedText>
-              </View>
-            ) : modalRouteInfo ? (
-              <View style={styles.modalRouteStats}>
-                <View style={styles.modalStatCard}>
-                  <Ionicons name="speedometer-outline" size={20} color={currentRoute?.color} />
-                  <ThemedText style={styles.modalStatValue}>{modalRouteInfo.distance}</ThemedText>
-                  <ThemedText style={styles.modalStatLabel}>Distance</ThemedText>
-                </View>
-                <View style={styles.modalStatCard}>
-                  <Ionicons name="time-outline" size={20} color={currentRoute?.color} />
-                  <ThemedText style={styles.modalStatValue}>{modalRouteInfo.duration}</ThemedText>
-                  <ThemedText style={styles.modalStatLabel}>Duration</ThemedText>
-                </View>
-                <View style={styles.modalStatCard}>
-                  <Ionicons name="wallet-outline" size={20} color={currentRoute?.color} />
-                  <ThemedText style={styles.modalStatValue}>{modalRouteInfo.estimatedCost}</ThemedText>
-                  <ThemedText style={styles.modalStatLabel}>Est. Cost</ThemedText>
-                </View>
-              </View>
-            ) : null}
-
-            {/* Full Screen Map */}
-            <View style={styles.modalMapContainer}>
+          {/* Full Screen Map */}
+          <View style={styles.modalFullScreenMap}>
             <MapView
               style={styles.modalMap}
               provider={PROVIDER_GOOGLE}
-              region={currentMapRegion}
-              onRegionChangeComplete={setCurrentMapRegion}
-              showsUserLocation={true}
-              showsMyLocationButton={true}
-              showsCompass={true}
-              showsScale={true}
-              zoomEnabled={true}
-              scrollEnabled={true}
-              pitchEnabled={true}
-              rotateEnabled={true}
+              region={mapRegion}
+              showsUserLocation
+              showsMyLocationButton
+              mapType="standard"
+              showsCompass={false}
+              showsScale={false}
+              showsBuildings={true}
               showsTraffic={false}
-              loadingEnabled={true}
-              loadingIndicatorColor={currentRoute?.color}
-              loadingBackgroundColor={Colors.secondary50}
+              showsIndoors={false}
+              rotateEnabled={true}
+              scrollEnabled={true}
+              zoomEnabled={true}
+              pitchEnabled={true}
             >
-              {/* Start point marker */}
+              {/* Start Location Marker */}
               {startLocation && (
                 <Marker
                   coordinate={startLocation}
                   title="Start Point"
-                  description="Your journey begins here"
+                  description={startPoint as string}
                   pinColor={Colors.success}
-                  identifier="start-point"
-                />
+                  identifier="start"
+                >
+                  <View style={styles.customMarkerStart}>
+                    <Ionicons name="play" size={16} color={Colors.white} />
+                  </View>
+                </Marker>
               )}
               
-              {/* All destination places markers ordered by day */}
-              {itinerary
-                .sort((a, b) => a.dayNumber - b.dayNumber)
-                .map(day => 
-                  day.places.map((place, index) => (
-                    <Marker
-                      key={place.id}
-                      coordinate={place.coordinates}
-                      title={place.name}
-                      description={`Day ${day.dayNumber} • ${place.openingHours || 'Hours not available'}`}
-                      pinColor={getMarkerColor(day.dayNumber)}
-                      identifier={`place-${place.id}`}
-                    />
-                  ))
-                )
-                .flat()
-              }
+              {/* Places Markers */}
+              {allPlaces.map((place, index) => (
+                <Marker
+                  key={place.id}
+                  coordinate={place.coordinates}
+                  title={index === allPlaces.length - 1 ? "Destination" : place.name}
+                  description={index === allPlaces.length - 1 ? (destination as string) : place.address}
+                  identifier={`place-${index}`}
+                >
+                  {/* Show flag icon for the last place (destination) */}
+                  {index === allPlaces.length - 1 ? (
+                    <View style={styles.customMarkerDestination}>
+                      <Ionicons name="flag" size={16} color={Colors.white} />
+                    </View>
+                  ) : (
+                    <View style={styles.customMarkerPlace}>
+                      <ThemedText style={styles.markerPlaceNumber}>{index + 1}</ThemedText>
+                    </View>
+                  )}
+                </Marker>
+              ))}
 
-              {/* ROUTE DISPLAY - Render only when conditions are met */}
-              {shouldRenderRoute && GOOGLE_DIRECTIONS_API_KEY && (
-                (() => {
-                  console.log('🚀 Rendering MapViewDirections for', routeType);
-                  
-                  const finalDestination = getFinalDestination(allPlaces, itinerary);
-                  const routeWaypoints = createOrderedWaypoints(allPlaces, itinerary);
-                  
-                  if (!startLocation || !finalDestination) {
-                    console.log('❌ Missing coordinates for route');
-                    return null;
-                  }
-                  
-                  const routeKey = `${routeType}-${startLocation.latitude}-${startLocation.longitude}-${finalDestination.latitude}-${finalDestination.longitude}`;
-                  
-                  return (
-                    <MapViewDirections
-                      key={routeKey}
-                      origin={startLocation}
-                      destination={finalDestination}
-                      waypoints={routeWaypoints.length > 0 ? routeWaypoints : undefined}
-                      apikey={GOOGLE_DIRECTIONS_API_KEY}
-                      strokeWidth={6}
-                      strokeColor={currentRoute?.color || Colors.primary600}
-                      mode="DRIVING"
-                      precision="high"
-                      optimizeWaypoints={routeType === 'shortest'}
-                      onReady={handleModalRouteReady}
-                      onError={handleModalRouteError}
-                    />
-                  );
-                })()
+              {/* Remove the separate destination marker since it's now handled in the places loop */}
+
+              {/* Route Directions */}
+              {startLocation && allPlaces.length > 0 && GOOGLE_DIRECTIONS_API_KEY && (
+                <MapViewDirections
+                  origin={startLocation}
+                  destination={allPlaces[allPlaces.length - 1].coordinates}
+                  waypoints={allPlaces.slice(0, -1).map(place => place.coordinates)}
+                  apikey={GOOGLE_DIRECTIONS_API_KEY}
+                  strokeWidth={6}
+                  strokeColor={routeOption?.color || Colors.primary600}
+                  strokeColors={[routeOption?.color || Colors.primary600]}
+                  lineCap="round"
+                  lineJoin="round"
+                  {...getRouteParameters(modalRouteType) as any}
+                  onReady={(result) => {
+                    console.log(`Route ready - Distance: ${result.distance} km, Duration: ${result.duration} min`);
+                    // Auto-fit map to show entire route
+                    // mapRef.current?.fitToCoordinates(result.coordinates, {
+                    //   edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+                    //   animated: true,
+                    // });
+                  }}
+                  onError={(errorMessage) => {
+                    console.error('Directions API error:', errorMessage);
+                  }}
+                />
               )}
             </MapView>
-            
-            {/* Loading overlay when route is being calculated */}
-            {isModalLoading && (
-              <View style={[styles.modalLoadingContainer, { position: 'absolute', top: '50%', left: '50%', transform: [{ translateX: -50 }, { translateY: -50 }] }]}>
-                <View style={styles.modalLoadingSpinner}>
-                  <Ionicons name="refresh" size={24} color={currentRoute?.color} />
-                </View>
-                <ThemedText style={styles.modalLoadingText}>
-                  Loading {routeType} route...
-                </ThemedText>
-              </View>
-            )}
-          </View>
           </View>
 
-          {/* Bottom Action */}
-          <View style={styles.modalBottomAction}>
-            <CustomButton
-              title="Select This Route"
-              onPress={() => {
-                // Update main screen route selection
-                setSelectedRouteType(routeType);
-                handleRouteSelection(routeType);
-                onClose();
-              }}
-              style={[styles.modalSelectButton, { backgroundColor: currentRoute?.color }]}
-            />
+          {/* Fixed Bottom Section */}
+          <View style={styles.modalFixedBottom}>
+            <View style={styles.modalBottomContent}>
+              {/* Route Description */}
+              <View style={styles.modalRouteDescription}>
+                <ThemedText style={styles.modalRouteDescriptionText}>
+                  {routeOption?.description}
+                </ThemedText>
+              </View>
+
+              {/* Route Benefits */}
+              <View style={styles.modalRouteBenefits}>
+                {routeOption?.benefits.slice(0, 2).map((benefit, index) => (
+                  <View key={index} style={styles.modalBenefitItem}>
+                    <Ionicons name="checkmark-circle" size={16} color={routeOption.color} />
+                    <ThemedText style={styles.modalBenefitText}>{benefit}</ThemedText>
+                  </View>
+                ))}
+              </View>
+
+              {/* Confirm Button */}
+              <View style={styles.modalActionButton}>
+                <CustomButton
+                  title="Confirm Route"
+                  variant="primary"
+                  size="large"
+                  onPress={handleRouteConfirm}
+                  loading={isLoadingRoute}
+                  rightIcon={<Ionicons name="checkmark" size={20} color={Colors.white} />}
+                />
+              </View>
+            </View>
           </View>
         </View>
       </Modal>
     );
   };
 
+  // Helper function to calculate distance between two points
+  const calculateDistance = (point1: { latitude: number; longitude: number }, point2: { latitude: number; longitude: number }): number => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (point2.latitude - point1.latitude) * Math.PI / 180;
+    const dLon = (point2.longitude - point1.longitude) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(point1.latitude * Math.PI / 180) * Math.cos(point2.latitude * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  // Helper function to decode polyline
+  const decodePolyline = (polyline: string): { latitude: number; longitude: number }[] => {
+    const points: { latitude: number; longitude: number }[] = [];
+    let index = 0;
+    let lat = 0;
+    let lng = 0;
+
+    while (index < polyline.length) {
+      let b;
+      let shift = 0;
+      let result = 0;
+
+      do {
+        b = polyline.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+
+      const dlat = ((result & 1) !== 0 ? ~(result >> 1) : (result >> 1));
+      lat += dlat;
+
+      shift = 0;
+      result = 0;
+
+      do {
+        b = polyline.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+
+      const dlng = ((result & 1) !== 0 ? ~(result >> 1) : (result >> 1));
+      lng += dlng;
+
+      points.push({
+        latitude: lat / 1e5,
+        longitude: lng / 1e5,
+      });
+    }
+
+    return points;
+  };
+
+  // Helper function to get route type name
+  const getRouteTypeName = (type: RouteType): string => {
+    switch (type) {
+      case 'recommended': return 'Recommended Route';
+      case 'shortest': return 'Shortest Route';
+      case 'scenic': return 'Scenic Route';
+      default: return 'Unknown Route';
+    }
+  };
+
+  // Helper function to get route type color
+  const getRouteTypeColor = (type: RouteType): string => {
+    switch (type) {
+      case 'recommended': return '#3B82F6';
+      case 'shortest': return '#10B981';
+      case 'scenic': return '#F59E0B';
+      default: return '#6B7280';
+    }
+  };
+
+  // Helper function to get route highlights
+  const getRouteHighlights = (type: RouteType): string[] => {
+    switch (type) {
+      case 'recommended':
+        return ['Balanced route', 'Best attractions', 'Moderate traffic'];
+      case 'shortest':
+        return ['Fastest route', 'Avoids tolls', 'Direct path'];
+      case 'scenic':
+        return ['Beautiful views', 'Local roads', 'Cultural sites'];
+      default:
+        return [];
+    }
+  };
+
+  // Generate routes function
+  const generateRoutes = async (places: Place[] = allPlaces) => {
+    if (!startLocation || places.length === 0) {
+      console.warn('Cannot generate routes: missing start location or places');
+      return;
+    }
+
+    setIsGeneratingRoutes(true);
+    setRoutesGenerated(false);
+    setGeneratedRoutes([]);
+    setSelectedRoute(null);
+
+    try {
+      console.log('🚀 Generating multiple route options using Google Directions API...');
+      
+      if (!GOOGLE_DIRECTIONS_API_KEY) {
+        console.warn('⚠️ API key missing, using fallback route generation');
+        // Fallback to basic route generation
+        const routeTypes: RouteType[] = ['recommended', 'shortest', 'scenic'];
+        const mockRoutes: GeneratedRoute[] = routeTypes.map(routeType => {
+          const allWaypoints = places.map(p => p.coordinates);
+          const totalDistance = allWaypoints.reduce((total, point, index) => {
+            if (index === 0) return calculateDistance(startLocation, point);
+            return total + calculateDistance(allWaypoints[index - 1], point);
+          }, 0);
+          
+          let adjustedDistance = totalDistance;
+          let adjustedDuration = totalDistance * 1.2;
+          
+          switch (routeType) {
+            case 'shortest':
+              adjustedDistance *= 0.95;
+              adjustedDuration *= 1.1;
+              break;
+            case 'scenic':
+              adjustedDistance *= 1.25;
+              adjustedDuration *= 1.4;
+              break;
+            default:
+              break;
+          }
+          
+          return {
+            id: routeType,
+            name: getRouteTypeName(routeType),
+            type: routeType,
+            color: getRouteTypeColor(routeType),
+            totalDistance: Math.round(adjustedDistance),
+            totalDuration: Math.round(adjustedDuration),
+            segments: [],
+            coordinates: [startLocation, ...allWaypoints],
+            polyline: 'handled_by_mapviewdirections',
+            instructions: [`Route from ${startPoint} through ${places.length} places`],
+            bounds: {
+              northeast: {
+                latitude: Math.max(startLocation.latitude, ...allWaypoints.map(p => p.latitude)),
+                longitude: Math.max(startLocation.longitude, ...allWaypoints.map(p => p.longitude)),
+              },
+              southwest: {
+                latitude: Math.min(startLocation.latitude, ...allWaypoints.map(p => p.latitude)),
+                longitude: Math.min(startLocation.longitude, ...allWaypoints.map(p => p.longitude)),
+              },
+            },
+            highlights: getRouteHighlights(routeType),
+          };
+        });
+        
+        setGeneratedRoutes(mockRoutes);
+        setSelectedRoute(mockRoutes[0]);
+        setRoutesGenerated(true);
+        setShowRouteComparison(true);
+        return;
+      }
+
+      // Generate different route types using Google Directions API
+      const routes: GeneratedRoute[] = [];
+      const destination = places[places.length - 1].coordinates;
+      const waypoints = places.slice(0, -1).map(p => p.coordinates);
+      
+      // Build waypoints string for API calls
+      const waypointsStr = waypoints.length > 0 
+        ? waypoints.map(w => `${w.latitude},${w.longitude}`).join('|')
+        : '';
+      
+      // Route 1: Recommended (default balanced route)
+      const recommendedUrl = `https://maps.googleapis.com/maps/api/directions/json?` +
+        `origin=${startLocation.latitude},${startLocation.longitude}&` +
+        `destination=${destination.latitude},${destination.longitude}&` +
+        `${waypointsStr ? `waypoints=${waypointsStr}&` : ''}` +
+        `mode=driving&` +
+        `alternatives=true&` +
+        `key=${GOOGLE_DIRECTIONS_API_KEY}`;
+      
+      console.log('📍 Fetching recommended route...');
+      const recommendedResponse = await fetch(recommendedUrl);
+      const recommendedData = await recommendedResponse.json();
+      
+      if (recommendedData.status === 'OK' && recommendedData.routes.length > 0) {
+        const route = recommendedData.routes[0];
+        const coordinates = decodePolyline(route.overview_polyline.points);
+        
+        routes.push({
+          id: 'recommended',
+          name: 'Recommended Route',
+          type: 'recommended',
+          color: '#3B82F6',
+          totalDistance: Math.round(route.legs.reduce((total: number, leg: any) => total + leg.distance.value, 0) / 1000),
+          totalDuration: Math.round(route.legs.reduce((total: number, leg: any) => total + leg.duration.value, 0) / 60),
+          segments: route.legs,
+          coordinates: coordinates,
+          polyline: route.overview_polyline.points,
+          instructions: route.legs.flatMap((leg: any) => leg.steps.map((step: any) => step.html_instructions)),
+          bounds: route.bounds,
+          highlights: getRouteHighlights('recommended'),
+        });
+      }
+      
+      // Route 2: Shortest (optimized for distance, avoid tolls)
+      const shortestUrl = `https://maps.googleapis.com/maps/api/directions/json?` +
+        `origin=${startLocation.latitude},${startLocation.longitude}&` +
+        `destination=${destination.latitude},${destination.longitude}&` +
+        `${waypointsStr ? `waypoints=optimize:true|${waypointsStr}&` : ''}` +
+        `mode=driving&` +
+        `avoid=tolls&` +
+        `alternatives=true&` +
+        `key=${GOOGLE_DIRECTIONS_API_KEY}`;
+      
+      console.log('📍 Fetching shortest route...');
+      const shortestResponse = await fetch(shortestUrl);
+      const shortestData = await shortestResponse.json();
+      
+      if (shortestData.status === 'OK' && shortestData.routes.length > 0) {
+        const route = shortestData.routes[0];
+        const coordinates = decodePolyline(route.overview_polyline.points);
+        
+        routes.push({
+          id: 'shortest',
+          name: 'Shortest Route',
+          type: 'shortest',
+          color: '#10B981',
+          totalDistance: Math.round(route.legs.reduce((total: number, leg: any) => total + leg.distance.value, 0) / 1000),
+          totalDuration: Math.round(route.legs.reduce((total: number, leg: any) => total + leg.duration.value, 0) / 60),
+          segments: route.legs,
+          coordinates: coordinates,
+          polyline: route.overview_polyline.points,
+          instructions: route.legs.flatMap((leg: any) => leg.steps.map((step: any) => step.html_instructions)),
+          bounds: route.bounds,
+          highlights: getRouteHighlights('shortest'),
+        });
+      }
+      
+      // Route 3: Scenic (avoid highways for scenic local roads)
+      const scenicUrl = `https://maps.googleapis.com/maps/api/directions/json?` +
+        `origin=${startLocation.latitude},${startLocation.longitude}&` +
+        `destination=${destination.latitude},${destination.longitude}&` +
+        `${waypointsStr ? `waypoints=${waypointsStr}&` : ''}` +
+        `mode=driving&` +
+        `avoid=highways,ferries&` +
+        `alternatives=true&` +
+        `key=${GOOGLE_DIRECTIONS_API_KEY}`;
+      
+      console.log('📍 Fetching scenic route...');
+      const scenicResponse = await fetch(scenicUrl);
+      const scenicData = await scenicResponse.json();
+      
+      if (scenicData.status === 'OK' && scenicData.routes.length > 0) {
+        const route = scenicData.routes[0];
+        const coordinates = decodePolyline(route.overview_polyline.points);
+        
+        routes.push({
+          id: 'scenic',
+          name: 'Scenic Route',
+          type: 'scenic',
+          color: '#F59E0B',
+          totalDistance: Math.round(route.legs.reduce((total: number, leg: any) => total + leg.distance.value, 0) / 1000),
+          totalDuration: Math.round(route.legs.reduce((total: number, leg: any) => total + leg.duration.value, 0) / 60),
+          segments: route.legs,
+          coordinates: coordinates,
+          polyline: route.overview_polyline.points,
+          instructions: route.legs.flatMap((leg: any) => leg.steps.map((step: any) => step.html_instructions)),
+          bounds: route.bounds,
+          highlights: getRouteHighlights('scenic'),
+        });
+      }
+
+      if (routes.length === 0) {
+        throw new Error('No routes found');
+      }
+
+      console.log(`✅ Generated ${routes.length} distinct routes from Google Directions API`);
+      
+      setGeneratedRoutes(routes);
+      setSelectedRoute(routes[0]);
+      setRoutesGenerated(true);
+      setShowRouteComparison(true);
+    } catch (error) {
+      console.error('Error generating routes:', error);
+      Alert.alert('Route Generation Error', 'Failed to generate routes. Please check your internet connection and try again.');
+    } finally {
+      setIsGeneratingRoutes(false);
+    }
+  };
+
+  // Handle route selection from comparison view
+  const handleRouteSelectFromComparison = (route: GeneratedRoute) => {
+    console.log(`🔄 Switching to ${route.type} route`);
+    setSelectedRoute(route);
+    setSelectedRouteType(route.type);
+    
+    // Update map region to show the selected route
+    if (route.bounds) {
+      const { northeast, southwest } = route.bounds;
+      setMapRegion({
+        latitude: (northeast.latitude + southwest.latitude) / 2,
+        longitude: (northeast.longitude + southwest.longitude) / 2,
+        latitudeDelta: Math.abs(northeast.latitude - southwest.latitude) * 1.2,
+        longitudeDelta: Math.abs(northeast.longitude - southwest.longitude) * 1.2,
+      });
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.primary600} />
-      
-      {/* Enhanced Header with Gradient */}
       <LinearGradient
         colors={[Colors.primary600, Colors.primary700]}
         style={styles.headerGradient}
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+          <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color={Colors.white} />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
-            <ThemedText style={styles.headerTitle}>Your Route</ThemedText>
-            <ThemedText style={styles.headerSubtitle}>Trip to {destination}</ThemedText>
+            <ThemedText style={styles.headerTitle}>Route Options</ThemedText>
+            <ThemedText style={styles.headerSubtitle}>
+              Choose your preferred route
+            </ThemedText>
           </View>
-          <TouchableOpacity 
-            onPress={() => Alert.alert('Share Route', 'Route sharing feature coming soon!')}
-            style={styles.headerButton}
-          >
-            <Ionicons name="share-outline" size={24} color={Colors.white} />
-          </TouchableOpacity>
+          {/* <TouchableOpacity style={styles.headerButton}>
+            <Ionicons name="map" size={24} color={Colors.white} />
+          </TouchableOpacity> */}
         </View>
       </LinearGradient>
 
-      {/* Main Content Container */}
-      <ScrollView
-        style={styles.mainContent}
+      <ScrollView 
+        style={styles.mainContent} 
         showsVerticalScrollIndicator={false}
-        bounces={false}
+        contentContainerStyle={styles.scrollContentContainer}
       >
-        <Animated.View
-          style={[
-            styles.animatedContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          {/* Trip Summary with Route Information */}
-          <View style={styles.compactSummary}>
-          <View style={styles.tripLocation}>
-            <Ionicons name="location" size={18} color={Colors.primary600} />
-            <ThemedText style={styles.tripLocationText}>
-              {startPoint} → {allPlaces.length} destinations
+        <View style={styles.animatedContainer}>
+          
+          {/* Trip Summary Card */}
+          <View style={styles.routeSummaryCard}>
+            <View style={styles.tripInfoSection}>
+              <View style={styles.tripLocation}>
+                <Ionicons name="location" size={24} color={Colors.primary600} />
+                <ThemedText style={styles.tripLocationText}>
+                  {startPoint} → {destination}
+                </ThemedText>
+              </View>
+              
+              <View style={styles.tripDetails}>
+                <View style={styles.tripDetailItem}>
+                  <Ionicons name="calendar" size={18} color={Colors.secondary500} />
+                  <ThemedText style={styles.tripDetailText}>
+                    {startDate} - {endDate}
+                  </ThemedText>
+                </View>
+                <View style={styles.tripDetailItem}>
+                  <Ionicons name="location-outline" size={18} color={Colors.secondary500} />
+                  <ThemedText style={styles.tripDetailText}>
+                    {allPlaces.length} places
+                  </ThemedText>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Horizontal Route Selection */}
+          <View style={styles.routeSelectionCard}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="map-outline" size={24} color={Colors.primary600} />
+              <ThemedText style={styles.sectionTitle}>Select Route Type</ThemedText>
+            </View>
+            
+            <ThemedText style={styles.routeSelectionSubtitle}>
+              Choose how you'd like to travel between destinations
             </ThemedText>
-          </View>
-          <View style={styles.tripStats}>
-            <View style={styles.statItem}>
-              <Ionicons name="calendar-outline" size={14} color={Colors.secondary500} />
-              <ThemedText style={styles.statText}>{itinerary.length} days</ThemedText>
-            </View>
-            <View style={styles.statItem}>
-              <Ionicons name="map-outline" size={14} color={Colors.secondary500} />
-              <ThemedText style={styles.statText}>{allPlaces.length} places</ThemedText>
-            </View>
-            <View style={styles.statItem}>
-              <Ionicons name="navigate-outline" size={14} color={Colors.secondary500} />
-              <ThemedText style={styles.statText}>{selectedRouteType} route</ThemedText>
-            </View>
-          </View>
-        </View>
 
-        {/* Route Selection with Modern Cards */}
-        <View style={styles.routeSelectionCard}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="options-outline" size={20} color={Colors.primary600} />
-            <ThemedText style={styles.sectionTitle}>Choose Your Route</ThemedText>
-          </View>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.routeOptionsContainer}
-          >
-            {ROUTE_OPTIONS.map((option) => (
-              <TouchableOpacity
-                key={option.id}
-                style={[
-                  styles.routeOptionCard,
-                  selectedRouteType === option.id && [styles.routeOptionSelected, { backgroundColor: option.color + '15' }]
-                ]}
-                onPress={() => {
-                  handleRouteSelection(option.id);
-                }}
-              >
-                <View style={[
-                  styles.routeOptionIconContainer,
-                  { backgroundColor: selectedRouteType === option.id ? option.color : Colors.secondary100 }
-                ]}>
-                  <Ionicons 
-                    name={option.icon as any} 
-                    size={24} 
-                    color={selectedRouteType === option.id ? Colors.white : option.color} 
-                  />
-                </View>
-                <ThemedText style={[
-                  styles.routeOptionName,
-                  selectedRouteType === option.id && [styles.routeOptionNameSelected, { color: option.color }]
-                ]}>
-                  {option.name}
-                </ThemedText>
-                <ThemedText style={[
-                  styles.routeOptionDescription,
-                  selectedRouteType === option.id && { color: option.color + 'AA' }
-                ]}>
-                  {option.description}
-                </ThemedText>
-                <View style={styles.routeOptionAction}>
-                  <TouchableOpacity
-                    style={styles.routeOptionMapButton}
-                    onPress={() => handleOpenRouteModal(option.id)}
-                    disabled={isModalOperating}
-                    activeOpacity={0.7}
-                  >
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.horizontalRouteScrollContainer}
+              style={styles.horizontalRouteScrollView}
+            >
+              {ROUTE_OPTIONS.map((option) => (
+                <TouchableOpacity
+                  key={option.id}
+                  style={[
+                    styles.horizontalRouteCard,
+                    selectedRouteType === option.id && styles.horizontalRouteCardSelected,
+                    { borderColor: selectedRouteType === option.id ? option.color : Colors.secondary200 }
+                  ]}
+                  onPress={() => {
+                    handleRouteSelect(option.id);
+                  }}
+                >
+                  <View style={[styles.horizontalRouteIcon, { backgroundColor: option.color + '20' }]}>
                     <Ionicons 
-                      name="map-outline" 
-                      size={16} 
-                      color={selectedRouteType === option.id ? option.color : Colors.secondary400} 
+                      name={option.icon as any} 
+                      size={24} 
+                      color={option.color} 
                     />
-                    <ThemedText style={[
-                      styles.routeOptionActionText,
-                      selectedRouteType === option.id && { color: option.color }
-                    ]}>
-                      View on Map
-                    </ThemedText>
-                  </TouchableOpacity>
-                </View>
-                {selectedRouteType === option.id && (
-                  <View style={[styles.selectedIndicator, { backgroundColor: option.color }]}>
-                    <Ionicons name="checkmark" size={16} color={Colors.white} />
                   </View>
-                )}
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Route Statistics */}
-        {isLoadingRoute ? (
-          <View style={styles.routeStatsCard}>
-            <View style={styles.loadingContainer}>
-              <Animated.View style={[styles.loadingSpinner, { transform: [{ rotate: spin }] }]}>
-                <Ionicons name="refresh" size={20} color={Colors.primary600} />
-              </Animated.View>
-              <ThemedText style={styles.loadingText}>Calculating best route...</ThemedText>
-            </View>
-          </View>
-        ) : routeInfo ? (
-          <View style={styles.routeStatsCard}>
-            <View style={styles.routeStatsHeader}>
-              <Ionicons name="analytics-outline" size={20} color={Colors.primary600} />
-              <ThemedText style={styles.routeStatsTitle}>Route Statistics</ThemedText>
-            </View>
-            <View style={styles.routeStatsGrid}>
-              <View style={styles.statCard}>
-                <View style={[styles.statIcon, { backgroundColor: Colors.primary100 }]}>
-                  <Ionicons name="speedometer-outline" size={20} color={Colors.primary600} />
-                </View>
-                <ThemedText style={styles.statValue}>{routeInfo.distance}</ThemedText>
-                <ThemedText style={styles.statLabel}>Distance</ThemedText>
-              </View>
-              <View style={styles.statCard}>
-                <View style={[styles.statIcon, { backgroundColor: Colors.success + '20' }]}>
-                  <Ionicons name="time-outline" size={20} color={Colors.success} />
-                </View>
-                <ThemedText style={styles.statValue}>{routeInfo.duration}</ThemedText>
-                <ThemedText style={styles.statLabel}>Duration</ThemedText>
-              </View>
-              <View style={styles.statCard}>
-                <View style={[styles.statIcon, { backgroundColor: Colors.warning + '20' }]}>
-                  <Ionicons name="wallet-outline" size={20} color={Colors.warning} />
-                </View>
-                <ThemedText style={styles.statValue}>{routeInfo.estimatedCost}</ThemedText>
-                <ThemedText style={styles.statLabel}>Est. Cost</ThemedText>
-              </View>
-            </View>
-          </View>
-        ) : null}
-
-        {/* Modern Itinerary Overview */}
-        <View style={styles.itineraryContainer}>
-          <View style={styles.itineraryHeader}>
-            <View style={styles.itineraryHeaderLeft}>
-              <Ionicons name="map-outline" size={20} color={Colors.primary600} />
-              <ThemedText style={styles.itineraryTitle}>Trip Itinerary</ThemedText>
-            </View>
-            <View style={styles.itineraryHeaderRight}>
-              <ThemedText style={styles.itineraryCount}>{itinerary.length} days</ThemedText>
-            </View>
+                  
+                  <ThemedText style={[
+                    styles.horizontalRouteTitle,
+                    selectedRouteType === option.id && { color: option.color }
+                  ]}>
+                    {option.name}
+                  </ThemedText>
+                  
+                  <ThemedText style={styles.horizontalRouteDescription}>
+                    {option.description}
+                  </ThemedText>
+                  
+                  {selectedRouteType === option.id && (
+                    <View style={[styles.horizontalRouteSelected, { backgroundColor: option.color }]}>
+                      <Ionicons name="checkmark" size={12} color={Colors.white} />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
 
-          <ScrollView 
-            style={styles.itineraryScrollView}
-            contentContainerStyle={styles.itineraryScrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {itinerary.map((day, dayIndex) => (
-              <View key={day.date} style={styles.dayCard}>
-                <View style={styles.dayHeader}>
-                  <View style={styles.dayNumberContainer}>
-                    <View style={[styles.dayNumber, { backgroundColor: getMarkerColor(day.dayNumber) }]}>
-                      <ThemedText style={styles.dayNumberText}>{day.dayNumber}</ThemedText>
+          {/* Selected Route Info */}
+          {routeInfo && (
+            <View style={styles.selectedRouteInfoCard}>
+              <View style={styles.routeInfoHeader}>
+                <View style={[styles.routeInfoColorBar, { backgroundColor: getRouteTypeColor(selectedRouteType) }]} />
+                <ThemedText style={styles.routeInfoTitle}>
+                  {getRouteTypeName(selectedRouteType)}
+                </ThemedText>
+              </View>
+              
+              <View style={styles.routeInfoStats}>
+                <View style={styles.routeInfoStatItem}>
+                  <Ionicons name="speedometer-outline" size={20} color={Colors.secondary500} />
+                  <ThemedText style={styles.routeInfoStatText}>{routeInfo.distance}</ThemedText>
+                </View>
+                <View style={styles.routeInfoStatItem}>
+                  <Ionicons name="time-outline" size={20} color={Colors.secondary500} />
+                  <ThemedText style={styles.routeInfoStatText}>{routeInfo.duration}</ThemedText>
+                </View>
+                <View style={styles.routeInfoStatItem}>
+                  <Ionicons name="wallet-outline" size={20} color={Colors.secondary500} />
+                  <ThemedText style={styles.routeInfoStatText}>{routeInfo.estimatedCost}</ThemedText>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Places Itinerary */}
+          <View style={styles.placesItineraryCard}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="map" size={24} color={Colors.primary600} />
+              <ThemedText style={styles.sectionTitle}>Your Journey</ThemedText>
+            </View>
+            
+            <ThemedText style={styles.placesItinerarySubtitle}>
+              Complete route from start to destination
+            </ThemedText>
+
+            <View style={styles.journeyContainer}>
+              {/* Start Point */}
+              <View style={styles.journeyItem}>
+                <View style={styles.journeyItemLeft}>
+                  <View style={[styles.journeyDot, { backgroundColor: Colors.success }]} />
+                  <View style={styles.journeyLine} />
+                </View>
+                <View style={styles.journeyItemContent}>
+                  <View style={styles.journeyItemHeader}>
+                    <ThemedText style={styles.journeyItemTitle}>Starting Point</ThemedText>
+                    <View style={styles.journeyItemBadge}>
+                      <ThemedText style={styles.journeyItemBadgeText}>START</ThemedText>
                     </View>
                   </View>
-                  <View style={styles.dayInfo}>
-                    <ThemedText style={styles.dayTitle}>Day {day.dayNumber}</ThemedText>
-                    <ThemedText style={styles.dayDate}>{formatDate(day.date)}</ThemedText>
-                  </View>
-                  <View style={styles.dayStats}>
-                    <View style={styles.placesCount}>
-                      <Ionicons name="location-outline" size={14} color={Colors.secondary500} />
-                      <ThemedText style={styles.placesCountText}>{day.places.length}</ThemedText>
-                    </View>
-                  </View>
+                  <ThemedText style={styles.journeyItemLocation}>{startPoint}</ThemedText>
+                  <ThemedText style={styles.journeyItemTime}>Departure: {startDate}</ThemedText>
                 </View>
+              </View>
 
-                <View style={styles.placesContainer}>
+              {/* Day by Day Places */}
+              {itinerary.map((day, dayIndex) => (
+                <View key={day.dayNumber} style={styles.daySection}>
+                  <View style={styles.daySectionHeader}>
+                    <View style={[styles.journeyDot, { backgroundColor: Colors.primary600 }]} />
+                    <ThemedText style={styles.daySectionTitle}>Day {day.dayNumber}</ThemedText>
+                    <ThemedText style={styles.daySectionDate}>{day.date}</ThemedText>
+                  </View>
+                  
                   {day.places.map((place, placeIndex) => (
                     <View key={place.id} style={styles.placeItem}>
-                      <View style={styles.placeItemLeft}>
-                        <View style={styles.placeIcon}>
-                          <Ionicons 
-                            name={placeIndex === 0 ? "flag-outline" : 
-                                  placeIndex === day.places.length - 1 ? "checkmark-circle-outline" : 
-                                  "location-outline"} 
-                            size={16} 
-                            color={Colors.primary600} 
-                          />
-                        </View>
-                        <View style={styles.placeDetails}>
-                          <ThemedText style={styles.placeName}>{place.name}</ThemedText>
-                          <ThemedText style={styles.placeAddress}>{place.address}</ThemedText>
-                          {place.openingHours && (
-                            <View style={styles.placeHours}>
-                              <Ionicons name="time-outline" size={12} color={Colors.secondary400} />
-                              <ThemedText style={styles.placeHoursText}>{place.openingHours}</ThemedText>
-                            </View>
-                          )}
-                        </View>
+                      <View style={styles.journeyItemLeft}>
+                        <View style={[styles.placeItemDot, { backgroundColor: Colors.primary300 }]} />
+                        {placeIndex < day.places.length - 1 && <View style={styles.placeItemLine} />}
                       </View>
-                      {place.rating && (
-                        <View style={styles.placeRating}>
-                          <Ionicons name="star" size={12} color={Colors.warning} />
-                          <ThemedText style={styles.placeRatingText}>{place.rating}</ThemedText>
-                        </View>
-                      )}
+                      <View style={styles.placeItemContent}>
+                        <ThemedText style={styles.placeItemTitle}>{place.name}</ThemedText>
+                        <ThemedText style={styles.placeItemAddress}>{place.address}</ThemedText>
+                        {place.description && (
+                          <ThemedText style={styles.placeItemDescription}>{place.description}</ThemedText>
+                        )}
+                        {place.openingHours && (
+                          <View style={styles.placeItemMeta}>
+                            <Ionicons name="time-outline" size={14} color={Colors.secondary500} />
+                            <ThemedText style={styles.placeItemMetaText}>{place.openingHours}</ThemedText>
+                          </View>
+                        )}
+                        {place.rating && (
+                          <View style={styles.placeItemMeta}>
+                            <Ionicons name="star" size={14} color={Colors.warning} />
+                            <ThemedText style={styles.placeItemMetaText}>{place.rating} rating</ThemedText>
+                          </View>
+                        )}
+                      </View>
                     </View>
                   ))}
                 </View>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
+              ))}
 
-        {/* Route Preview Card */}
-        <View style={styles.routePreviewCard}>
-          <View style={styles.routePreviewHeader}>
-            <View style={styles.routePreviewTitle}>
-              <Ionicons name="navigate-outline" size={20} color={Colors.primary600} />
-              <ThemedText style={styles.routePreviewTitleText}>Route Preview</ThemedText>
-            </View>
-            <TouchableOpacity 
-              style={styles.viewAllRoutesButton}
-              onPress={() => handleOpenRouteModal(selectedRouteType)}
-              disabled={isModalOperating}
-              activeOpacity={0.7}
-            >
-              <ThemedText style={styles.viewAllRoutesText}>View on Map</ThemedText>
-              <Ionicons name="map-outline" size={16} color={Colors.primary600} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.routePreviewContent}>
-            <View style={styles.routePreviewRoute}>
-              <View style={styles.routePreviewStart}>
-                <View style={styles.routePreviewPoint}>
-                  <Ionicons name="radio-button-on" size={12} color={Colors.success} />
+              {/* Destination */}
+              <View style={styles.journeyItem}>
+                <View style={styles.journeyItemLeft}>
+                  <View style={[styles.journeyDot, { backgroundColor: Colors.error }]} />
                 </View>
-                <ThemedText style={styles.routePreviewLocationText}>{startPoint}</ThemedText>
-              </View>
-              
-              <View style={styles.routePreviewLine}>
-                <View style={styles.routePreviewDots}>
-                  {Array(3).fill(0).map((_, index) => (
-                    <View key={index} style={styles.routePreviewDot} />
-                  ))}
+                <View style={styles.journeyItemContent}>
+                  <View style={styles.journeyItemHeader}>
+                    <ThemedText style={styles.journeyItemTitle}>Final Destination</ThemedText>
+                    <View style={[styles.journeyItemBadge, { backgroundColor: Colors.error }]}>
+                      <ThemedText style={styles.journeyItemBadgeText}>END</ThemedText>
+                    </View>
+                  </View>
+                  <ThemedText style={styles.journeyItemLocation}>{destination}</ThemedText>
+                  <ThemedText style={styles.journeyItemTime}>Arrival: {endDate}</ThemedText>
                 </View>
-              </View>
-              
-              <View style={styles.routePreviewEnd}>
-                <View style={styles.routePreviewPoint}>
-                  <Ionicons name="location" size={12} color={Colors.error} />
-                </View>
-                <ThemedText style={styles.routePreviewLocationText}>
-                  {allPlaces.length > 0 ? allPlaces[allPlaces.length - 1].name : 'Destination'}
-                </ThemedText>
-              </View>
-            </View>
-
-            <View style={styles.routePreviewStats}>
-              <View style={styles.routePreviewStat}>
-                <Ionicons name="location-outline" size={14} color={Colors.primary600} />
-                <ThemedText style={styles.routePreviewStatText}>{allPlaces.length} stops</ThemedText>
-              </View>
-              <View style={styles.routePreviewStat}>
-                <Ionicons name="time-outline" size={14} color={Colors.primary600} />
-                <ThemedText style={styles.routePreviewStatText}>{itinerary.length} days</ThemedText>
-              </View>
-              <View style={styles.routePreviewStat}>
-                <Ionicons name="star-outline" size={14} color={Colors.primary600} />
-                <ThemedText style={styles.routePreviewStatText}>{selectedRouteType} route</ThemedText>
               </View>
             </View>
           </View>
-        </View>
 
-        {/* Bottom Actions */}
-        <View style={styles.bottomActions}>
-          <View style={styles.proceedInfo}>
-            <View style={styles.proceedInfoIcon}>
-              <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
-            </View>
-            <View style={styles.proceedInfoContent}>
-              <ThemedText style={styles.proceedInfoTitle}>Route Ready!</ThemedText>
-              <ThemedText style={styles.proceedInfoText}>
-                Your personalized itinerary is ready for booking
-              </ThemedText>
-            </View>
-          </View>
-          <CustomButton
-            title="Proceed to Booking"
-            onPress={handleProceedToBooking}
-            style={styles.proceedButton}
-          />
         </View>
-        </Animated.View>
       </ScrollView>
 
-      {/* Route Modal - For detailed route view */}
-      {isModalVisible && !isModalOperating && (
-        <RouteModal
-          visible={isModalVisible}
-          onClose={handleCloseRouteModal}
-          routeType={modalRouteType}
-          startLocation={startLocation}
-          allPlaces={allPlaces}
-          itinerary={itinerary}
-          mapRegion={mapRegion}
-          calculateEstimatedCost={calculateEstimatedCost}
+      {/* Fixed Bottom Actions */}
+      <View style={styles.bottomActions}>
+        {/* <View style={styles.proceedInfo}>
+          <Ionicons name="checkmark-circle" size={24} color={Colors.success} />
+          <View style={styles.proceedInfoContent}>
+            <ThemedText style={styles.proceedInfoTitle}>Route Ready</ThemedText>
+            <ThemedText style={styles.proceedInfoText}>
+              {selectedRouteType.charAt(0).toUpperCase() + selectedRouteType.slice(1)} route selected
+            </ThemedText>
+          </View>
+        </View> */}
+        
+        <CustomButton
+          title="Proceed to Booking"
+          variant="primary"
+          size="large"
+          onPress={() => {
+            router.push('/planning/booking');
+          }}
+          rightIcon={<Ionicons name="arrow-forward" size={20} color={Colors.white} />}
         />
-      )}
+      </View>
+
+      <RouteModal />
     </SafeAreaView>
   );
 }
@@ -1502,27 +1224,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.secondary50,
   },
-  
-  // Loading States
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.secondary50,
-    borderRadius: 16,
-    padding: 20,
-    marginTop: 20,
-  },
-  loadingSpinner: {
-    marginRight: 12,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: Colors.secondary500,
-    fontWeight: '500',
-  },
-  
-  // Enhanced Header Styles
   headerGradient: {
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
@@ -1559,7 +1260,20 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   
-  // Enhanced Route Summary Card
+  // Main content
+  mainContent: {
+    flex: 1,
+  },
+  scrollContentContainer: {
+    paddingBottom: 100, // Account for fixed bottom section
+    paddingTop: 30
+  },
+  animatedContainer: {
+    paddingBottom: 20,
+    paddingTop:10
+  },
+  
+  // Route Summary Card
   routeSummaryCard: {
     backgroundColor: Colors.white,
     marginHorizontal: 20,
@@ -1575,21 +1289,19 @@ const styles = StyleSheet.create({
     borderColor: Colors.secondary100,
   },
   tripInfoSection: {
-    marginBottom: 20,
+    marginBottom: 4,
   },
   tripLocation: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.secondary100,
+    marginBottom: 16,
   },
   tripLocationText: {
     fontSize: 18,
     fontWeight: '700',
     color: Colors.secondary700,
     marginLeft: 8,
+    flex: 1,
   },
   tripDetails: {
     flexDirection: 'row',
@@ -1599,303 +1311,316 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: Colors.secondary50,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
   },
   tripDetailText: {
     fontSize: 14,
     color: Colors.secondary500,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   
-  // Enhanced Route Stats Card
-  statCard: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.primary100,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  statContent: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.secondary700,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: Colors.secondary500,
-    marginTop: 2,
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: Colors.secondary200,
-    marginHorizontal: 16,
-  },
-  
-  // Enhanced Route Selection Card
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.secondary700,
-    marginLeft: 8,
-  },
-  routeOptionsContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    gap: 12,
-  },
-  routeOptionCard: {
-    width: 180,
+  // Route Selection Card
+  routeSelectionCard: {
     backgroundColor: Colors.white,
+    marginHorizontal: 20,
+    marginTop: 20,
     borderRadius: 20,
     padding: 20,
-    borderWidth: 2,
-    borderColor: Colors.secondary200,
-    alignItems: 'center',
     shadowColor: Colors.secondary700,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 4,
-    marginHorizontal: 8,
-  },
-  routeOptionSelected: {
-    borderColor: Colors.primary600,
-    shadowColor: Colors.primary600,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
-    transform: [{ scale: 1.02 }],
-  },
-  routeOptionIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: Colors.secondary700,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  routeOptionName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.secondary700,
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  routeOptionNameSelected: {
-    color: Colors.primary600,
-  },
-  routeOptionDescription: {
-    fontSize: 12,
-    color: Colors.secondary500,
-    textAlign: 'center',
-    lineHeight: 16,
-    marginBottom: 8,
-  },
-  routeOptionAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    marginTop: 4,
-  },
-  routeOptionMapButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: Colors.secondary100,
-  },
-  routeOptionActionText: {
-    fontSize: 12,
-    color: Colors.secondary400,
-    fontWeight: '500',
-  },
-  selectedIndicator: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  
-  // Enhanced Map Container - Much Larger
-  mapContainer: {
-    height: height * 0.65, // Increased from 0.45 to 0.65 for much larger map
-    backgroundColor: Colors.secondary200,
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: Colors.secondary700,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
     borderWidth: 1,
     borderColor: Colors.secondary100,
   },
-  map: {
-    flex: 1,
+  
+  // Horizontal Route Selection
+  horizontalRouteScrollView: {
+    marginHorizontal: -20,
+  },
+  horizontalRouteScrollContainer: {
+    paddingHorizontal: 20,
+    gap: 16,
+  },
+  horizontalRouteCard: {
+    width: 140,
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: Colors.secondary200,
+    shadowColor: Colors.secondary700,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    position: 'relative',
+  },
+  horizontalRouteCardSelected: {
+    shadowColor: Colors.primary600,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+    transform: [{ scale: 1.02 }],
+  },
+  horizontalRouteIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    alignSelf: 'center',
+  },
+  horizontalRouteTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.secondary700,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  horizontalRouteDescription: {
+    fontSize: 11,
+    color: Colors.secondary500,
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+  horizontalRouteSelected: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   
-  // Enhanced Itinerary Overview
-  itineraryOverview: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    marginBottom: 10,
-  },
-  overviewTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.secondary700,
-    marginLeft: 8,
-  },
-  dayOverview: {
+  // Selected Route Info Card
+  selectedRouteInfoCard: {
     backgroundColor: Colors.white,
+    marginHorizontal: 20,
+    marginTop: 20,
     borderRadius: 20,
-    marginBottom: 16,
     padding: 20,
     shadowColor: Colors.secondary700,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 4,
     borderWidth: 1,
     borderColor: Colors.secondary100,
   },
-  dayOverviewHeader: {
+  routeInfoHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
   },
-  dayColorIndicator: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+  routeInfoColorBar: {
+    width: 4,
+    height: 24,
+    borderRadius: 2,
     marginRight: 12,
   },
-  dayOverviewInfo: {
-    flex: 1,
-  },
-  dayOverviewTitle: {
+  routeInfoTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.secondary700,
   },
-  dayOverviewDate: {
+  routeInfoStats: {
+    flexDirection: 'row',
+    gap: 20,
+  },
+  routeInfoStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  routeInfoStatText: {
+    fontSize: 14,
+    color: Colors.secondary600,
+    fontWeight: '600',
+  },
+  
+  // Places Itinerary Card
+  placesItineraryCard: {
+    backgroundColor: Colors.white,
+    marginHorizontal: 20,
+    marginTop: 20,
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: Colors.secondary700,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: Colors.secondary100,
+  },
+  placesItinerarySubtitle: {
     fontSize: 14,
     color: Colors.secondary500,
-    marginTop: 2,
+    marginBottom: 24,
+    lineHeight: 20,
   },
-  dayOverviewCount: {
-    fontSize: 12,
-    color: Colors.primary600,
-    backgroundColor: Colors.primary100,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    fontWeight: '500',
+  
+  // Journey Container
+  journeyContainer: {
+    paddingLeft: 8,
   },
-  placeOverview: {
+  journeyItem: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 12,
-    paddingLeft: 28,
-    borderLeftWidth: 2,
-    borderLeftColor: Colors.secondary200,
-    marginLeft: 8,
-    backgroundColor: Colors.secondary50,
-    borderRadius: 12,
-    marginBottom: 8,
-    padding: 12,
+    marginBottom: 20,
   },
-  placeNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.primary600,
-    justifyContent: 'center',
+  journeyItemLeft: {
     alignItems: 'center',
-    marginRight: 12,
-    shadowColor: Colors.primary600,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    marginRight: 16,
   },
-  placeNumberText: {
-    fontSize: 14,
+  journeyDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    zIndex: 1,
+  },
+  journeyLine: {
+    width: 2,
+    flex: 1,
+    backgroundColor: Colors.secondary200,
+    marginTop: 8,
+  },
+  journeyItemContent: {
+    flex: 1,
+    paddingBottom: 8,
+  },
+  journeyItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  journeyItemTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.secondary700,
+    flex: 1,
+  },
+  journeyItemBadge: {
+    backgroundColor: Colors.success,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  journeyItemBadgeText: {
+    fontSize: 10,
     fontWeight: '700',
     color: Colors.white,
   },
-  placeOverviewInfo: {
-    flex: 1,
-    paddingTop: 2,
+  journeyItemLocation: {
+    fontSize: 15,
+    color: Colors.secondary600,
+    marginBottom: 4,
   },
-  placeOverviewName: {
+  journeyItemTime: {
+    fontSize: 13,
+    color: Colors.secondary500,
+  },
+  
+  // Day Section
+  daySection: {
+    marginBottom: 24,
+  },
+  daySectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  daySectionTitle: {
     fontSize: 16,
+    fontWeight: '700',
+    color: Colors.secondary700,
+    marginLeft: 16,
+    flex: 1,
+  },
+  daySectionDate: {
+    fontSize: 13,
+    color: Colors.secondary500,
+    fontWeight: '500',
+  },
+  
+  // Place Item
+  placeItem: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    marginLeft: 16,
+  },
+  placeItemDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginTop: 6,
+  },
+  placeItemLine: {
+    width: 2,
+    flex: 1,
+    backgroundColor: Colors.secondary200,
+    marginTop: 8,
+  },
+  placeItemContent: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  placeItemTitle: {
+    fontSize: 15,
     fontWeight: '600',
     color: Colors.secondary700,
     marginBottom: 4,
   },
-  placeOverviewHours: {
+  placeItemAddress: {
     fontSize: 13,
     color: Colors.secondary500,
-    marginTop: 2,
+    marginBottom: 4,
   },
-  
-  // Empty Day Placeholder
-  emptyDayPlaceholder: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 24,
-    paddingHorizontal: 20,
-    backgroundColor: Colors.secondary50,
-    borderRadius: 12,
-    marginLeft: 28,
-    borderWidth: 1,
-    borderColor: Colors.secondary200,
-    borderStyle: 'dashed',
-  },
-  emptyDayText: {
-    fontSize: 14,
+  placeItemDescription: {
+    fontSize: 12,
     color: Colors.secondary400,
-    marginTop: 8,
-    textAlign: 'center',
+    marginBottom: 8,
+    lineHeight: 16,
+  },
+  placeItemMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  placeItemMetaText: {
+    fontSize: 12,
+    color: Colors.secondary500,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.secondary700,
+    marginLeft: 8,
+  },
+  routeSelectionSubtitle: {
+    fontSize: 14,
+    color: Colors.secondary500,
+    marginBottom: 24,
+    lineHeight: 20,
   },
   
-  // Enhanced Bottom Actions
+  // Bottom Actions
   bottomActions: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     padding: 20,
     paddingBottom: Platform.OS === 'ios' ? 34 : 20,
     backgroundColor: Colors.white,
@@ -1916,9 +1641,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: Colors.success + '30',
-  },
-  proceedInfoIcon: {
-    marginRight: 12,
+    gap: 12,
   },
   proceedInfoContent: {
     flex: 1,
@@ -1927,546 +1650,567 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: Colors.success,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   proceedInfoText: {
     fontSize: 14,
     color: Colors.success,
-    fontWeight: '500',
-  },
-  proceedButton: {
-    backgroundColor: Colors.primary600,
-    borderRadius: 20,
-    paddingVertical: 18,
-    shadowColor: Colors.primary600,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: Colors.primary500,
-  },
-  
-  // Main Content Container
-  mainContent: {
-    flex: 1,
-  },
-  
-  // Animation Container
-  animatedContainer: {
-    paddingBottom: 20,
-  },
-  
-  // Compact Summary
-  compactSummary: {
-    backgroundColor: Colors.white,
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: Colors.secondary700,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  tripStats: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  statText: {
-    fontSize: 12,
-    color: Colors.secondary500,
-    fontWeight: '500',
-  },
-  
-  // Route Selection Container
-  routeSelectionCard: {
-    backgroundColor: Colors.white,
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: Colors.secondary700,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  
-  // Route Statistics
-  routeStatsCard: {
-    backgroundColor: Colors.white,
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: Colors.secondary700,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  routeStatsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  routeStatsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.secondary700,
-    marginLeft: 8,
-  },
-  routeStatsGrid: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  routeStats: {
-    flexDirection: 'row',
-    backgroundColor: Colors.white,
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: Colors.secondary700,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
-    gap: 16,
+    opacity: 0.8,
   },
   
   // Modal Styles
   modalContainer: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.white,
   },
-  modalContent: {
-    flex: 1,
-    backgroundColor: Colors.secondary50,
-  },
-  modalHeader: {
-    paddingTop: Platform.OS === 'ios' ? 60 : (StatusBar.currentHeight || 24) + 20, // Increased padding for safe area
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-  },
-  modalCloseButton: {
+  
+  // Fixed Header Styles
+  modalFixedHeader: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight || 24) + 10, // Positioned in safe touchable area
-    left: 20,
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.primary600,
+    zIndex: 1000,
+    paddingTop: Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight || 24) + 10,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+    shadowColor: Colors.secondary700,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalHeaderTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  modalBackButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1,
   },
   modalHeaderCenter: {
+    flex: 1,
     alignItems: 'center',
-    marginTop: 10,
+    marginHorizontal: 16,
   },
-  modalHeaderIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  modalRouteTypeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  modalRouteTypeIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
   },
-  modalHeaderTitle: {
-    fontSize: 22,
+  modalRouteTypeName: {
+    fontSize: 16,
     fontWeight: '700',
     color: Colors.white,
-    textAlign: 'center',
   },
-  modalHeaderSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  modalLoadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.white,
-    marginHorizontal: 20,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: Colors.secondary700,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  modalLoadingSpinner: {
-    marginRight: 12,
-  },
-  modalLoadingText: {
-    fontSize: 16,
-    color: Colors.secondary700,
-    fontWeight: '500',
+  modalHeaderRight: {
+    alignItems: 'flex-end',
   },
   modalRouteStats: {
+    gap: 4,
+  },
+  modalStatItem: {
     flexDirection: 'row',
-    backgroundColor: Colors.white,
-    marginHorizontal: 20,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: Colors.secondary700,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    gap: 20,
-  },
-  modalStatCard: {
-    flex: 1,
     alignItems: 'center',
+    gap: 4,
   },
-  modalStatValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.secondary700,
-    marginTop: 8,
-  },
-  modalStatLabel: {
+  modalStatText: {
     fontSize: 12,
-    color: Colors.secondary500,
-    marginTop: 4,
+    fontWeight: '600',
+    color: Colors.white,
   },
-  modalMapContainer: {
+  
+  // Full Screen Map Styles
+  modalFullScreenMap: {
     flex: 1,
     backgroundColor: Colors.secondary200,
-    marginHorizontal: 20,
-    marginBottom: 16,
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: Colors.secondary700,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: Colors.secondary100,
   },
   modalMap: {
     flex: 1,
   },
-  modalBottomAction: {
-    padding: 20,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
-    backgroundColor: Colors.white,
-    borderTopWidth: 1,
-    borderTopColor: Colors.secondary100,
-    shadowColor: Colors.secondary700,
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  modalSelectButton: {
-    borderRadius: 16,
-    paddingVertical: 16,
-    shadowColor: Colors.secondary700,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-
-  // Modern Itinerary Styles
-  itineraryContainer: {
-    flex: 1,
-    backgroundColor: Colors.white,
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 20,
-    shadowColor: Colors.secondary700,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 6,
-    overflow: 'hidden',
-  },
-  itineraryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.secondary100,
-    backgroundColor: Colors.secondary50,
-  },
-  itineraryHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  itineraryTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.secondary700,
-    marginLeft: 8,
-  },
-  itineraryHeaderRight: {
-    backgroundColor: Colors.primary100,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  itineraryCount: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.primary600,
-  },
-  itineraryScrollView: {
-    flex: 1,
-  },
-  itineraryScrollContent: {
-    paddingBottom: 20,
-  },
   
-  // Day Card Styles
-  dayCard: {
-    marginHorizontal: 20,
-    marginTop: 20,
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.secondary100,
-    overflow: 'hidden',
-  },
-  dayHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: Colors.secondary50,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.secondary100,
-  },
-  dayNumberContainer: {
-    marginRight: 12,
-  },
-  dayNumber: {
+  // Custom Marker Styles
+  customMarkerStart: {
     width: 32,
     height: 32,
     borderRadius: 16,
+    backgroundColor: Colors.success,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 3,
+    borderColor: Colors.white,
+    shadowColor: Colors.secondary700,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  dayNumberText: {
-    fontSize: 14,
+  customMarkerPlace: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.primary600,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: Colors.white,
+    shadowColor: Colors.secondary700,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  markerPlaceNumber: {
+    fontSize: 12,
     fontWeight: '700',
     color: Colors.white,
   },
-  dayInfo: {
-    flex: 1,
-  },
-  dayTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.secondary700,
-  },
-  dayDate: {
-    fontSize: 14,
-    color: Colors.secondary500,
-    marginTop: 2,
-  },
-  dayStats: {
-    alignItems: 'flex-end',
-  },
-  placesCount: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.white,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.secondary200,
-  },
-  placesCountText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.secondary600,
-    marginLeft: 4,
-  },
-  
-  // Places Container Styles
-  placesContainer: {
-    padding: 16,
-  },
-  placeItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.secondary100,
-  },
-  placeItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  placeIcon: {
+  customMarkerDestination: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.primary100,
+    backgroundColor: Colors.error,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    borderWidth: 3,
+    borderColor: Colors.white,
+    shadowColor: Colors.secondary700,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  placeDetails: {
+  
+  // Fixed Bottom Styles
+  modalFixedBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.white,
+    zIndex: 1000,
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    shadowColor: Colors.secondary700,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 12,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  modalBottomContent: {
+    gap: 16,
+  },
+  modalRouteDescription: {
+    alignItems: 'center',
+  },
+  modalRouteDescriptionText: {
+    fontSize: 14,
+    color: Colors.secondary600,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  modalRouteBenefits: {
+    gap: 8,
+  },
+  modalBenefitItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  modalBenefitText: {
+    fontSize: 13,
+    color: Colors.secondary600,
     flex: 1,
   },
-  placeName: {
+  modalActionButton: {
+    marginTop: 8,
+  },
+  
+  // Route Cards Section
+  routeCardsSection: {
+    marginBottom: 20,
+  },
+  routeCardsSectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.secondary700,
+    marginBottom: 16,
+  },
+  routeCardsScrollView: {
+    marginHorizontal: -20,
+  },
+  routeCardsScrollContainer: {
+    paddingHorizontal: 20,
+    gap: 16,
+  },
+  modalRouteCard: {
+    width: 160,
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: Colors.secondary200,
+    shadowColor: Colors.secondary700,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    position: 'relative',
+  },
+  modalRouteCardSelected: {
+    borderColor: Colors.primary600,
+    shadowColor: Colors.primary600,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalRouteCardIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    alignSelf: 'center',
+  },
+  modalRouteCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.secondary700,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalRouteCardDescription: {
+    fontSize: 12,
+    color: Colors.secondary500,
+    textAlign: 'center',
+    lineHeight: 16,
+    marginBottom: 12,
+  },
+  routeStats: {
+    gap: 8,
+  },
+  routeStatsLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  routeStatsSpinner: {
+    // Animation handled by Animated.View
+  },
+  routeStatsLoadingText: {
+    fontSize: 12,
+    color: Colors.secondary500,
+  },
+  routeModalStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  routeModalStatText: {
+    fontSize: 11,
+    color: Colors.secondary600,
+    fontWeight: '500',
+  },
+  routeStatPlaceholder: {
+    fontSize: 11,
+    color: Colors.secondary400,
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
+  
+  // Route Benefits Section
+  routeBenefitsSection: {
+    marginBottom: 20,
+  },
+  routeBenefitsTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: Colors.secondary700,
+    marginBottom: 12,
   },
-  placeAddress: {
+  routeBenefitsList: {
+    gap: 8,
+  },
+  routeBenefitItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  routeBenefitText: {
     fontSize: 14,
-    color: Colors.secondary500,
-    marginTop: 2,
-  },
-  placeHours: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  placeHoursText: {
-    fontSize: 12,
-    color: Colors.secondary400,
-    marginLeft: 4,
-  },
-  placeRating: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.warning + '20',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  placeRatingText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.warning,
-    marginLeft: 4,
+    color: Colors.secondary600,
+    flex: 1,
   },
   
-  // Route Preview Card Styles
-  routePreviewCard: {
+  // Modal Action Section
+  modalActionSection: {
+    // No additional styles needed, CustomButton handles everything
+  },
+  
+  // Modal Benefits Container
+  modalBenefitsContainer: {
     backgroundColor: Colors.white,
-    marginHorizontal: 16,
-    marginTop: 16,
+    marginHorizontal: 20,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: Colors.secondary700,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  modalBenefitsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.secondary700,
+    marginBottom: 12,
+  },
+  
+  // Route Generation Styles
+  routeGenerationCard: {
+    backgroundColor: Colors.white,
+    marginHorizontal: 20,
+    marginTop: 20,
     borderRadius: 20,
+    padding: 20,
     shadowColor: Colors.secondary700,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 6,
-    overflow: 'hidden',
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: Colors.secondary100,
   },
-  routePreviewHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.secondary100,
-    backgroundColor: Colors.secondary50,
-  },
-  routePreviewTitle: {
+  generationHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  routePreviewTitleText: {
+  generationSpinner: {
+    marginRight: 12,
+  },
+  generationTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: Colors.secondary700,
-    marginLeft: 8,
   },
-  viewAllRoutesButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.primary100,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  viewAllRoutesText: {
+  generationDescription: {
     fontSize: 14,
-    fontWeight: '600',
-    color: Colors.primary600,
-    marginRight: 6,
+    color: Colors.secondary500,
+    lineHeight: 20,
   },
-  routePreviewContent: {
+  
+  // Route Comparison Styles
+  routeComparisonContainer: {
+    backgroundColor: Colors.white,
+    marginHorizontal: 20,
+    marginTop: 20,
+    borderRadius: 20,
     padding: 20,
+    shadowColor: Colors.secondary700,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: Colors.secondary100,
   },
-  routePreviewRoute: {
-    marginBottom: 16,
-  },
-  routePreviewStart: {
+  comparisonHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
   },
-  routePreviewEnd: {
+  comparisonTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.secondary700,
+    marginLeft: 8,
+  },
+  comparisonSubtitle: {
+    fontSize: 14,
+    color: Colors.secondary500,
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  routeCardsContainer: {
+    paddingRight: 20,
+    gap: 16,
+  },
+  routeComparisonCard: {
+    width: 280,
+    backgroundColor: Colors.secondary50,
+    borderRadius: 16,
+    padding: 16,
+    marginRight: 16,
+    borderWidth: 2,
+    borderColor: Colors.secondary200,
+  },
+  selectedRouteCard: {
+    borderColor: Colors.primary600,
+    backgroundColor: Colors.primary100,
+    shadowColor: Colors.primary600,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  routeCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    marginBottom: 12,
   },
-  routePreviewPoint: {
+  routeColorDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  routeCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.secondary700,
+    flex: 1,
+  },
+  routeCardStats: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 12,
+  },
+  routeStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  routeStatText: {
+    fontSize: 12,
+    color: Colors.secondary500,
+    fontWeight: '500',
+  },
+  routeCardHighlights: {
+    gap: 6,
+  },
+  highlightItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  highlightDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+  },
+  highlightText: {
+    fontSize: 12,
+    color: Colors.secondary600,
+  },
+  
+  // Selected Route Details
+  selectedRouteDetails: {
+    marginTop: 20,
+    backgroundColor: Colors.secondary50,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.secondary200,
+  },
+  selectedRouteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  selectedRouteColorBar: {
+    width: 4,
+    height: 20,
+    borderRadius: 2,
     marginRight: 12,
   },
-  routePreviewLocationText: {
+  selectedRouteTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: Colors.secondary700,
   },
-  routePreviewLine: {
-    paddingLeft: 6,
-    paddingVertical: 4,
+  selectedRouteMetrics: {
+    flexDirection: 'row',
+    gap: 12,
   },
-  routePreviewDots: {
-    flexDirection: 'column',
+  metricCard: {
+    flex: 1,
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 12,
     alignItems: 'center',
-    gap: 4,
+    borderWidth: 1,
+    borderColor: Colors.secondary100,
   },
-  routePreviewDot: {
-    width: 4,
+  metricValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.secondary700,
+    marginTop: 4,
+  },
+  metricLabel: {
+    fontSize: 11,
+    color: Colors.secondary500,
+    marginTop: 2,
+  },
+  
+  // Map Legend
+  mapLegend: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 12,
+    shadowColor: Colors.secondary700,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  legendColor: {
+    width: 16,
     height: 4,
     borderRadius: 2,
-    backgroundColor: Colors.secondary400,
   },
-  routePreviewStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: Colors.secondary50,
-    padding: 16,
-    borderRadius: 12,
-  },
-  routePreviewStat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  routePreviewStatText: {
-    fontSize: 14,
+  legendText: {
+    fontSize: 12,
+    color: Colors.secondary700,
     fontWeight: '500',
-    color: Colors.secondary600,
-    marginLeft: 6,
   },
 });
+
+export default RouteDisplayScreen;
