@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modalize } from 'react-native-modalize';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CustomButton } from '../../components/CustomButton';
+import { CustomTextInput } from '../../components/CustomTextInput';
 import { ThemedText } from '../../components/ThemedText';
 import { Colors } from '../../constants/Colors';
 
@@ -168,6 +170,32 @@ export default function VehicleDetailScreen() {
   const insets = useSafeAreaInsets();
   const { title } = useLocalSearchParams();
   const details = vehicleData.find(item => item.title === title) || vehicleData[0];
+  const modalRef = useRef<Modalize>(null);
+  const [pickupType, setPickupType] = useState<'address' | 'gps'>('address');
+  const [pickupAddress, setPickupAddress] = useState('');
+  const [pickupGPS, setPickupGPS] = useState('');
+  const [dropSame, setDropSame] = useState(true);
+  const [dropAddress, setDropAddress] = useState('');
+  const [pickupDate, setPickupDate] = useState('');
+  const [pickupTime, setPickupTime] = useState('');
+  const [showErrors, setShowErrors] = useState(false);
+
+  // Validation logic
+  const isPickupLocationValid =
+    (pickupType === 'address' && pickupAddress.trim() !== '') ||
+    (pickupType === 'gps' && pickupGPS.trim() !== '');
+  const isFormValid = pickupDate.trim() !== '' && pickupTime.trim() !== '' && isPickupLocationValid;
+
+  const openBottomSheet = () => {
+    modalRef.current?.open();
+  };
+
+  const handleConfirmBooking = () => {
+    if (!isFormValid) {
+      setShowErrors(true);
+      return;
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -247,8 +275,91 @@ export default function VehicleDetailScreen() {
           size="large"
           style={styles.bookBtn}
           disabled={false}
+          onPress={openBottomSheet}
         />
       </View>
+      <Modalize ref={modalRef} adjustToContentHeight>
+        <View style={sheetStyles.sheetContent}>
+          <View style={sheetStyles.sheetTitle}>
+            <ThemedText variant="title" style={sheetStyles.sheetTitleText}>Booking Details</ThemedText>
+          </View>
+          <View style={sheetStyles.sheetBody}>
+            <CustomTextInput
+              label="Pickup Date"
+              placeholder="YYYY-MM-DD"
+              value={pickupDate}
+              onChangeText={val => { setPickupDate(val); if (showErrors) setShowErrors(false); }}
+              leftIcon="calendar-outline"
+              containerStyle={{ marginBottom: 12 }}
+              error={showErrors && pickupDate.trim() === '' ? 'Pickup date is required' : undefined}
+            />
+            <CustomTextInput
+              label="Pickup Time"
+              placeholder="HH:MM"
+              value={pickupTime}
+              onChangeText={val => { setPickupTime(val); if (showErrors) setShowErrors(false); }}
+              leftIcon="time-outline"
+              containerStyle={{ marginBottom: 12 }}
+              error={showErrors && pickupTime.trim() === '' ? 'Pickup time is required' : undefined}
+            />
+            <ThemedText style={sheetStyles.label}>Pickup Location</ThemedText>
+            <View style={sheetStyles.pickupTypeRow}>
+              <TouchableOpacity onPress={() => setPickupType('address')} style={[sheetStyles.typeBtn, pickupType === 'address' && sheetStyles.typeBtnActive]}>
+                <Text style={[sheetStyles.typeBtnText, pickupType === 'address' ? sheetStyles.typeBtnActiveText : null]}>Address</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setPickupType('gps')} style={[sheetStyles.typeBtn, pickupType === 'gps' && sheetStyles.typeBtnActive]}>
+                <Text style={[sheetStyles.typeBtnText, pickupType === 'gps' ? sheetStyles.typeBtnActiveText : null]}>GPS</Text>
+              </TouchableOpacity>
+            </View>
+            {pickupType === 'address' && (
+              <CustomTextInput
+                label="Pickup Address"
+                placeholder="Enter address"
+                value={pickupAddress}
+                onChangeText={val => { setPickupAddress(val); if (showErrors) setShowErrors(false); }}
+                leftIcon="location-outline"
+                containerStyle={{ marginBottom: 0 }}
+                error={showErrors && pickupAddress.trim() === '' ? 'Pickup address is required' : undefined}
+              />
+            )}
+            {pickupType === 'gps' && (
+              <TouchableOpacity style={sheetStyles.gpsBtn} onPress={() => { setPickupGPS('GPS Selected'); if (showErrors) setShowErrors(false); }}>
+                <Ionicons name="locate" size={22} color={Colors.primary600} />
+                <Text style={sheetStyles.gpsBtnText}>{pickupGPS ? pickupGPS : 'Select GPS Location'}</Text>
+              </TouchableOpacity>
+            )}
+            {showErrors && !isPickupLocationValid && (
+              <Text style={{ color: Colors.error, marginBottom: 8, marginLeft: 2 }}>Pickup location is required</Text>
+            )}
+            <View style={sheetStyles.divider} />
+            <View style={sheetStyles.dropRow}>
+              <ThemedText style={sheetStyles.label}>Drop-off Location</ThemedText>
+              <TouchableOpacity style={sheetStyles.toggleRow} onPress={() => setDropSame(!dropSame)}>
+                <Ionicons name={dropSame ? 'checkbox' : 'square-outline'} size={22} color={Colors.primary600} />
+                <Text style={sheetStyles.toggleText}>Same as pickup</Text>
+              </TouchableOpacity>
+            </View>
+            {!dropSame && (
+              <CustomTextInput
+                label="Drop-off Address"
+                placeholder="Enter drop-off address"
+                value={dropAddress}
+                onChangeText={setDropAddress}
+                leftIcon="location-outline"
+                containerStyle={{ marginBottom: 0 }}
+              />
+            )}
+            <CustomButton
+              title="Confirm Booking"
+              variant="primary"
+              size="large"
+              style={{ marginTop: 24, borderRadius: 16 }}
+              onPress={handleConfirmBooking}
+              disabled={false}
+            />
+          </View>
+        </View>
+      </Modalize>
     </SafeAreaView>
   );
 }
@@ -473,5 +584,112 @@ const styles = StyleSheet.create({
   bookBtn: {
     width: '100%',
     borderRadius: 16,
+  },
+});
+
+const sheetStyles = StyleSheet.create({
+  sheetContent: {
+    alignItems: 'stretch',
+    minHeight: 340,
+    alignSelf: 'center',
+    borderRadius: 18,
+    marginTop: 10,
+    marginBottom: 24,
+    width: '95%',
+    backgroundColor: Colors.secondary50,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  sheetTitle: {
+    width: '100%',
+    backgroundColor: Colors.primary800,
+    paddingVertical: 28,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  sheetTitleText: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: Colors.white,
+    marginBottom: 0,
+    alignSelf: 'center',
+  },
+  sheetBody: {
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+    backgroundColor: Colors.secondary50,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+    alignItems: 'stretch',
+    gap: 0,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.primary800,
+    marginBottom: 8,
+  },
+  pickupTypeRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  typeBtn: {
+    backgroundColor: Colors.primary100,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  typeBtnActive: {
+    backgroundColor: Colors.primary600,
+  },
+  typeBtnActiveText: {
+    color: Colors.white,
+  },
+  typeBtnText: {
+    color: Colors.primary800,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  gpsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary100,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  gpsBtnText: {
+    marginLeft: 8,
+    color: Colors.primary800,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: Colors.secondary200,
+    marginVertical: 16,
+  },
+  dropRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  toggleText: {
+    marginLeft: 6,
+    color: Colors.primary800,
+    fontWeight: '600',
+    fontSize: 14,
   },
 });

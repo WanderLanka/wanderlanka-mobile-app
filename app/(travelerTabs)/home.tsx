@@ -1,15 +1,16 @@
 import * as React from 'react';
 
-import { CustomButton, CustomTextInput, ThemedText } from '../../components';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CustomButton, CustomTextInput, ThemedText } from '../../components';
+import { DestinationCard } from '../../components/DestinationCard';
 
-import { Colors } from '../../constants/Colors';
-import { Ionicons } from '@expo/vector-icons';
-import { StatusBar } from 'expo-status-bar';
 import { TopBar } from '@/components/TopBar';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
+import { Colors } from '../../constants/Colors';
 
 export default function TravelerHomeScreen() {
   const [destination, setDestination] = useState('');
@@ -59,91 +60,75 @@ export default function TravelerHomeScreen() {
           />
         </View>
 
+        {/* Destination Discovery Carousels */}
         <View style={styles.section}>
-          <ThemedText variant="subtitle" style={styles.sectionTitle}>Popular Places</ThemedText>
-          <View style={styles.placeholderBox}>
-            <TouchableOpacity>
-              <View style={styles.navArrowbg}>
-                <Ionicons name="chevron-back-outline" size={20} color={Colors.primary700} />
+          <ThemedText variant="subtitle" style={styles.sectionTitle}>Trending Destinations</ThemedText>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+            {[{title:'Galle',desc:'Beach & Fort',img:'https://images.unsplash.com/photo-1506744038136-46273834b3fb'},{title:'Kandy',desc:'Hill Capital',img:'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd'},{title:'Ella',desc:'Nature & Views',img:'https://images.unsplash.com/photo-1465101046530-73398c7f28ca'}].map((item,i)=>(
+              <DestinationCard key={i} title={item.title} desc={item.desc} img={item.img} />
+            ))}
+          </ScrollView>
+        </View>
+        <View style={styles.section}>
+          <ThemedText variant="subtitle" style={styles.sectionTitle}>Local Favorites</ThemedText>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+            {[{title:'Jaffna',desc:'Culture & Cuisine',img:'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee'},{title:'Matara',desc:'Southern Beaches',img:'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd'},{title:'Sigiriya',desc:'Ancient Rock',img:'https://images.unsplash.com/photo-1465101046530-73398c7f28ca'}].map((item,i)=>(
+              <DestinationCard key={i} title={item.title} desc={item.desc} img={item.img} />
+            ))}
+          </ScrollView>
+        </View>
+        <View style={styles.section}>
+          <ThemedText variant="subtitle" style={styles.sectionTitle}>Hidden Gems</ThemedText>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+            {[{title:'Knuckles',desc:'Mountain Range',img:'https://images.unsplash.com/photo-1465101046530-73398c7f28ca'},{title:'Kalpitiya',desc:'Dolphin Watching',img:'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd'},{title:'Haputale',desc:'Tea Country',img:'https://images.unsplash.com/photo-1506744038136-46273834b3fb'}].map((item,i)=>(
+              <DestinationCard key={i} title={item.title} desc={item.desc} img={item.img} />
+            ))}
+          </ScrollView>
+        </View>
+        {/* Categorized Attractions Grid */}
+        <View style={styles.section}>
+          <ThemedText variant="subtitle" style={styles.sectionTitle}>Explore by Interest</ThemedText>
+          <View style={styles.gridRow}>
+            {[{icon:'sunny',label:'Beaches'},{icon:'business',label:'History'},{icon:'leaf',label:'Nature'},{icon:'restaurant',label:'Food'},{icon:'walk',label:'Hiking'},{icon:'color-palette',label:'Culture'}].map((cat,i)=>(
+              <View key={i} style={styles.gridItem}>
+                <TouchableOpacity style={styles.gridIconWrap}>
+                  <Ionicons name={cat.icon as any} size={28} color={Colors.primary600} />
+                </TouchableOpacity>
+                <ThemedText style={styles.gridLabel}>{cat.label}</ThemedText>
               </View>
-            </TouchableOpacity>
-            <ThemedText>Recommended Places go here</ThemedText>
-            <TouchableOpacity>
-              <View style={styles.navArrowbg}>
-                <Ionicons name="chevron-forward-outline" size={20} color={Colors.primary700} />
-              </View>
-            </TouchableOpacity>
+            ))}
           </View>
         </View>
-
+        {/* Trip Planning Tools */}
         <View style={styles.section}>
-          <ThemedText variant="subtitle" style={styles.sectionTitle}>Popular Places</ThemedText>
-          <View style={styles.placeholderBox}>
-            <TouchableOpacity>
-              <View style={styles.navArrowbg}>
-                <Ionicons name="chevron-back-outline" size={20} color={Colors.primary700} />
+          <ThemedText variant="subtitle" style={styles.sectionTitle}>Trip Planning Tools</ThemedText>
+          <View style={styles.toolsRow}>
+            {[{title:'Itineraries',desc:'Ready-made plans',icon:'map'},{title:'Seasonal Highlights',desc:'Best times to visit',icon:'calendar'},{title:'Transport Compare',desc:'Find best options',icon:'car'}].map((tool,i)=>(
+              <View key={i} style={styles.toolCard}>
+                <TouchableOpacity style={styles.toolIconWrap}>
+                  <Ionicons name={tool.icon as any} size={28} color={Colors.primary600} />
+                </TouchableOpacity>
+                <ThemedText style={styles.toolTitle}>{tool.title}</ThemedText>
+                <ThemedText style={styles.toolDesc}>{tool.desc}</ThemedText>
               </View>
-            </TouchableOpacity>
-            <ThemedText>Recommended Places go here</ThemedText>
-            <TouchableOpacity>
-              <View style={styles.navArrowbg}>
-                <Ionicons name="chevron-forward-outline" size={20} color={Colors.primary700} />
-              </View>
-            </TouchableOpacity>
+            ))}
           </View>
         </View>
-
+        {/* Personalized Elements (mocked as logged in) */}
         <View style={styles.section}>
-          <ThemedText variant="subtitle" style={styles.sectionTitle}>Popular Places</ThemedText>
-          <View style={styles.placeholderBox}>
-            <TouchableOpacity>
-              <View style={styles.navArrowbg}>
-                <Ionicons name="chevron-back-outline" size={20} color={Colors.primary700} />
+          <ThemedText variant="subtitle" style={styles.sectionTitle}>My Trips</ThemedText>
+          <View style={styles.personalRow}>
+            {[{title:'Saved Plans',desc:'3 itineraries',icon:'bookmark'},{title:'Unfinished',desc:'2 drafts',icon:'document'},{title:'Upcoming',desc:'1 trip',icon:'airplane'}].map((item,i)=>(
+              <View key={i} style={styles.personalCard}>
+                <TouchableOpacity style={styles.personalIconWrap}>
+                  <Ionicons name={item.icon as any} size={28} color={Colors.primary600} />
+                </TouchableOpacity>
+                <ThemedText style={styles.personalTitle}>{item.title}</ThemedText>
+                <ThemedText style={styles.personalDesc}>{item.desc}</ThemedText>
               </View>
-            </TouchableOpacity>
-            <ThemedText>Recommended Places go here</ThemedText>
-            <TouchableOpacity>
-              <View style={styles.navArrowbg}>
-                <Ionicons name="chevron-forward-outline" size={20} color={Colors.primary700} />
-              </View>
-            </TouchableOpacity>
+            ))}
           </View>
         </View>
-
-        <View style={styles.section}>
-          <ThemedText variant="subtitle" style={styles.sectionTitle}>Popular Places</ThemedText>
-          <View style={styles.placeholderBox}>
-            <TouchableOpacity>
-              <View style={styles.navArrowbg}>
-                <Ionicons name="chevron-back-outline" size={20} color={Colors.primary700} />
-              </View>
-            </TouchableOpacity>
-            <ThemedText>Recommended Places go here</ThemedText>
-            <TouchableOpacity>
-              <View style={styles.navArrowbg}>
-                <Ionicons name="chevron-forward-outline" size={20} color={Colors.primary700} />
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <ThemedText variant="subtitle" style={styles.sectionTitle}>Popular Places</ThemedText>
-          <View style={styles.placeholderBox}>
-            <TouchableOpacity>
-              <View style={styles.navArrowbg}>
-                <Ionicons name="chevron-back-outline" size={20} color={Colors.primary700} />
-              </View>
-            </TouchableOpacity>
-            <ThemedText>Recommended Places go here</ThemedText>
-            <TouchableOpacity>
-              <View style={styles.navArrowbg}>
-                <Ionicons name="chevron-forward-outline" size={20} color={Colors.primary700} />
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-        {/* Add more sections... */}
       </ScrollView>
     </SafeAreaView>
   );
@@ -199,8 +184,8 @@ const styles = StyleSheet.create({
   searchArea: {
     flexDirection: 'column',
     alignItems: 'center',
-    marginBottom: 24,
     paddingHorizontal: 20,
+    paddingVertical: 20,
   },
 
   searchInput: {
@@ -250,7 +235,116 @@ const styles = StyleSheet.create({
     shadowColor: Colors.secondary200,
     shadowOpacity: 0.3,
     shadowRadius: 2,
-  }
+  },
+  carouselCard: {
+    marginRight: 16,
+    width: 120,
+    alignItems: 'center',
+  },
+  carouselImageWrap: {
+    marginBottom: 6,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: Colors.secondary200,
+  },
+  carouselTitle: {
+    fontWeight: '700',
+    fontSize: 15,
+    color: Colors.primary800,
+    marginBottom: 2,
+    textAlign: 'center',
+  },
+  carouselDesc: {
+    fontSize: 13,
+    color: Colors.primary600,
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  gridItem: {
+    width: '30%',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  gridIconWrap: {
+    backgroundColor: Colors.primary100,
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 6,
+  },
+  gridLabel: {
+    fontSize: 13,
+    color: Colors.primary700,
+    textAlign: 'center',
+  },
+  toolsRow: {
+    flexDirection: 'row',
+    gap: 16,
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  toolCard: {
+    backgroundColor: Colors.primary100,
+    borderRadius: 14,
+    padding: 14,
+    width: 110,
+    alignItems: 'center',
+  },
+  toolIconWrap: {
+    borderRadius: 16,
+    padding: 8,
+    marginBottom: 6,
+  },
+  toolTitle: {
+    fontWeight: '700',
+    fontSize: 14,
+    color: Colors.primary800,
+    marginBottom: 2,
+    textAlign: 'center',
+  },
+  toolDesc: {
+    fontSize: 12,
+    color: Colors.primary700,
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  personalRow: {
+    flexDirection: 'row',
+    gap: 16,
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  personalCard: {
+    backgroundColor: Colors.primary100,
+    borderRadius: 14,
+    padding: 14,
+    width: 110,
+    alignItems: 'center',
+  },
+  personalIconWrap: {
+    borderRadius: 16,
+    padding: 8,
+    marginBottom: 6,
+  },
+  personalTitle: {
+    fontWeight: '700',
+    fontSize: 14,
+    color: Colors.primary800,
+    marginBottom: 2,
+    textAlign: 'center',
+  },
+  personalDesc: {
+    fontSize: 12,
+    color: Colors.primary700,
+    textAlign: 'center',
+    marginBottom: 2,
+  },
 });
 
 

@@ -31,21 +31,26 @@ export const CustomTextInput: React.FC<CustomTextInputProps> = ({
   const [isSecureTextEntry, setIsSecureTextEntry] = useState(isPassword);
   const [isFocused, setIsFocused] = useState(false);
 
+  // Debug logs
+  console.log('CustomTextInput render:', { label, error, leftIcon });
+
   return (
     <View style={[styles.container, containerStyle]}>
+
       {label && (
         <Text style={styles.label}>
           {label}
         </Text>
       )}
+
       <View style={[
         styles.inputContainer,
-        isFocused && styles.inputContainerFocused,
-        error && styles.inputContainerError,
+        isFocused && { borderColor: Colors.primary600 },
+        error && { borderColor: Colors.error }
       ]}>
         {leftIcon && (
           <Ionicons
-            name={leftIcon}
+            name={leftIcon as any}
             size={20}
             color={error ? Colors.error : isFocused ? Colors.primary600 : Colors.secondary400}
             style={styles.leftIcon}
@@ -80,7 +85,11 @@ export const CustomTextInput: React.FC<CustomTextInputProps> = ({
           </TouchableOpacity>
         )}
       </View>
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      
+      {/* Step 3: Add back error with Colors */}
+      {error && error.length > 0 && (
+        <Text style={styles.errorText}>{error}</Text>
+      )}
     </View>
   );
 };
@@ -94,7 +103,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.secondary700,
     marginBottom: 8,
-    fontFamily: 'Inter',
+    fontFamily: 'Inter', // Adding back fontFamily - TEST THIS
   },
   inputContainer: {
     flexDirection: 'row',
@@ -105,24 +114,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     paddingHorizontal: 16,
     minHeight: 50,
-    
-  },
-  inputContainerFocused: {
-    borderColor: Colors.primary600,
-    shadowColor: Colors.primary600,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  inputContainerError: {
-    borderColor: Colors.error,
   },
   input: {
     flex: 1,
     fontSize: 16,
     color: Colors.secondary700,
-    fontFamily: 'Inter',
+    fontFamily: 'Inter', // Adding back fontFamily - TEST THIS
     paddingVertical: 0,
   },
   leftIcon: {
@@ -135,6 +132,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.error,
     marginTop: 4,
-    fontFamily: 'Inter',
+    fontFamily: 'Inter', // Adding back fontFamily - TEST THIS
   },
 });
