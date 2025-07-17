@@ -1,6 +1,5 @@
-
-import { CustomButton, ThemedText } from '../../components';
-
+import { Tabs, router } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   Modal,
@@ -13,18 +12,15 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import React, { useEffect, useRef, useState } from 'react';
-import { Tabs, router } from 'expo-router';
+import { CustomButton, ThemedText } from '../../components';
 
-import { Calendar } from 'react-native-calendars';
-import { Colors } from '../../constants/Colors';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
+import { Calendar } from 'react-native-calendars';
 import { Modalize } from 'react-native-modalize';
+import { Colors } from '../../constants/Colors';
 
-  // If you get module not found errors, check that these files exist at app/ui/CustomTextInput.tsx and app/ui/ThemedText.tsx
-  // If not, update the import paths to the correct location or create the missing files.
-
+// If you get module not found errors, check that these files exist at app/ui/CustomTextInput.tsx and app/ui/ThemedText.tsx
+// If not, update the import paths to the correct location or create the missing files.
 
 // Google Places API configuration
 const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
@@ -77,11 +73,9 @@ export default function TravelerTabsLayout() {
     };
   }, [searchTimeout]);
 
-
-    const openBottomSheet = () => {
-      modalRef.current?.open();
-    };
-
+  const openBottomSheet = () => {
+    modalRef.current?.open();
+  };
 
   const closeBottomSheet = () => {
     modalRef.current?.close();
@@ -251,48 +245,46 @@ export default function TravelerTabsLayout() {
     });
   };
 
-
-    return (
-      <>
-        <View style={{ flex: 1 }}>
-          <Tabs
-            screenOptions={{
-              headerShown: false,
-              tabBarActiveTintColor: Colors.primary800,
-              tabBarInactiveTintColor: Colors.secondary400,
-            }}
-          >
-            <Tabs.Screen
-              name="home"
-              options={{
-                title: 'Home',
-                tabBarIcon: ({ color, size }: { color: string; size: number }) => (
-                  <Ionicons name="home-outline" size={size} color={color} />
-                ),
-              }}
-            />
-            <Tabs.Screen
-              name="bookNow"
-              options={{
-                title: 'Book Now',
-                tabBarIcon: ({ color, size }: { color: string; size: number }) => (
-                  <Ionicons name="briefcase-outline" size={size} color={color} />
-                ),
-              }}
-            />
-            {/* Custom + Button in the middle */}
+  return (
+    <>
+      <View style={{ flex: 1 }}>
+        <Tabs
+          screenOptions={{
+            headerShown: false,
+            tabBarActiveTintColor: Colors.primary800,
+            tabBarInactiveTintColor: Colors.secondary400,
+          }}
+        >
           <Tabs.Screen
-              name="plan"
-              options={{
-                tabBarButton: () => (
-                  <Pressable onPress={openBottomSheet} style={styles.fabButton}>
-                    <Ionicons name="add" size={32} color={Colors.primary300} />
-                  </Pressable>
-                ),
-                listeners: {
-                  tabPress: (e: { preventDefault: () => void; }) => {
-                    e.preventDefault();
-                  },
+            name="home"
+            options={{
+              title: 'Home',
+              tabBarIcon: ({ color, size }: { color: string; size: number }) => (
+                <Ionicons name="home-outline" size={size} color={color} />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="bookNow"
+            options={{
+              title: 'Book Now',
+              tabBarIcon: ({ color, size }: { color: string; size: number }) => (
+                <Ionicons name="briefcase-outline" size={size} color={color} />
+              ),
+            }}
+          />
+          {/* Custom + Button in the middle */}
+         <Tabs.Screen
+            name="plan"
+            options={{
+              tabBarButton: () => (
+                <Pressable onPress={openBottomSheet} style={styles.fabButton}>
+                  <Ionicons name="add" size={32} color={Colors.primary300} />
+                </Pressable>
+              ),
+              listeners: {
+                tabPress: (e: { preventDefault: () => void; }) => {
+                  e.preventDefault();
                 },
               },
             }}
@@ -743,11 +735,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-
     marginBottom: 16,
-    width: '100%',
+    gap: 12,
   },
-
+  bottomSheetTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: Colors.white,
+    marginBottom: 0,
+    alignSelf: 'center',
+  },
   startPlanningButton: {
     marginTop: 24,
     backgroundColor: Colors.primary600,
@@ -1016,4 +1013,3 @@ const styles = StyleSheet.create({
     width: '100%',
   },
 });
-
