@@ -100,7 +100,7 @@ const ROUTE_OPTIONS: RouteOption[] = [
     description: 'Balanced route with best attractions',
     icon: 'star',
     color: '#3b82f6',
-    benefits: ['Optimized for tourism', 'Popular attractions', 'Good road conditions'],
+    benefits: ['Balanced route', 'Best attractions', 'Moderate traffic'],
   },
   {
     id: 'shortest',
@@ -108,7 +108,7 @@ const ROUTE_OPTIONS: RouteOption[] = [
     description: 'Fastest route avoiding tolls',
     icon: 'flash',
     color: '#10b981',
-    benefits: ['Fastest route', 'Fuel efficient', 'Direct path'],
+    benefits: ['Fastest route', 'Avoids tolls', 'Direct path'],
   },
   {
     id: 'scenic',
@@ -116,7 +116,7 @@ const ROUTE_OPTIONS: RouteOption[] = [
     description: 'Most beautiful route avoiding highways',
     icon: 'camera',
     color: '#f59e0b',
-    benefits: ['Beautiful views', 'Cultural sites', 'Local experiences'],
+    benefits: ['Beautiful views', 'Local roads', 'Cultural sites'],
   },
 ];
 
@@ -181,6 +181,15 @@ function RouteDisplayScreen() {
     };
   }, [isLoadingRoute, spinAnim]);
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (routeSelectionTimeoutRef.current) {
+        clearTimeout(routeSelectionTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const spin = spinAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
@@ -199,6 +208,21 @@ function RouteDisplayScreen() {
   // Modal state
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalRouteType, setModalRouteType] = useState<RouteType>('recommended');
+  const [isModalProcessing, setIsModalProcessing] = useState(false);
+  
+  // Route direction state
+  const [routeDirections, setRouteDirections] = useState<any>(null);
+  const [isLoadingDirections, setIsLoadingDirections] = useState(false);
+  const [directionsError, setDirectionsError] = useState<string | null>(null);
+  
+  // Map reference for auto-fitting
+  const mapRef = useRef<MapView>(null);
+  
+  // Debounce ref for route selection
+  const routeSelectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  // Ref to prevent multiple initializations
+  const initializedRef = useRef(false);
 
   // Add geocoding function using Google Places API
   const geocodeStartPoint = async (locationName: string): Promise<{ latitude: number; longitude: number } | null> => {
@@ -279,96 +303,110 @@ function RouteDisplayScreen() {
 
   // Initialize data
   useEffect(() => {
+    // Prevent multiple initializations
+    if (initializedRef.current) {
+      console.log('Already initialized, skipping...');
+      return;
+    }
+    
     const initializeData = async () => {
       console.log('Initializing route display with params:', { destination, startPoint, startDate, endDate });
+      
+      try {
+        // Mark as initialized at the start
+        initializedRef.current = true;
 
-      // Initialize default route info
-      const defaultRouteInfo = calculateRouteInfo('recommended');
-      setRouteInfo(defaultRouteInfo);
+        // Initialize default route info
+        const defaultRouteInfo = calculateRouteInfo('recommended');
+        setRouteInfo(defaultRouteInfo);
 
-      // Set default location if no start point
-      if (!startPoint) {
-        console.log('No start point provided, using default Colombo location');
-        setStartLocation({ latitude: 6.9271, longitude: 79.8612 });
-      } else {
-        // First, geocode start point if provided
-        console.log('Geocoding start point:', startPoint);
-        const coords = await geocodeStartPoint(startPoint as string);
-        if (coords) {
-          console.log('Start location coordinates:', coords);
-          setStartLocation(coords);
-        } else {
-          console.log('Geocoding failed, using default Colombo location');
+        // Set default location if no start point
+        if (!startPoint) {
+          console.log('No start point provided, using default Colombo location');
           setStartLocation({ latitude: 6.9271, longitude: 79.8612 });
+        } else {
+          // First, geocode start point if provided
+          console.log('Geocoding start point:', startPoint);
+          const coords = await geocodeStartPoint(startPoint as string);
+          if (coords) {
+            console.log('Start location coordinates:', coords);
+            setStartLocation(coords);
+          } else {
+            console.log('Geocoding failed, using default Colombo location');
+            setStartLocation({ latitude: 6.9271, longitude: 79.8612 });
+          }
         }
-      }
 
-      if (itineraryString) {
-        try {
-          const parsedItinerary = JSON.parse(itineraryString as string);
-          console.log('Parsed itinerary:', parsedItinerary);
-          setItinerary(parsedItinerary);
+        if (itineraryString) {
+          try {
+            const parsedItinerary = JSON.parse(itineraryString as string);
+            console.log('Parsed itinerary:', parsedItinerary);
+            setItinerary(parsedItinerary);
 
-          const places: Place[] = [];
-          parsedItinerary.forEach((day: DayItinerary) => {
-            places.push(...day.places);
-          });
-          setAllPlaces(places);
-          console.log('All places extracted:', places.length);
+            const places: Place[] = [];
+            parsedItinerary.forEach((day: DayItinerary) => {
+              places.push(...day.places);
+            });
+            setAllPlaces(places);
+            console.log('All places extracted:', places.length);
 
-          // Set initial map region based on first place
-          if (places.length > 0) {
-            const firstPlace = places[0];
-            const newRegion = {
-              latitude: firstPlace.coordinates.latitude,
-              longitude: firstPlace.coordinates.longitude,
-              latitudeDelta: 0.5,
-              longitudeDelta: 0.5,
-            };
-            console.log('Setting initial map region to first place:', newRegion);
-            setMapRegion(newRegion);
-            setInitialRegionSet(true);
-            
-            // Set fallback start location if not already set
-            if (!startLocation && startPoint) {
-              const fallbackStart = await geocodeStartPoint(startPoint as string);
-              if (fallbackStart) {
-                setStartLocation(fallbackStart);
-              } else {
-                // Use first place as fallback start location
-                setStartLocation(firstPlace.coordinates);
+            // Set initial map region based on first place
+            if (places.length > 0) {
+              const firstPlace = places[0];
+              const newRegion = {
+                latitude: firstPlace.coordinates.latitude,
+                longitude: firstPlace.coordinates.longitude,
+                latitudeDelta: 0.5,
+                longitudeDelta: 0.5,
+              };
+              console.log('Setting initial map region to first place:', newRegion);
+              setMapRegion(newRegion);
+              setInitialRegionSet(true);
+              
+              // Set fallback start location if not already set
+              if (!startLocation && startPoint) {
+                const fallbackStart = await geocodeStartPoint(startPoint as string);
+                if (fallbackStart) {
+                  setStartLocation(fallbackStart);
+                } else {
+                  // Use first place as fallback start location
+                  setStartLocation(firstPlace.coordinates);
+                }
               }
             }
+          } catch (error) {
+            console.error('Error parsing itinerary:', error);
+            Alert.alert('Error', 'Failed to load itinerary data');
           }
-        } catch (error) {
-          console.error('Error parsing itinerary:', error);
-          Alert.alert('Error', 'Failed to load itinerary data');
+        } else {
+          console.log('No itinerary data provided');
+          // Set some default places for testing
+          const defaultPlaces: Place[] = [
+            {
+              id: '1',
+              name: 'Kandy',
+              address: 'Kandy, Sri Lanka',
+              coordinates: { latitude: 7.2936, longitude: 80.6417 }
+            },
+            {
+              id: '2',
+              name: 'Nuwara Eliya',
+              address: 'Nuwara Eliya, Sri Lanka',
+              coordinates: { latitude: 6.9708, longitude: 80.7580 }
+            }
+          ];
+          setAllPlaces(defaultPlaces);
+          setMapRegion({
+            latitude: 7.2936,
+            longitude: 80.6417,
+            latitudeDelta: 0.5,
+            longitudeDelta: 0.5,
+          });
+          setInitialRegionSet(true);
         }
-      } else {
-        console.log('No itinerary data provided');
-        // Set some default places for testing
-        const defaultPlaces: Place[] = [
-          {
-            id: '1',
-            name: 'Kandy',
-            address: 'Kandy, Sri Lanka',
-            coordinates: { latitude: 7.2936, longitude: 80.6417 }
-          },
-          {
-            id: '2',
-            name: 'Nuwara Eliya',
-            address: 'Nuwara Eliya, Sri Lanka',
-            coordinates: { latitude: 6.9708, longitude: 80.7580 }
-          }
-        ];
-        setAllPlaces(defaultPlaces);
-        setMapRegion({
-          latitude: 7.2936,
-          longitude: 80.6417,
-          latitudeDelta: 0.5,
-          longitudeDelta: 0.5,
-        });
-        setInitialRegionSet(true);
+      } catch (error) {
+        console.error('Error initializing route display:', error);
+        Alert.alert('Error', 'Failed to initialize route display');
       }
     };
 
@@ -412,16 +450,80 @@ function RouteDisplayScreen() {
 
   // Handle route selection from modal
   const handleRouteSelect = async (routeType: RouteType) => {
-    console.log('Route selected:', routeType);
+    console.log(`🎯 Route selection initiated: ${routeType}`);
+    console.log(`📊 Current state:`, {
+      isLoadingRoute,
+      isLoadingDirections,
+      isModalVisible,
+      isModalProcessing,
+      selectedRouteType,
+      currentRouteType: routeType
+    });
     
-    // Set the modal route type and show modal
-    setModalRouteType(routeType);
-    setIsModalVisible(true);
+    // Clear any existing timeout
+    if (routeSelectionTimeoutRef.current) {
+      clearTimeout(routeSelectionTimeoutRef.current);
+    }
     
-    // Also update the main screen selection
-    setSelectedRouteType(routeType);
-    const info = calculateRouteInfo(routeType);
-    setRouteInfo(info);
+    // Prevent multiple simultaneous selections or if already processing
+    if (isLoadingRoute || isLoadingDirections || isModalVisible || isModalProcessing) {
+      console.log('⏸️ Already processing/modal open, ignoring selection');
+      return;
+    }
+    
+    // Prevent selecting the same route type that's already selected
+    if (selectedRouteType === routeType && !isLoadingRoute && !isLoadingDirections) {
+      console.log('⏸️ Same route type already selected, ignoring');
+      return;
+    }
+    
+    // Debounce the route selection
+    routeSelectionTimeoutRef.current = setTimeout(async () => {
+      console.log(`🚀 Processing route selection: ${routeType}`);
+      
+      // Set processing state
+      setIsModalProcessing(true);
+      setIsLoadingRoute(true);
+      setDirectionsError(null);
+      
+      try {
+        // Set the modal route type and main screen selection
+        setModalRouteType(routeType);
+        setSelectedRouteType(routeType);
+        
+        console.log(`📡 Fetching directions for ${routeType}...`);
+        
+        // Fetch directions for the selected route type first
+        const directionsResult = await fetchDirections(routeType);
+        
+        if (directionsResult) {
+          console.log(`✅ Directions loaded successfully for ${routeType}`);
+          console.log(`📈 Route details:`, {
+            distance: directionsResult.distance,
+            duration: directionsResult.duration,
+            legs: directionsResult.legs?.length || 0
+          });
+        } else {
+          console.log(`❌ Failed to load directions for ${routeType}`);
+        }
+        
+        // Small delay to prevent rapid modal opening/closing
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Only open modal after directions are loaded successfully
+        if (!isModalVisible) {
+          console.log(`📱 Opening modal for ${routeType}`);
+          setIsModalVisible(true);
+        }
+      } catch (error) {
+        console.error(`❌ Error handling route selection for ${routeType}:`, error);
+        setDirectionsError('Failed to load route. Please try again.');
+      } finally {
+        console.log(`🏁 Route selection processing complete for ${routeType}`);
+        setIsLoadingRoute(false);
+        setIsModalProcessing(false);
+      }
+    }, 300); // 300ms debounce
   };
 
   // Handle route confirmation
@@ -445,40 +547,215 @@ function RouteDisplayScreen() {
 
   // Get route parameters for directions
   const getRouteParameters = (routeType: RouteType) => {
+    console.log(`🔧 Getting route parameters for: ${routeType}`);
+    
     const params: any = {
       optimizeWaypoints: false,
       precision: 'high' as const,
+      mode: 'DRIVING' as const,
     };
 
     switch (routeType) {
       case 'shortest':
-        params.avoid = ['tolls'] as const;
-        params.mode = 'DRIVING' as const;
+        // Fastest route, avoid tolls for direct path
+        params.avoid = 'tolls';
+        params.optimizeWaypoints = true;
+        console.log(`⚡ Shortest route params:`, params);
         break;
       case 'scenic':
-        params.avoid = ['highways'] as const;
-        params.mode = 'DRIVING' as const;
+        // Beautiful views, avoid highways for local roads and cultural sites
+        params.avoid = 'highways';
+        params.alternatives = true;
+        console.log(`🌅 Scenic route params:`, params);
         break;
       case 'recommended':
       default:
-        params.mode = 'DRIVING' as const;
+        // Balanced route with best attractions, moderate traffic
+        params.alternatives = true;
+        console.log(`⭐ Recommended route params:`, params);
         break;
     }
 
     return params;
   };
 
+  // Fetch directions from Google Directions API
+  const fetchDirections = async (routeType: RouteType) => {
+    if (!startLocation || allPlaces.length === 0 || !GOOGLE_DIRECTIONS_API_KEY) {
+      console.warn('⚠️ Cannot fetch directions: missing requirements', {
+        startLocation: !!startLocation,
+        placesCount: allPlaces.length,
+        apiKey: !!GOOGLE_DIRECTIONS_API_KEY
+      });
+      return null;
+    }
+
+    setIsLoadingDirections(true);
+    setDirectionsError(null);
+
+    try {
+      console.log(`🚀 Fetching ${routeType} route directions...`);
+      
+      const origin = `${startLocation.latitude},${startLocation.longitude}`;
+      const destination = `${allPlaces[allPlaces.length - 1].coordinates.latitude},${allPlaces[allPlaces.length - 1].coordinates.longitude}`;
+      
+      // Create waypoints from all places except the last one (destination)
+      const waypoints = allPlaces.length > 1 
+        ? allPlaces.slice(0, -1).map(place => `${place.coordinates.latitude},${place.coordinates.longitude}`).join('|')
+        : '';
+
+      // Build URL with route-specific parameters
+      let url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=driving&key=${GOOGLE_DIRECTIONS_API_KEY}`;
+      
+      // Add waypoints if they exist
+      if (waypoints) {
+        url += `&waypoints=${waypoints}`;
+      }
+
+      // Add route-specific parameters
+      switch (routeType) {
+        case 'shortest':
+          // Fastest route, avoid tolls for direct path
+          url += '&avoid=tolls&optimize=true';
+          console.log(`⚡ Shortest route: avoiding tolls, optimizing waypoints`);
+          break;
+        case 'scenic':
+          // Beautiful views, avoid highways for local roads and cultural sites
+          url += '&avoid=highways&alternatives=true';
+          console.log(`🌅 Scenic route: avoiding highways, requesting alternatives`);
+          break;
+        case 'recommended':
+          // Balanced route with best attractions, moderate traffic
+          url += '&alternatives=true&traffic_model=best_guess&departure_time=now';
+          console.log(`⭐ Recommended route: alternatives with live traffic data`);
+          break;
+      }
+
+      console.log(`🔗 Directions API URL for ${routeType}:`, url);
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      console.log(`📍 Directions API Response Status for ${routeType}:`, data.status);
+      
+      if (data.status === 'OK' && data.routes && data.routes.length > 0) {
+        const route = data.routes[0];
+        
+        // Log route selection reasoning
+        console.log(`📊 API returned ${data.routes.length} route(s) for ${routeType}`);
+        if (data.routes.length > 1) {
+          console.log(`🔄 Multiple routes available, using primary route for ${routeType}`);
+          data.routes.forEach((r: any, index: number) => {
+            const dist = r.legs.reduce((sum: number, leg: any) => sum + leg.distance.value, 0);
+            const dur = r.legs.reduce((sum: number, leg: any) => sum + leg.duration.value, 0);
+            console.log(`  Route ${index + 1}: ${Math.round(dist / 1000)}km, ${Math.round(dur / 60)}min`);
+          });
+        }
+        
+        // Calculate total distance and duration
+        const totalDistance = route.legs.reduce((sum: number, leg: any) => sum + leg.distance.value, 0);
+        const totalDuration = route.legs.reduce((sum: number, leg: any) => sum + leg.duration.value, 0);
+        
+        const directionsData = {
+          route: route,
+          distance: `${Math.round(totalDistance / 1000)} km`,
+          duration: `${Math.floor(totalDuration / 3600)}h ${Math.floor((totalDuration % 3600) / 60)}m`,
+          polyline: route.overview_polyline.points,
+          bounds: route.bounds,
+          legs: route.legs,
+          routeType: routeType,
+          rawDistance: totalDistance,
+          rawDuration: totalDuration
+        };
+        
+        console.log(`✅ ${routeType} route loaded successfully:`);
+        console.log(`  📏 Distance: ${directionsData.distance}`);
+        console.log(`  ⏱️ Duration: ${directionsData.duration}`);
+        console.log(`  🔢 Raw values: ${totalDistance}m, ${totalDuration}s`);
+        
+        setRouteDirections(directionsData);
+        
+        // Update route info with real data
+        const realRouteInfo: RouteInfo = {
+          distance: directionsData.distance,
+          duration: directionsData.duration,
+          estimatedCost: calculateRouteInfo(routeType).estimatedCost,
+          routeType: routeType
+        };
+        setRouteInfo(realRouteInfo);
+        
+        // Auto-fit map to show route
+        if (mapRef.current && route.bounds) {
+          const { northeast, southwest } = route.bounds;
+          console.log(`🗺️ Auto-fitting map for ${routeType} route`);
+          mapRef.current.animateToRegion({
+            latitude: (northeast.lat + southwest.lat) / 2,
+            longitude: (northeast.lng + southwest.lng) / 2,
+            latitudeDelta: Math.abs(northeast.lat - southwest.lat) * 1.3,
+            longitudeDelta: Math.abs(northeast.lng - southwest.lng) * 1.3,
+          }, 1000);
+        }
+        
+        return directionsData;
+      } else {
+        const errorMsg = data.error_message || `Directions API error: ${data.status}`;
+        console.error(`❌ Directions API Error for ${routeType}:`, errorMsg);
+        if (data.status === 'ZERO_RESULTS') {
+          console.error(`❌ No route found for ${routeType} - this might be due to route restrictions`);
+        }
+        setDirectionsError(errorMsg);
+        return null;
+      }
+    } catch (error) {
+      console.error(`❌ Error fetching ${routeType} directions:`, error);
+      setDirectionsError('Failed to fetch route directions. Please check your internet connection.');
+      return null;
+    } finally {
+      setIsLoadingDirections(false);
+    }
+  };
+
   // Route Modal Component
   const RouteModal = () => {
     const routeOption = ROUTE_OPTIONS.find(option => option.id === modalRouteType);
-    const currentRouteInfo = calculateRouteInfo(modalRouteType);
+    // Use real route info if available, otherwise use calculated
+    const currentRouteInfo = routeInfo && routeInfo.routeType === modalRouteType 
+      ? routeInfo 
+      : calculateRouteInfo(modalRouteType);
+    
+    const handleModalClose = () => {
+      console.log('🔒 Closing modal');
+      console.log('🧹 Current state before cleanup:', {
+        isModalVisible,
+        isModalProcessing,
+        isLoadingRoute,
+        isLoadingDirections,
+        modalRouteType,
+        selectedRouteType
+      });
+      
+      // Clear any pending route selection timeout
+      if (routeSelectionTimeoutRef.current) {
+        clearTimeout(routeSelectionTimeoutRef.current);
+        routeSelectionTimeoutRef.current = null;
+      }
+      
+      // Reset all modal-related states
+      setIsModalVisible(false);
+      setIsModalProcessing(false);
+      setIsLoadingRoute(false);
+      setIsLoadingDirections(false);
+      setDirectionsError(null);
+      
+      console.log('✅ Modal cleanup complete');
+    };
     
     return (
       <Modal
         visible={isModalVisible}
         animationType="slide"
         presentationStyle="fullScreen"
-        onRequestClose={() => setIsModalVisible(false)}
+        onRequestClose={handleModalClose}
       >
         <View style={styles.modalContainer}>
           {/* Fixed Header */}
@@ -486,7 +763,7 @@ function RouteDisplayScreen() {
             <View style={styles.modalHeaderTop}>
               <TouchableOpacity
                 style={styles.modalBackButton}
-                onPress={() => setIsModalVisible(false)}
+                onPress={handleModalClose}
               >
                 <Ionicons name="arrow-back" size={24} color={Colors.white} />
               </TouchableOpacity>
@@ -528,6 +805,7 @@ function RouteDisplayScreen() {
           {/* Full Screen Map */}
           <View style={styles.modalFullScreenMap}>
             <MapView
+              ref={mapRef}
               style={styles.modalMap}
               provider={PROVIDER_GOOGLE}
               region={mapRegion}
@@ -581,11 +859,10 @@ function RouteDisplayScreen() {
                 </Marker>
               ))}
 
-              {/* Remove the separate destination marker since it's now handled in the places loop */}
-
-              {/* Route Directions */}
+              {/* Route Directions with route-specific parameters */}
               {startLocation && allPlaces.length > 0 && GOOGLE_DIRECTIONS_API_KEY && (
                 <MapViewDirections
+                  key={`${modalRouteType}-${startLocation.latitude}-${startLocation.longitude}`}
                   origin={startLocation}
                   destination={allPlaces[allPlaces.length - 1].coordinates}
                   waypoints={allPlaces.slice(0, -1).map(place => place.coordinates)}
@@ -595,17 +872,29 @@ function RouteDisplayScreen() {
                   strokeColors={[routeOption?.color || Colors.primary600]}
                   lineCap="round"
                   lineJoin="round"
-                  {...getRouteParameters(modalRouteType) as any}
+                  mode="DRIVING"
+                  precision="high"
+                  // Add route-specific parameters here
+                  {...(() => {
+                    const params = getRouteParameters(modalRouteType);
+                    console.log(`🔧 MapViewDirections params for ${modalRouteType}:`, params);
+                    return params;
+                  })()}
                   onReady={(result) => {
-                    console.log(`Route ready - Distance: ${result.distance} km, Duration: ${result.duration} min`);
+                    console.log(`📍 ${modalRouteType} route ready - Distance: ${result.distance} km, Duration: ${result.duration} min`);
+                    console.log(`📊 Route comparison - API: ${routeDirections?.distance || 'N/A'}, MapView: ${result.distance} km`);
+                    
                     // Auto-fit map to show entire route
-                    // mapRef.current?.fitToCoordinates(result.coordinates, {
-                    //   edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
-                    //   animated: true,
-                    // });
+                    if (mapRef.current) {
+                      mapRef.current.fitToCoordinates(result.coordinates, {
+                        edgePadding: { top: 100, right: 50, bottom: 200, left: 50 },
+                        animated: true,
+                      });
+                    }
                   }}
                   onError={(errorMessage) => {
-                    console.error('Directions API error:', errorMessage);
+                    console.error('❌ MapViewDirections error:', errorMessage);
+                    setDirectionsError('Failed to load route directions');
                   }}
                 />
               )}
@@ -1043,13 +1332,20 @@ function RouteDisplayScreen() {
                   onPress={() => {
                     handleRouteSelect(option.id);
                   }}
+                  disabled={isLoadingRoute || isLoadingDirections || isModalProcessing}
                 >
                   <View style={[styles.horizontalRouteIcon, { backgroundColor: option.color + '20' }]}>
-                    <Ionicons 
-                      name={option.icon as any} 
-                      size={24} 
-                      color={option.color} 
-                    />
+                    {isLoadingRoute && selectedRouteType === option.id ? (
+                      <Animated.View style={{ transform: [{ rotate: spin }] }}>
+                        <Ionicons name="reload" size={24} color={option.color} />
+                      </Animated.View>
+                    ) : (
+                      <Ionicons 
+                        name={option.icon as any} 
+                        size={24} 
+                        color={option.color} 
+                      />
+                    )}
                   </View>
                   
                   <ThemedText style={[
@@ -1063,7 +1359,7 @@ function RouteDisplayScreen() {
                     {option.description}
                   </ThemedText>
                   
-                  {selectedRouteType === option.id && (
+                  {selectedRouteType === option.id && !isLoadingRoute && (
                     <View style={[styles.horizontalRouteSelected, { backgroundColor: option.color }]}>
                       <Ionicons name="checkmark" size={12} color={Colors.white} />
                     </View>
