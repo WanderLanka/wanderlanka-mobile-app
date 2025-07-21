@@ -1,4 +1,5 @@
-import { CustomButton, ThemedText } from '../../components';
+import { Tabs, router } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   Modal,
@@ -11,14 +12,12 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import React, { useEffect, useRef, useState } from 'react';
-import { Tabs, router } from 'expo-router';
+import { CustomButton, ThemedText } from '../../components';
 
-import { Calendar } from 'react-native-calendars';
-import { Colors } from '../../constants/Colors';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
+import { Calendar } from 'react-native-calendars';
 import { Modalize } from 'react-native-modalize';
+import { Colors } from '../../constants/Colors';
 
 // If you get module not found errors, check that these files exist at app/ui/CustomTextInput.tsx and app/ui/ThemedText.tsx
 // If not, update the import paths to the correct location or create the missing files.

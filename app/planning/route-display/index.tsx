@@ -1,3 +1,5 @@
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -10,16 +12,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { CustomButton, ThemedText } from '../../../components';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import React, { useEffect, useRef, useState } from 'react';
-import { router, useLocalSearchParams } from 'expo-router';
+import { CustomButton, ThemedText } from '../../../components';
 
-import { Colors } from '../../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import MapViewDirections from 'react-native-maps-directions';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Colors } from '../../../constants/Colors';
 
 const { width, height } = Dimensions.get('window');
 
@@ -530,6 +530,10 @@ function RouteDisplayScreen() {
   const handleRouteConfirm = () => {
     setSelectedRouteType(modalRouteType);
     setIsModalVisible(false);
+    
+    // Collect all places from the itinerary
+    const allDestinations = allPlaces.map(place => place.name);
+    
     Alert.alert(
       'Route Selected',
       `You have selected the ${modalRouteType} route. You can now proceed to book services for your trip.`,
@@ -537,7 +541,17 @@ function RouteDisplayScreen() {
         { 
           text: 'Book Services', 
           onPress: () => {
-            router.push('/planning/booking');
+            router.push({
+              pathname: '/planning/booking',
+              params: {
+                destination,
+                startPoint,
+                startDate,
+                endDate,
+                destinations: JSON.stringify(allDestinations),
+                itinerary: itineraryString,
+              },
+            });
           }
         },
         { text: 'Cancel', style: 'cancel' }
@@ -1312,7 +1326,7 @@ function RouteDisplayScreen() {
             </View>
             
             <ThemedText style={styles.routeSelectionSubtitle}>
-              Choose how you'd like to travel between destinations
+              Choose how youd like to travel between destinations
             </ThemedText>
 
             <ScrollView 
@@ -1504,7 +1518,20 @@ function RouteDisplayScreen() {
           variant="primary"
           size="large"
           onPress={() => {
-            router.push('/planning/booking');
+            // Collect all places from the itinerary
+            const allDestinations = allPlaces.map(place => place.name);
+            
+            router.push({
+              pathname: '/planning/booking',
+              params: {
+                destination,
+                startPoint,
+                startDate,
+                endDate,
+                destinations: JSON.stringify(allDestinations),
+                itinerary: itineraryString,
+              },
+            });
           }}
           rightIcon={<Ionicons name="arrow-forward" size={20} color={Colors.white} />}
         />
