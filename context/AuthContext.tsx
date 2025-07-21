@@ -47,7 +47,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       if (isAuth) {
         const currentUser = await AuthService.getCurrentUser();
-        console.log('Auth check: Retrieved user:', currentUser);
         setUser(currentUser);
       }
     } catch (error) {
@@ -92,7 +91,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       if (response.success && response.data) {
-        console.log('Login successful, user data:', response.data.user);
         setUser(response.data.user);
         setIsAuthenticated(true);
       } else {
