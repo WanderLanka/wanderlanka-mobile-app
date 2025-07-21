@@ -1,4 +1,4 @@
-// User roles
+// User roles (backend uses 'traveller' instead of 'tourist')
 export type UserRole = 'traveller' | 'guide';
 
 export interface User {
@@ -18,7 +18,7 @@ export interface SignUpRequest {
   username: string;
   email: string;
   password: string;
-  role: UserRole;
+  role: 'tourist' | 'guide'; // Frontend uses 'tourist', backend maps to 'traveller'
 }
 
 export interface LoginRequest {

@@ -16,14 +16,16 @@ import {
   ThemedText,
   ThemedView
 } from '../../components';
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 
 import { Colors } from '../../constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { UserRole } from '../../types';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+
+// Define the role type that matches RoleSelector
+type FrontendRole = 'tourist' | 'guide';
 
 export default function SignUpScreen() {
   const { signUp, isLoading } = useAuth();
@@ -32,7 +34,7 @@ export default function SignUpScreen() {
     email: '',
     password: '',
     confirmPassword: '',
-    role: null as UserRole | null,
+    role: null as FrontendRole | null,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -104,20 +106,20 @@ export default function SignUpScreen() {
     }
   };
 
-  const handleFieldChange = (field: string, value: string) => {
+  const handleFieldChange = useCallback((field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
-  };
+  }, [errors]);
 
-  const handleRoleSelect = (role: UserRole) => {
+  const handleRoleSelect = useCallback((role: FrontendRole) => {
     setFormData(prev => ({ ...prev, role }));
     if (errors.role) {
       setErrors(prev => ({ ...prev, role: '' }));
     }
-  };
+  }, [errors.role]);
 
   return (
     <SafeAreaView style={styles.container}>

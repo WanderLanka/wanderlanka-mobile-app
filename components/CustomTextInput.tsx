@@ -19,7 +19,7 @@ interface CustomTextInputProps extends TextInputProps {
   containerStyle?: View['props']['style'];
 }
 
-export const CustomTextInput: React.FC<CustomTextInputProps> = ({
+export const CustomTextInput: React.FC<CustomTextInputProps> = React.memo(({
   label,
   error,
   isPassword = false,
@@ -30,9 +30,6 @@ export const CustomTextInput: React.FC<CustomTextInputProps> = ({
 }) => {
   const [isSecureTextEntry, setIsSecureTextEntry] = useState(isPassword);
   const [isFocused, setIsFocused] = useState(false);
-
-  // Debug logs
-  console.log('CustomTextInput render:', { label, error, leftIcon });
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -92,7 +89,7 @@ export const CustomTextInput: React.FC<CustomTextInputProps> = ({
       )}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

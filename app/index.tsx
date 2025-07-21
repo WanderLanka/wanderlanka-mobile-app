@@ -5,17 +5,30 @@ import { useAuth } from '../context/AuthContext';
 import { useEffect } from 'react';
 
 export default function Index() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   useEffect(() => {
     if (!isLoading) {
-      if (isAuthenticated) {
-        router.replace('./dashboard');
+      if (isAuthenticated && user) {
+        // Role-based navigation
+        console.log('Index: User authenticated with role:', user.role);
+        
+        if (user.role === 'guide') {
+          console.log('Index: Redirecting guide to tourGuide interface');
+          router.replace('./tourGuide/home');
+        } else if (user.role === 'traveller' || user.role === 'tourist') {
+          console.log('Index: Redirecting traveller to traveler interface');
+          router.replace('./(travelerTabs)/home');
+        } else {
+          console.log('Index: Unknown role, redirecting to dashboard:', user.role);
+          router.replace('./dashboard');
+        }
       } else {
+        console.log('Index: User not authenticated, redirecting to login');
         router.replace('./auth/login');
       }
     }
-  }, [isAuthenticated, isLoading]);
+  }, [isAuthenticated, isLoading, user]);
 
   // Show loading screen while checking auth
   return (

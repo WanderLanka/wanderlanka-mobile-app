@@ -3,11 +3,13 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { UserRole } from '../types';
+
+// Define the role type that the frontend uses
+type FrontendRole = 'tourist' | 'guide';
 
 interface RoleSelectorProps {
-  selectedRole: UserRole | null;
-  onRoleSelect: (role: UserRole) => void;
+  selectedRole: FrontendRole | null;
+  onRoleSelect: (role: FrontendRole) => void;
   error?: string;
 }
 
@@ -18,13 +20,13 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 }) => {
   const roles = [
     {
-      value: 'traveller' as UserRole,
+      value: 'tourist' as FrontendRole, // Frontend uses 'tourist', backend maps to 'traveller'
       label: 'Traveller',
       description: 'Explore destinations and plan trips',
       icon: 'map' as keyof typeof Ionicons.glyphMap,
     },
     {
-      value: 'guide' as UserRole,
+      value: 'guide' as FrontendRole,
       label: 'Guide',
       description: 'Share local knowledge and experiences',
       icon: 'person' as keyof typeof Ionicons.glyphMap,
