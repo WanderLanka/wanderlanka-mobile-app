@@ -55,8 +55,9 @@ export default function LoginScreen() {
     try {
       await login(formData.identifier, formData.password);
       
-      // Navigation will be handled by the auth state change
-      router.replace('../dashboard');
+      // Navigation will be handled by the auth state change in the main index
+      // Let the auth context handle the role-based navigation
+      router.replace('../');
     } catch (error) {
       Alert.alert(
         'Login Failed',

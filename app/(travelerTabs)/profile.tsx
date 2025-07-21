@@ -14,6 +14,7 @@ import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { useAuth } from '../../context/AuthContext';
 
 // Utility function to format numbers professionally
 const formatNumber = (num: number): string => {
@@ -131,6 +132,7 @@ const ProfileItem: React.FC<ProfileItemProps> = ({
 );
 
 export default function ProfileScreen() {
+  const { logout } = useAuth();
   const [darkMode, setDarkMode] = useState(MOCK_USER_DATA.preferences.darkMode);
   const [notifications, setNotifications] = useState(MOCK_USER_DATA.preferences.notifications);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -185,7 +187,20 @@ export default function ProfileScreen() {
       'Are you sure you want to logout?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Logout', style: 'destructive' },
+        { 
+          text: 'Logout', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logout();
+              // Navigation to login will be handled by the auth state change in the main index
+              router.replace('/auth/login');
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'Failed to logout. Please try again.');
+            }
+          }
+        },
       ]
     );
   };
