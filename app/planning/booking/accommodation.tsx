@@ -1,18 +1,15 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import {
-    Alert,
-    FlatList,
-    Linking,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  FlatList,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { HotelCard, ThemedText, TripDetailsModal } from '../../../components';
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/Colors';
 
 interface Hotel {
@@ -76,21 +73,6 @@ export default function AccommodationBookingScreen() {
 
   // Parse destinations from the trip planning data
   const selectedPlaces = destinations ? JSON.parse(destinations as string) : [destination];
-
-  // Google Maps integration
-  const handleOpenMaps = () => {
-    const searchQuery = encodeURIComponent(`hotels in ${destination} Sri Lanka`);
-    const mapsUrl = `https://maps.google.com/maps?q=${searchQuery}`;
-    
-    Alert.alert(
-      'Open Google Maps',
-      `View hotels in ${destination} on Google Maps?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Open Maps', onPress: () => Linking.openURL(mapsUrl) },
-      ]
-    );
-  };
 
   // Mock hotel data - in real app, this would come from API based on planned destinations
   const hotels: Hotel[] = [
@@ -159,28 +141,7 @@ export default function AccommodationBookingScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={Colors.secondary700} />
-        </TouchableOpacity>
-        <ThemedText style={styles.headerTitle}>Accommodation</ThemedText>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity 
-            style={styles.headerButton} 
-            onPress={handleOpenMaps}
-          >
-            <Ionicons name="map" size={20} color={Colors.primary600} />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.headerButton} 
-            onPress={() => setTripDetailsVisible(true)}
-          >
-            <Ionicons name="information-circle" size={20} color={Colors.primary600} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
+    <View style={styles.container}>
       {/* Booking Details Section */}
       <View style={styles.bookingDetailsContainer}>
         <TouchableOpacity 
@@ -326,7 +287,7 @@ export default function AccommodationBookingScreen() {
         tripDays={tripDays}
         selectedDayIndex={selectedDayIndex}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -334,44 +295,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.secondary200,
-    minHeight: 56,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.secondary700,
-    textAlign: 'center',
-    flex: 1,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-  },
-  headerButton: {
-    padding: 10,
-    borderRadius: 10,
-    backgroundColor: Colors.primary100,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   bookingDetailsContainer: {
     backgroundColor: Colors.white,

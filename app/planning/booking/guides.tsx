@@ -2,7 +2,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import {
     FlatList,
     Image,
-    ScrollView,
     StyleSheet,
     TouchableOpacity,
     View,
@@ -11,7 +10,6 @@ import { ThemedText } from '../../../components';
 
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/Colors';
 
 interface Guide {
@@ -32,7 +30,7 @@ interface Guide {
 
 export default function GuidesBookingScreen() {
   const params = useLocalSearchParams();
-  const { destination, startPoint, startDate, endDate, destinations } = params;
+  const { destination, startDate, endDate } = params;
 
   // Calculate trip duration
   const calculateTripDuration = () => {
@@ -47,9 +45,6 @@ export default function GuidesBookingScreen() {
   };
 
   const tripDuration = calculateTripDuration();
-
-  // Parse destinations from the trip planning data
-  const selectedPlaces = destinations ? JSON.parse(destinations as string) : [destination];
 
   // Mock guides data - in real app, this would come from API based on planned destinations
   const guides: Guide[] = [
@@ -229,65 +224,7 @@ export default function GuidesBookingScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={Colors.secondary700} />
-        </TouchableOpacity>
-        <ThemedText style={styles.headerTitle}>Tour Guides</ThemedText>
-        <TouchableOpacity>
-          <Ionicons name="options-outline" size={24} color={Colors.secondary700} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.tripSummary}>
-        <ThemedText style={styles.tripTitle}>{destination}</ThemedText>
-        <ThemedText style={styles.tripSubtitle}>
-          {startDate} - {endDate} • {tripDuration} {tripDuration === 1 ? 'day' : 'days'} • From {startPoint}
-        </ThemedText>
-      </View>
-
-      <View style={styles.selectedPlacesContainer}>
-        <View style={styles.selectedPlacesHeader}>
-          <Ionicons name="location" size={18} color={Colors.primary600} />
-          <ThemedText style={styles.selectedPlacesTitle}>Your Planned Destinations</ThemedText>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.placesScroll}>
-          {selectedPlaces.map((place: string, index: number) => (
-            <View key={index} style={styles.placeChip}>
-              <ThemedText style={styles.placeChipText}>{place}</ThemedText>
-            </View>
-          ))}
-        </ScrollView>
-        <ThemedText style={styles.placesSubtitle}>
-          Local guides for these areas • {tripDuration} {tripDuration === 1 ? 'day' : 'days'} of guided tours
-        </ThemedText>
-      </View>
-
-      <View style={styles.filtersContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll}>
-          <TouchableOpacity style={styles.filterChip}>
-            <Ionicons name="options-outline" size={16} color={Colors.primary600} />
-            <ThemedText style={styles.filterText}>Filters</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.filterChip}>
-            <ThemedText style={styles.filterText}>Price</ThemedText>
-            <Ionicons name="chevron-down" size={16} color={Colors.secondary500} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.filterChip}>
-            <ThemedText style={styles.filterText}>Specialties</ThemedText>
-            <Ionicons name="chevron-down" size={16} color={Colors.secondary500} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.filterChip}>
-            <ThemedText style={styles.filterText}>Languages</ThemedText>
-            <Ionicons name="chevron-down" size={16} color={Colors.secondary500} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.filterChip}>
-            <ThemedText style={styles.filterText}>Verified</ThemedText>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-
+    <View style={styles.container}>
       <FlatList
         data={guides}
         renderItem={renderGuideCard}
@@ -305,7 +242,7 @@ export default function GuidesBookingScreen() {
           </View>
         }
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -313,62 +250,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.secondary50,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.secondary200,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.secondary700,
-  },
-  tripSummary: {
-    backgroundColor: Colors.white,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.secondary200,
-  },
-  tripTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Colors.secondary700,
-    marginBottom: 4,
-  },
-  tripSubtitle: {
-    fontSize: 14,
-    color: Colors.secondary500,
-  },
-  filtersContainer: {
-    backgroundColor: Colors.white,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.secondary200,
-  },
-  filtersScroll: {
-    paddingHorizontal: 20,
-  },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.secondary100,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 12,
-    gap: 6,
-  },
-  filterText: {
-    fontSize: 14,
-    color: Colors.secondary600,
-    fontWeight: '500',
   },
   listContent: {
     padding: 20,
@@ -538,42 +419,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.secondary600,
     fontWeight: '500',
-  },
-  selectedPlacesContainer: {
-    backgroundColor: Colors.white,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.secondary200,
-  },
-  selectedPlacesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
-  },
-  selectedPlacesTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.secondary700,
-  },
-  placesScroll: {
-    marginBottom: 8,
-  },
-  placeChip: {
-    backgroundColor: Colors.primary100,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
-  },
-  placeChipText: {
-    fontSize: 13,
-    color: Colors.primary700,
-    fontWeight: '500',
-  },
-  placesSubtitle: {
-    fontSize: 13,
-    color: Colors.secondary500,
   },
 });
