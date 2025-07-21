@@ -9,9 +9,14 @@ export default function Index() {
 
   useEffect(() => {
     if (!isLoading) {
+      console.log('Index: Auth check complete');
+      console.log('Index: isAuthenticated:', isAuthenticated);
+      console.log('Index: user:', user);
+      
       if (isAuthenticated && user) {
         // Role-based navigation
         console.log('Index: User authenticated with role:', user.role);
+        console.log('Index: User data:', JSON.stringify(user, null, 2));
         
         if (user.role === 'guide') {
           console.log('Index: Redirecting guide to tourGuide interface');
@@ -27,6 +32,8 @@ export default function Index() {
         console.log('Index: User not authenticated, redirecting to login');
         router.replace('./auth/login');
       }
+    } else {
+      console.log('Index: Still loading...');
     }
   }, [isAuthenticated, isLoading, user]);
 

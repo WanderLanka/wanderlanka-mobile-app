@@ -3,8 +3,8 @@
  */
 export const API_CONFIG = {
   // Updated URL to point to user-service instead of backend-auth-service
-  // Using 172.20.10.2 (your current local IP) instead of localhost for mobile device connectivity
-  BASE_URL: __DEV__ ? 'http://172.20.10.2:3001' : 'https://your-production-api.com',
+  // Using 192.168.8.159 (your current local IP) instead of localhost for mobile device connectivity
+  BASE_URL: __DEV__ ? 'http://192.168.8.159:3001' : 'https://your-production-api.com',
   ENDPOINTS: {
     AUTH: '/api/auth', // Mobile auth endpoints with /api/auth prefix
     HEALTH: '/health',
