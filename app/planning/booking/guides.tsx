@@ -30,7 +30,7 @@ interface Guide {
 
 export default function GuidesBookingScreen() {
   const params = useLocalSearchParams();
-  const { destination, startDate, endDate } = params;
+  const { destination, startDate, endDate, destinations, startPoint } = params;
 
   // Calculate trip duration
   const calculateTripDuration = () => {
@@ -149,6 +149,8 @@ export default function GuidesBookingScreen() {
               destination,
               startDate,
               endDate,
+              destinations,
+              startPoint,
             },
           });
         }

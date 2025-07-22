@@ -2,15 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
-  Alert,
-  Dimensions,
-  Image,
-  Linking,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    Alert,
+    Dimensions,
+    Image,
+    Linking,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -122,7 +122,7 @@ const formatDateDisplay = (dateString: string): string => {
 
 export default function HotelDetailsScreen() {
   const params = useLocalSearchParams();
-  const { id, destination, endDate, checkInDate, checkInDay } = params;
+  const { id, destination, startDate, endDate, destinations, startPoint, checkInDate, checkInDay } = params;
 
   const hotel = getHotelById(id as string);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -251,8 +251,10 @@ export default function HotelDetailsScreen() {
               pathname: '/planning/booking',
               params: {
                 destination,
-                startDate: checkInDate,
-                endDate: checkoutDate,
+                startDate: startDate || checkInDate,
+                endDate: endDate || checkoutDate,
+                destinations,
+                startPoint,
                 newBooking: JSON.stringify(booking),
                 hideModal: 'true'
               }

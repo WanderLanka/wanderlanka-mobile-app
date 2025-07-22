@@ -2,14 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
-    Alert,
-    Dimensions,
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  Alert,
+  Dimensions,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CustomButton, CustomTextInput, ThemedText } from '../../../components';
@@ -22,21 +22,21 @@ const getGuideById = (id: string) => {
   const guides = [
     {
       id: '1',
-      name: 'Samantha Perera',
+      name: 'Nimal Perera',
       rating: 4.9,
-      reviewCount: 186,
-      pricePerDay: 50,
-      location: 'Colombo & Western Province',
-      specialties: ['Cultural Tours', 'City Exploration', 'Food Tours'],
-      languages: ['English', 'Sinhala', 'Tamil'],
+      reviewCount: 156,
+      pricePerDay: 45,
+      location: 'Galle & Southern Province',
+      specialties: ['Cultural Tours', 'History', 'Photography'],
+      languages: ['English', 'Sinhala', 'German'],
       experience: '8 years',
-      avatar: 'https://images.unsplash.com/photo-1494790108755-2616c2d623d4',
-      description: 'Passionate local guide with extensive knowledge of Sri Lankan culture, history, and cuisine. I love sharing the hidden gems of my beautiful country with visitors.',
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d',
+      description: 'Passionate local guide specializing in Galle Fort history and southern coastal culture.',
       verified: true,
       availability: true,
       images: [
-        'https://images.unsplash.com/photo-1494790108755-2616c2d623d4',
         'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d',
+        'https://images.unsplash.com/photo-1494790108755-2616c2d623d4',
         'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e'
       ],
       reviews: [
@@ -46,26 +46,74 @@ const getGuideById = (id: string) => {
     },
     {
       id: '2',
-      name: 'Rajesh Fernando',
+      name: 'Kamala Wickramasinghe',
       rating: 4.8,
-      reviewCount: 142,
-      pricePerDay: 60,
-      location: 'Kandy & Central Province',
-      specialties: ['Nature Tours', 'Temple Visits', 'Tea Plantation Tours'],
-      languages: ['English', 'Sinhala', 'German'],
+      reviewCount: 89,
+      pricePerDay: 55,
+      location: 'Kandy & Hill Country',
+      specialties: ['Temple Tours', 'Tea Plantations', 'Nature'],
+      languages: ['English', 'Sinhala', 'Tamil'],
       experience: '12 years',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d',
-      description: 'Experienced guide specializing in cultural and natural heritage sites. Expert in tea plantation tours and temple visits in the hill country.',
+      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b7c5',
+      description: 'Expert in Buddhist culture and tea plantation tours with deep knowledge of hill country.',
       verified: true,
       availability: true,
       images: [
-        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d',
+        'https://images.unsplash.com/photo-1494790108755-2616b612b7c5',
         'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e',
-        'https://images.unsplash.com/photo-1494790108755-2616c2d623d4'
+        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d'
       ],
       reviews: [
         { name: 'Michael Brown', rating: 5, comment: 'Excellent knowledge of tea plantations!' },
         { name: 'Emma Wilson', rating: 4, comment: 'Very professional and punctual.' }
+      ],
+    },
+    {
+      id: '3',
+      name: 'Roshan Silva',
+      rating: 4.7,
+      reviewCount: 203,
+      pricePerDay: 50,
+      location: 'Ella & Uva Province',
+      specialties: ['Hiking', 'Adventure', 'Wildlife'],
+      languages: ['English', 'Sinhala'],
+      experience: '6 years',
+      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e',
+      description: 'Adventure guide specializing in hiking trails, waterfalls, and wildlife spotting.',
+      verified: true,
+      availability: true,
+      images: [
+        'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e',
+        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d',
+        'https://images.unsplash.com/photo-1494790108755-2616b612b7c5'
+      ],
+      reviews: [
+        { name: 'Tom Adventure', rating: 5, comment: 'Best hiking guide in Sri Lanka!' },
+        { name: 'Alice Nature', rating: 4, comment: 'Great wildlife knowledge and enthusiasm.' }
+      ],
+    },
+    {
+      id: '4',
+      name: 'Amara Jayawardena',
+      rating: 4.9,
+      reviewCount: 134,
+      pricePerDay: 60,
+      location: 'Sigiriya & Cultural Triangle',
+      specialties: ['Ancient History', 'Archaeology', 'Art'],
+      languages: ['English', 'Sinhala', 'French', 'Japanese'],
+      experience: '15 years',
+      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80',
+      description: 'Archaeological expert with extensive knowledge of ancient Sri Lankan civilizations.',
+      verified: true,
+      availability: false,
+      images: [
+        'https://images.unsplash.com/photo-1438761681033-6461ffad8d80',
+        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d',
+        'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e'
+      ],
+      reviews: [
+        { name: 'History Buff', rating: 5, comment: 'Incredible knowledge of ancient sites!' },
+        { name: 'Cultural Explorer', rating: 5, comment: 'Perfect guide for archaeology enthusiasts.' }
       ],
     },
   ];
@@ -95,7 +143,7 @@ const formatDateDisplay = (dateString: string): string => {
 
 export default function GuideDetailsScreen() {
   const params = useLocalSearchParams();
-  const { id, destination, startDate, endDate } = params;
+  const { id, destination, startDate, endDate, destinations, startPoint } = params;
 
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -163,6 +211,8 @@ export default function GuideDetailsScreen() {
                 destination,
                 startDate,
                 endDate,
+                destinations,
+                startPoint,
                 newBooking: JSON.stringify(booking),
                 hideModal: 'true'
               },

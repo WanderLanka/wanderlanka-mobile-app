@@ -31,7 +31,7 @@ interface Transport {
 
 export default function TransportBookingScreen() {
   const params = useLocalSearchParams();
-  const { destination, startDate, endDate } = params;
+  const { destination, startDate, endDate, destinations, startPoint } = params;
 
   // Calculate trip duration
   const calculateTripDuration = () => {
@@ -204,6 +204,8 @@ export default function TransportBookingScreen() {
               destination,
               startDate,
               endDate,
+              destinations,
+              startPoint,
             },
           });
         }

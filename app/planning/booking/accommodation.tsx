@@ -1,12 +1,12 @@
 import { useLocalSearchParams } from 'expo-router';
 import {
-  FlatList,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    FlatList,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { CustomButton, CustomTextInput, HotelCard, ThemedText, TripDetailsModal } from '../../../components';
 
@@ -102,7 +102,6 @@ export default function AccommodationBookingScreen() {
     setFilterVisible(false);
   };
 
-  // Mock hotel data - in real app, this would come from API based on planned destinations
   const hotels: Hotel[] = [
     {
       id: '1',
@@ -165,6 +164,8 @@ export default function AccommodationBookingScreen() {
       destination={destination as string}
       startDate={startDate as string}
       endDate={endDate as string}
+      destinations={destinations as string}
+      startPoint={startPoint as string}
     />
   );
 

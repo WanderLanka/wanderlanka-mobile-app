@@ -89,7 +89,7 @@ const formatDateDisplay = (dateString: string): string => {
 
 export default function TransportDetailsScreen() {
   const params = useLocalSearchParams();
-  const { id, destination, startDate, endDate } = params;
+  const { id, destination, startDate, endDate, destinations, startPoint } = params;
 
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -159,6 +159,8 @@ export default function TransportDetailsScreen() {
                 destination,
                 startDate,
                 endDate,
+                destinations,
+                startPoint,
                 newBooking: JSON.stringify(booking),
                 hideModal: 'true'
               },
