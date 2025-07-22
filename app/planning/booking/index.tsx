@@ -1,5 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import {
+  Alert,
   Modal,
   Platform,
   ScrollView,
@@ -14,13 +15,15 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/Colors';
+import { useBooking } from '../../../context/BookingContext';
 import AccommodationBookingScreen from './accommodation';
 import GuidesBookingScreen from './guides';
 import TransportBookingScreen from './transport';
 
 export default function BookingScreen() {
   const params = useLocalSearchParams();
-  const { destination, startDate, endDate, destinations, newBooking } = params;
+  const { destination, startDate, endDate, destinations, newBooking, hideModal } = params;
+  const { bookings, addBooking, clearAllBookings, removeBooking, getTotalAmount } = useBooking();
 
   // State management
   const [activeTab, setActiveTab] = useState('accommodation');
@@ -35,31 +38,46 @@ export default function BookingScreen() {
   const [minRating, setMinRating] = useState(0);
   const [propertyTypes, setPropertyTypes] = useState<string[]>([]);
 
-  // Mock bookings data - in real app this would come from context or API
-  const [bookings, setBookings] = useState({
-    accommodation: [] as any[],
-    transport: [] as any[],
-    guides: [] as any[],
-  });
-
   // Handle new booking data
   useEffect(() => {
     if (newBooking) {
       try {
         const booking = JSON.parse(newBooking as string);
-        if (booking.type === 'accommodation') {
-          setBookings(prev => ({
-            ...prev,
-            accommodation: [...prev.accommodation, booking]
-          }));
-          // Show booking summary modal automatically
+        console.log('Processing new booking:', booking);
+        
+        // Use the context's addBooking method
+        addBooking(booking);
+
+        console.log('Booking processing finished for type:', booking.type);
+          
+        // Only show booking summary modal automatically if hideModal is not true
+        if (hideModal !== 'true') {
           setShowBookingsModal(true);
+        } else {
+          // If hideModal is true, automatically switch to summary tab to show the booking
+          console.log('Switching to summary tab after adding booking');
+          setActiveTab('summary');
         }
+        
+        // Clear the newBooking param to prevent reprocessing
+        router.setParams({ newBooking: undefined, hideModal: undefined });
       } catch (error) {
         console.error('Error parsing new booking:', error);
       }
     }
-  }, [newBooking]);
+  }, [newBooking, hideModal, addBooking]);
+
+  // Debug effect to monitor bookings state changes
+  useEffect(() => {
+    console.log('=== Bookings State Changed ===');
+    console.log('Accommodation count:', bookings.accommodation.length);
+    console.log('Transport count:', bookings.transport.length);
+    console.log('Guides count:', bookings.guides.length);
+    console.log('Accommodation bookings:', bookings.accommodation.map(b => ({ id: b.id, name: b.hotelName })));
+    console.log('Transport bookings:', bookings.transport.map(b => ({ id: b.id, name: b.transportName })));
+    console.log('Guides bookings:', bookings.guides.map(b => ({ id: b.id, name: b.guideName })));
+    console.log('===============================');
+  }, [bookings.accommodation, bookings.transport, bookings.guides]);
 
   // Calculate trip duration
   const calculateTripDuration = () => {
@@ -94,11 +112,332 @@ export default function BookingScreen() {
     setFilterVisible(false);
   };
 
+  const handleClearAllBookings = () => {
+    clearAllBookings();
+  };
+
+  const handleProceedToPayment = () => {
+    // Calculate total amount using context method
+    const totalAmount = getTotalAmount();
+    
+    // TODO: Navigate to payment screen or integrate with payment gateway
+    Alert.alert(
+      'Proceed to Payment',
+      `Total Amount: $${totalAmount}\n\nThis will redirect you to the secure payment gateway.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Continue',
+          style: 'default',
+          onPress: () => {
+            // TODO: Implement actual payment navigation
+            // router.push({ pathname: '/payment', params: { bookings: JSON.stringify(bookings), total: totalAmount } });
+            console.log('Proceeding to payment with bookings:', bookings, 'Total:', totalAmount);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleCancelBooking = (bookingId: string, bookingType: 'accommodation' | 'transport' | 'guides') => {
+    Alert.alert(
+      'Cancel Booking',
+      'Are you sure you want to cancel this booking?',
+      [
+        {
+          text: 'No',
+          style: 'cancel',
+        },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: () => {
+            removeBooking(bookingId, bookingType);
+          },
+        },
+      ]
+    );
+  };
+
   const tabs = [
     { id: 'accommodation', title: 'Stay', icon: 'bed-outline' },
     { id: 'transport', title: 'Travel', icon: 'car-outline' },
     { id: 'guides', title: 'Guides', icon: 'person-outline' },
+    { id: 'summary', title: 'Summary', icon: 'receipt-outline' },
   ];
+
+  const renderSummaryContent = () => {
+    console.log('=== RENDERING SUMMARY TAB ===');
+    console.log('Current bookings state when rendering summary:');
+    console.log('Accommodation:', bookings.accommodation.length, 'items');
+    console.log('Transport:', bookings.transport.length, 'items');
+    console.log('Guides:', bookings.guides.length, 'items');
+    console.log('==============================');
+    
+    return (
+      <ScrollView style={styles.summaryTabContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.bookingSummaryContainer}>
+          <View style={styles.bookingSection}>
+            <View style={styles.bookingSectionHeader}>
+              <Ionicons name="bed-outline" size={20} color={Colors.primary600} />
+              <ThemedText style={styles.bookingSectionTitle}>Accommodation</ThemedText>
+              {bookings.accommodation.length > 0 && (
+                <View style={styles.bookingCount}>
+                  <ThemedText style={styles.bookingCountText}>{bookings.accommodation.length}</ThemedText>
+                </View>
+              )}
+            </View>
+            {bookings.accommodation.length === 0 ? (
+              <ThemedText style={styles.noBookingsText}>No bookings made yet</ThemedText>
+            ) : (
+              bookings.accommodation.map((booking: any, index: number) => (
+                <View key={booking.id || index} style={styles.bookingItem}>
+                  <View style={styles.bookingItemHeader}>
+                    <ThemedText style={styles.bookingItemTitle}>{booking.hotelName}</ThemedText>
+                    <ThemedText style={styles.bookingItemPrice}>${booking.totalPrice}</ThemedText>
+                  </View>
+                  <View style={styles.bookingItemDetails}>
+                    <View style={styles.bookingItemDetail}>
+                      <Ionicons name="location-outline" size={14} color={Colors.secondary500} />
+                      <ThemedText style={styles.bookingItemDetailText}>{booking.destination}</ThemedText>
+                    </View>
+                    <View style={styles.bookingItemDetail}>
+                      <Ionicons name="calendar-outline" size={14} color={Colors.secondary500} />
+                      <ThemedText style={styles.bookingItemDetailText}>
+                        {booking.checkInDate} → {booking.checkOutDate}
+                      </ThemedText>
+                    </View>
+                    <View style={styles.bookingItemDetail}>
+                      <Ionicons name="bed-outline" size={14} color={Colors.secondary500} />
+                      <ThemedText style={styles.bookingItemDetailText}>
+                        {booking.numberOfRooms} {booking.numberOfRooms === 1 ? 'room' : 'rooms'} - {booking.numberOfNights} {booking.numberOfNights === 1 ? 'night' : 'nights'}
+                      </ThemedText>
+                    </View>
+                    {booking.numberOfGuests > 1 && (
+                      <View style={styles.bookingItemDetail}>
+                        <Ionicons name="people-outline" size={14} color={Colors.secondary500} />
+                        <ThemedText style={styles.bookingItemDetailText}>
+                          {booking.numberOfGuests} guests
+                        </ThemedText>
+                      </View>
+                    )}
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.cancelButton}
+                    onPress={() => handleCancelBooking(booking.id, 'accommodation')}
+                  >
+                    <Ionicons name="close-circle" size={20} color={Colors.error} />
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+          </View>
+
+          <View style={styles.bookingSection}>
+            <View style={styles.bookingSectionHeader}>
+              <Ionicons name="car-outline" size={20} color={Colors.primary600} />
+              <ThemedText style={styles.bookingSectionTitle}>Transportation</ThemedText>
+              {bookings.transport.length > 0 && (
+                <View style={styles.bookingCount}>
+                  <ThemedText style={styles.bookingCountText}>{bookings.transport.length}</ThemedText>
+                </View>
+              )}
+            </View>
+            {bookings.transport.length === 0 ? (
+              <ThemedText style={styles.noBookingsText}>No bookings made yet</ThemedText>
+            ) : (
+              bookings.transport.map((booking: any, index: number) => (
+                <View key={booking.id || index} style={styles.bookingItem}>
+                  <View style={styles.bookingItemHeader}>
+                    <ThemedText style={styles.bookingItemTitle}>{booking.transportName}</ThemedText>
+                    <ThemedText style={styles.bookingItemPrice}>${booking.totalPrice}</ThemedText>
+                  </View>
+                  <View style={styles.bookingItemDetails}>
+                    <View style={styles.bookingItemDetail}>
+                      <Ionicons name="location-outline" size={14} color={Colors.secondary500} />
+                      <ThemedText style={styles.bookingItemDetailText}>{booking.destination}</ThemedText>
+                    </View>
+                    <View style={styles.bookingItemDetail}>
+                      <Ionicons name="calendar-outline" size={14} color={Colors.secondary500} />
+                      <ThemedText style={styles.bookingItemDetailText}>
+                        {booking.startDate} → {booking.endDate}
+                      </ThemedText>
+                    </View>
+                    <View style={styles.bookingItemDetail}>
+                      <Ionicons name="car-outline" size={14} color={Colors.secondary500} />
+                      <ThemedText style={styles.bookingItemDetailText}>
+                        {booking.provider} - {booking.transportInfo?.type}
+                      </ThemedText>
+                    </View>
+                    {booking.pickupLocation && (
+                      <View style={styles.bookingItemDetail}>
+                        <Ionicons name="navigate-outline" size={14} color={Colors.secondary500} />
+                        <ThemedText style={styles.bookingItemDetailText}>
+                          Pickup: {booking.pickupLocation}
+                        </ThemedText>
+                      </View>
+                    )}
+                    {booking.dropoffLocation && (
+                      <View style={styles.bookingItemDetail}>
+                        <Ionicons name="location" size={14} color={Colors.secondary500} />
+                        <ThemedText style={styles.bookingItemDetailText}>
+                          Drop-off: {booking.dropoffLocation}
+                        </ThemedText>
+                      </View>
+                    )}
+                    <View style={styles.bookingItemDetail}>
+                      <Ionicons name="time-outline" size={14} color={Colors.secondary500} />
+                      <ThemedText style={styles.bookingItemDetailText}>
+                        {booking.days} {booking.days === 1 ? 'day' : 'days'} rental
+                      </ThemedText>
+                    </View>
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.cancelButton}
+                    onPress={() => handleCancelBooking(booking.id, 'transport')}
+                  >
+                    <Ionicons name="close-circle" size={20} color={Colors.error} />
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+          </View>
+
+          <View style={styles.bookingSection}>
+            <View style={styles.bookingSectionHeader}>
+              <Ionicons name="person-outline" size={20} color={Colors.primary600} />
+              <ThemedText style={styles.bookingSectionTitle}>Tour Guides</ThemedText>
+              {bookings.guides.length > 0 && (
+                <View style={styles.bookingCount}>
+                  <ThemedText style={styles.bookingCountText}>{bookings.guides.length}</ThemedText>
+                </View>
+              )}
+            </View>
+            {bookings.guides.length === 0 ? (
+              <ThemedText style={styles.noBookingsText}>No bookings made yet</ThemedText>
+            ) : (
+              bookings.guides.map((booking: any, index: number) => (
+                <View key={booking.id || index} style={styles.bookingItem}>
+                  <View style={styles.bookingItemHeader}>
+                    <ThemedText style={styles.bookingItemTitle}>{booking.guideName}</ThemedText>
+                    <ThemedText style={styles.bookingItemPrice}>${booking.totalPrice}</ThemedText>
+                  </View>
+                  <View style={styles.bookingItemDetails}>
+                    <View style={styles.bookingItemDetail}>
+                      <Ionicons name="location-outline" size={14} color={Colors.secondary500} />
+                      <ThemedText style={styles.bookingItemDetailText}>{booking.destination}</ThemedText>
+                    </View>
+                    <View style={styles.bookingItemDetail}>
+                      <Ionicons name="calendar-outline" size={14} color={Colors.secondary500} />
+                      <ThemedText style={styles.bookingItemDetailText}>
+                        {booking.startDate} → {booking.endDate}
+                      </ThemedText>
+                    </View>
+                    <View style={styles.bookingItemDetail}>
+                      <Ionicons name="person-outline" size={14} color={Colors.secondary500} />
+                      <ThemedText style={styles.bookingItemDetailText}>
+                        {booking.tourType || 'Custom Tour'} - {booking.days} {booking.days === 1 ? 'day' : 'days'}
+                      </ThemedText>
+                    </View>
+                    {booking.meetingPoint && (
+                      <View style={styles.bookingItemDetail}>
+                        <Ionicons name="navigate-outline" size={14} color={Colors.secondary500} />
+                        <ThemedText style={styles.bookingItemDetailText}>
+                          Meet at: {booking.meetingPoint}
+                        </ThemedText>
+                      </View>
+                    )}
+                    {booking.guideInfo?.experience && (
+                      <View style={styles.bookingItemDetail}>
+                        <Ionicons name="time-outline" size={14} color={Colors.secondary500} />
+                        <ThemedText style={styles.bookingItemDetailText}>
+                          Experience: {booking.guideInfo.experience}
+                        </ThemedText>
+                      </View>
+                    )}
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.cancelButton}
+                    onPress={() => handleCancelBooking(booking.id, 'guides')}
+                  >
+                    <Ionicons name="close-circle" size={20} color={Colors.error} />
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+          </View>
+        </View>
+        
+        {/* Total Summary */}
+        {(bookings.accommodation.length > 0 || bookings.transport.length > 0 || bookings.guides.length > 0) && (
+          <View style={styles.totalSummaryContainer}>
+            <View style={styles.totalSummaryHeader}>
+              <Ionicons name="receipt-outline" size={20} color={Colors.primary600} />
+              <ThemedText style={styles.totalSummaryTitle}>Trip Total</ThemedText>
+            </View>
+            <View style={styles.totalSummaryContent}>
+              <View style={styles.totalSummaryRow}>
+                <ThemedText style={styles.totalSummaryLabel}>Accommodation:</ThemedText>
+                <ThemedText style={styles.totalSummaryValue}>
+                  ${bookings.accommodation.reduce((sum: number, booking: any) => sum + booking.totalPrice, 0)}
+                </ThemedText>
+              </View>
+              <View style={styles.totalSummaryRow}>
+                <ThemedText style={styles.totalSummaryLabel}>Transportation:</ThemedText>
+                <ThemedText style={styles.totalSummaryValue}>
+                  ${bookings.transport.reduce((sum: number, booking: any) => sum + (booking.totalPrice || 0), 0)}
+                </ThemedText>
+              </View>
+              <View style={styles.totalSummaryRow}>
+                <ThemedText style={styles.totalSummaryLabel}>Tour Guides:</ThemedText>
+                <ThemedText style={styles.totalSummaryValue}>
+                  ${bookings.guides.reduce((sum: number, booking: any) => sum + (booking.totalPrice || 0), 0)}
+                </ThemedText>
+              </View>
+              <View style={[styles.totalSummaryRow, styles.totalSummaryFinalRow]}>
+                <ThemedText style={styles.totalSummaryFinalLabel}>Total Trip Cost:</ThemedText>
+                <ThemedText style={styles.totalSummaryFinalValue}>
+                  ${getTotalAmount()}
+                </ThemedText>
+              </View>
+            </View>
+            
+            {/* Clear All Button */}
+            <TouchableOpacity 
+              onPress={handleClearAllBookings}
+              style={styles.clearAllButtonInline}
+            >
+              <Ionicons name="trash-outline" size={16} color={Colors.error} />
+              <ThemedText style={styles.clearAllButtonText}>Clear All Bookings</ThemedText>
+            </TouchableOpacity>
+
+            {/* Proceed to Payment Button */}
+            <TouchableOpacity 
+              onPress={() => handleProceedToPayment()}
+              style={styles.proceedToPaymentButton}
+            >
+              <Ionicons name="card-outline" size={20} color={Colors.white} />
+              <ThemedText style={styles.proceedToPaymentText}>Proceed to Payment</ThemedText>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Empty State */}
+        {bookings.accommodation.length === 0 && bookings.transport.length === 0 && bookings.guides.length === 0 && (
+          <View style={styles.emptyStateContainer}>
+            <Ionicons name="receipt-outline" size={64} color={Colors.secondary400} />
+            <ThemedText style={styles.emptyStateTitle}>No Bookings Yet</ThemedText>
+            <ThemedText style={styles.emptyStateText}>
+              Start by browsing accommodations, transportation, or guides using the tabs above.
+            </ThemedText>
+          </View>
+        )}
+      </ScrollView>
+    );
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -108,6 +447,8 @@ export default function BookingScreen() {
         return <TransportBookingScreen />;
       case 'guides':
         return <GuidesBookingScreen />;
+      case 'summary':
+        return renderSummaryContent();
       default:
         return null;
     }
@@ -127,12 +468,6 @@ export default function BookingScreen() {
           >
             <Ionicons name="information-circle-outline" size={20} color={Colors.primary600} />
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.headerButton}
-            onPress={() => setShowBookingsModal(true)}
-          >
-            <Ionicons name="receipt-outline" size={20} color={Colors.primary600} />
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -147,7 +482,15 @@ export default function BookingScreen() {
           <TouchableOpacity
             key={tab.id}
             style={[styles.navItem, activeTab === tab.id && styles.activeNavItem]}
-            onPress={() => setActiveTab(tab.id)}
+            onPress={() => {
+              console.log('Switching to tab:', tab.id);
+              console.log('Bookings before tab switch:', {
+                accommodation: bookings.accommodation.length,
+                transport: bookings.transport.length,
+                guides: bookings.guides.length
+              });
+              setActiveTab(tab.id);
+            }}
           >
             <Ionicons 
               name={tab.icon as any} 
@@ -231,9 +574,19 @@ export default function BookingScreen() {
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <ThemedText style={styles.modalTitle}>Booking Summary</ThemedText>
-            <TouchableOpacity onPress={() => setShowBookingsModal(false)}>
-              <Ionicons name="close" size={24} color={Colors.secondary700} />
-            </TouchableOpacity>
+            <View style={styles.modalHeaderActions}>
+              {(bookings.accommodation.length > 0 || bookings.transport.length > 0 || bookings.guides.length > 0) && (
+                <TouchableOpacity 
+                  onPress={handleClearAllBookings}
+                  style={styles.clearAllButton}
+                >
+                  <ThemedText style={styles.clearAllText}>Clear All</ThemedText>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={() => setShowBookingsModal(false)}>
+                <Ionicons name="close" size={24} color={Colors.secondary700} />
+              </TouchableOpacity>
+            </View>
           </View>
           
           <ScrollView style={styles.modalContent}>
@@ -252,7 +605,7 @@ export default function BookingScreen() {
                   <ThemedText style={styles.noBookingsText}>No bookings made yet</ThemedText>
                 ) : (
                   bookings.accommodation.map((booking: any, index: number) => (
-                    <View key={index} style={styles.bookingItem}>
+                    <View key={booking.id || index} style={styles.bookingItem}>
                       <View style={styles.bookingItemHeader}>
                         <ThemedText style={styles.bookingItemTitle}>{booking.hotelName}</ThemedText>
                         <ThemedText style={styles.bookingItemPrice}>${booking.totalPrice}</ThemedText>
@@ -265,32 +618,62 @@ export default function BookingScreen() {
                         <View style={styles.bookingItemDetail}>
                           <Ionicons name="calendar-outline" size={14} color={Colors.secondary500} />
                           <ThemedText style={styles.bookingItemDetailText}>
-                            {booking.checkInDate} - {booking.checkOutDate}
-                          </ThemedText>
-                        </View>
-                        <View style={styles.bookingItemDetail}>
-                          <Ionicons name="people-outline" size={14} color={Colors.secondary500} />
-                          <ThemedText style={styles.bookingItemDetailText}>
-                            {booking.numberOfRooms} room{booking.numberOfRooms > 1 ? 's' : ''}, {booking.numberOfGuests} guest{booking.numberOfGuests > 1 ? 's' : ''}
+                            {booking.checkInDate} → {booking.checkOutDate}
                           </ThemedText>
                         </View>
                       </View>
+                      <TouchableOpacity 
+                        style={styles.cancelButton}
+                        onPress={() => handleCancelBooking(booking.id, 'accommodation')}
+                      >
+                        <Ionicons name="close-circle" size={20} color={Colors.error} />
+                      </TouchableOpacity>
                     </View>
                   ))
                 )}
-              </View>
-
-              <View style={styles.bookingSection}>
+              </View>              <View style={styles.bookingSection}>
                 <View style={styles.bookingSectionHeader}>
                   <Ionicons name="car-outline" size={20} color={Colors.primary600} />
                   <ThemedText style={styles.bookingSectionTitle}>Transportation</ThemedText>
+                  {bookings.transport.length > 0 && (
+                    <View style={styles.bookingCount}>
+                      <ThemedText style={styles.bookingCountText}>{bookings.transport.length}</ThemedText>
+                    </View>
+                  )}
                 </View>
                 {bookings.transport.length === 0 ? (
                   <ThemedText style={styles.noBookingsText}>No bookings made yet</ThemedText>
                 ) : (
                   bookings.transport.map((booking: any, index: number) => (
-                    <View key={index} style={styles.bookingItem}>
-                      <ThemedText style={styles.bookingItemTitle}>{booking.name}</ThemedText>
+                    <View key={booking.id || index} style={styles.bookingItem}>
+                      <View style={styles.bookingItemHeader}>
+                        <ThemedText style={styles.bookingItemTitle}>{booking.transportName}</ThemedText>
+                        <ThemedText style={styles.bookingItemPrice}>${booking.totalPrice}</ThemedText>
+                      </View>
+                      <View style={styles.bookingItemDetails}>
+                        <View style={styles.bookingItemDetail}>
+                          <Ionicons name="location-outline" size={14} color={Colors.secondary500} />
+                          <ThemedText style={styles.bookingItemDetailText}>{booking.destination}</ThemedText>
+                        </View>
+                        <View style={styles.bookingItemDetail}>
+                          <Ionicons name="calendar-outline" size={14} color={Colors.secondary500} />
+                          <ThemedText style={styles.bookingItemDetailText}>
+                            {booking.startDate} → {booking.endDate}
+                          </ThemedText>
+                        </View>
+                        <View style={styles.bookingItemDetail}>
+                          <Ionicons name="car-outline" size={14} color={Colors.secondary500} />
+                          <ThemedText style={styles.bookingItemDetailText}>
+                            {booking.provider} - {booking.days} {booking.days === 1 ? 'day' : 'days'}
+                          </ThemedText>
+                        </View>
+                      </View>
+                      <TouchableOpacity 
+                        style={styles.cancelButton}
+                        onPress={() => handleCancelBooking(booking.id, 'transport')}
+                      >
+                        <Ionicons name="close-circle" size={20} color={Colors.error} />
+                      </TouchableOpacity>
                     </View>
                   ))
                 )}
@@ -300,13 +683,53 @@ export default function BookingScreen() {
                 <View style={styles.bookingSectionHeader}>
                   <Ionicons name="person-outline" size={20} color={Colors.primary600} />
                   <ThemedText style={styles.bookingSectionTitle}>Tour Guides</ThemedText>
+                  {bookings.guides.length > 0 && (
+                    <View style={styles.bookingCount}>
+                      <ThemedText style={styles.bookingCountText}>{bookings.guides.length}</ThemedText>
+                    </View>
+                  )}
                 </View>
                 {bookings.guides.length === 0 ? (
                   <ThemedText style={styles.noBookingsText}>No bookings made yet</ThemedText>
                 ) : (
                   bookings.guides.map((booking: any, index: number) => (
-                    <View key={index} style={styles.bookingItem}>
-                      <ThemedText style={styles.bookingItemTitle}>{booking.name}</ThemedText>
+                    <View key={booking.id || index} style={styles.bookingItem}>
+                      <View style={styles.bookingItemHeader}>
+                        <ThemedText style={styles.bookingItemTitle}>{booking.guideName}</ThemedText>
+                        <ThemedText style={styles.bookingItemPrice}>${booking.totalPrice}</ThemedText>
+                      </View>
+                      <View style={styles.bookingItemDetails}>
+                        <View style={styles.bookingItemDetail}>
+                          <Ionicons name="location-outline" size={14} color={Colors.secondary500} />
+                          <ThemedText style={styles.bookingItemDetailText}>{booking.destination}</ThemedText>
+                        </View>
+                        <View style={styles.bookingItemDetail}>
+                          <Ionicons name="calendar-outline" size={14} color={Colors.secondary500} />
+                          <ThemedText style={styles.bookingItemDetailText}>
+                            {booking.startDate} → {booking.endDate}
+                          </ThemedText>
+                        </View>
+                        <View style={styles.bookingItemDetail}>
+                          <Ionicons name="person-outline" size={14} color={Colors.secondary500} />
+                          <ThemedText style={styles.bookingItemDetailText}>
+                            {booking.tourType || 'Custom Tour'} - {booking.days} {booking.days === 1 ? 'day' : 'days'}
+                          </ThemedText>
+                        </View>
+                        {booking.meetingPoint && (
+                          <View style={styles.bookingItemDetail}>
+                            <Ionicons name="navigate-outline" size={14} color={Colors.secondary500} />
+                            <ThemedText style={styles.bookingItemDetailText}>
+                              Meet at: {booking.meetingPoint}
+                            </ThemedText>
+                          </View>
+                        )}
+                      </View>
+                      <TouchableOpacity 
+                        style={styles.cancelButton}
+                        onPress={() => handleCancelBooking(booking.id, 'guides')}
+                      >
+                        <Ionicons name="close-circle" size={20} color={Colors.error} />
+                      </TouchableOpacity>
                     </View>
                   ))
                 )}
@@ -342,8 +765,7 @@ export default function BookingScreen() {
                   <View style={[styles.totalSummaryRow, styles.totalSummaryFinalRow]}>
                     <ThemedText style={styles.totalSummaryFinalLabel}>Total Trip Cost:</ThemedText>
                     <ThemedText style={styles.totalSummaryFinalValue}>
-                      ${[...bookings.accommodation, ...bookings.transport, ...bookings.guides]
-                        .reduce((sum: number, booking: any) => sum + (booking.totalPrice || 0), 0)}
+                      ${getTotalAmount()}
                     </ThemedText>
                   </View>
                 </View>
@@ -559,6 +981,24 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.secondary200,
   },
+  modalHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  clearAllButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: Colors.secondary100,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Colors.secondary200,
+  },
+  clearAllText: {
+    fontSize: 14,
+    color: Colors.secondary600,
+    fontWeight: '500',
+  },
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -677,6 +1117,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 1,
     borderColor: Colors.primary300,
+    position: 'relative',
   },
   bookingItemHeader: {
     flexDirection: 'row',
@@ -689,14 +1130,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.secondary700,
     flex: 1,
+    marginRight: 12,
   },
   bookingItemPrice: {
     fontSize: 16,
     fontWeight: '700',
     color: Colors.primary600,
   },
+  cancelButton: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: Colors.error + '15',
+    borderWidth: 1,
+    borderColor: Colors.error + '30',
+    zIndex: 1,
+  },
   bookingItemDetails: {
-    gap: 4,
+    gap: 6,
   },
   bookingItemDetail: {
     flexDirection: 'row',
@@ -706,6 +1159,7 @@ const styles = StyleSheet.create({
   bookingItemDetailText: {
     fontSize: 14,
     color: Colors.secondary600,
+    lineHeight: 18,
   },
   modalOverlay: {
     flex: 1,
@@ -833,5 +1287,72 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: Colors.primary600,
+  },
+  // Summary Tab Styles
+  summaryTabContent: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: Colors.secondary50,
+  },
+  clearAllButtonInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: Colors.error + '15',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.error + '30',
+  },
+  clearAllButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.error,
+  },
+  proceedToPaymentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: Colors.primary600,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.primary700,
+    shadowColor: Colors.primary600,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  proceedToPaymentText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.white,
+  },
+  emptyStateContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 40,
+  },
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: Colors.secondary700,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: Colors.secondary500,
+    textAlign: 'center',
+    lineHeight: 24,
   },
 });

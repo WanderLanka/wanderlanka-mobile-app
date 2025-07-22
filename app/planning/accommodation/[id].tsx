@@ -213,7 +213,7 @@ export default function HotelDetailsScreen() {
 
     // Create booking object
     const booking = {
-      id: `booking_${Date.now()}`,
+      id: `booking_${hotel.id}_${checkInDate}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       hotelId: hotel.id,
       hotelName: hotel.name,
       checkInDate: checkInDate as string,
@@ -237,28 +237,27 @@ export default function HotelDetailsScreen() {
     console.log('New booking:', booking);
     
     setShowBookingSheet(false);
+
+    // Simple confirmation alert with single OK button
     Alert.alert(
       'Booking Confirmed!', 
-      `Your reservation at ${hotel.name} has been confirmed.\n\nDates: ${checkInDate} to ${checkoutDate}\nNights: ${bookingDetails.nights}\nRooms: ${numberOfRooms}\nGuests: ${numberOfGuests}\nTotal: $${bookingDetails.totalPrice}`,
+      `Your reservation at ${hotel.name} has been successfully confirmed. Thank you for choosing us!`,
       [
         {
-          text: 'View Summary',
+          text: 'OK',
           onPress: () => {
-            // Navigate back to booking page with booking data
-            router.push({
+            // Navigate to booking screen with the new booking data
+            router.replace({
               pathname: '/planning/booking',
               params: {
                 destination,
                 startDate: checkInDate,
                 endDate: checkoutDate,
-                newBooking: JSON.stringify(booking)
+                newBooking: JSON.stringify(booking),
+                hideModal: 'true'
               }
             });
           }
-        },
-        {
-          text: 'OK',
-          onPress: () => router.back()
         }
       ]
     );
@@ -814,6 +813,11 @@ export default function HotelDetailsScreen() {
                       <Ionicons name="moon-outline" size={16} color={Colors.primary600} />
                       <ThemedText style={styles.dateInfoLabel}>Nights:</ThemedText>
                       <ThemedText style={styles.dateInfoValue}>{calculateNights(checkInDate as string, checkoutDate)}</ThemedText>
+                    </View>
+                    <View style={styles.dateInfoRow}>
+                      <Ionicons name="card-outline" size={16} color={Colors.primary600} />
+                      <ThemedText style={styles.dateInfoLabel}>Estimated Total:</ThemedText>
+                      <ThemedText style={styles.dateInfoValue}>${bookingDetails.totalPrice}</ThemedText>
                     </View>
                   </>
                 )}

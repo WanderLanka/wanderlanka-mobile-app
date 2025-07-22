@@ -143,9 +143,9 @@ export default function GuidesBookingScreen() {
       onPress={() => {
         if (guide.availability) {
           router.push({
-            pathname: '/planning/booking/guide-details',
+            pathname: '/planning/guides/[id]',
             params: {
-              guideId: guide.id,
+              id: guide.id,
               destination,
               startDate,
               endDate,

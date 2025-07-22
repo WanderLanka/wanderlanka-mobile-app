@@ -198,9 +198,9 @@ export default function TransportBookingScreen() {
       onPress={() => {
         if (transport.availability) {
           router.push({
-            pathname: '/planning/booking/transport-details',
+            pathname: '/planning/transport/[id]',
             params: {
-              transportId: transport.id,
+              id: transport.id,
               destination,
               startDate,
               endDate,
