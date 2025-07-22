@@ -8,8 +8,8 @@ import {
   View
 } from 'react-native';
 
-import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
+import { Ionicons } from '@expo/vector-icons';
 
 interface CustomTextInputProps extends TextInputProps {
   label: string;
@@ -19,7 +19,7 @@ interface CustomTextInputProps extends TextInputProps {
   containerStyle?: View['props']['style'];
 }
 
-export const CustomTextInput: React.FC<CustomTextInputProps> = ({
+export const CustomTextInput: React.FC<CustomTextInputProps> = React.memo(({
   label,
   error,
   isPassword = false,
@@ -33,19 +33,21 @@ export const CustomTextInput: React.FC<CustomTextInputProps> = ({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label ? (
+
+      {label && (
         <Text style={styles.label}>
-          {typeof label === 'string' ? label : ''}
+          {label}
         </Text>
-      ) : null}
+      )}
+
       <View style={[
         styles.inputContainer,
-        isFocused && styles.inputContainerFocused,
-        error && styles.inputContainerError,
+        isFocused && { borderColor: Colors.primary600 },
+        error && { borderColor: Colors.error }
       ]}>
         {leftIcon && (
           <Ionicons
-            name={leftIcon}
+            name={leftIcon as any}
             size={20}
             color={error ? Colors.error : isFocused ? Colors.primary600 : Colors.secondary400}
             style={styles.leftIcon}
@@ -61,7 +63,10 @@ export const CustomTextInput: React.FC<CustomTextInputProps> = ({
           autoCorrect={false}
           spellCheck={false}
           textContentType="none"
-          blurOnSubmit={false}
+          clearButtonMode="while-editing"
+          keyboardType="default"
+          editable={true}
+          selectTextOnFocus={false}
           {...props}
         />
         {isPassword && (
@@ -77,10 +82,14 @@ export const CustomTextInput: React.FC<CustomTextInputProps> = ({
           </TouchableOpacity>
         )}
       </View>
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      
+      {/* Step 3: Add back error with Colors */}
+      {error && error.length > 0 && (
+        <Text style={styles.errorText}>{error}</Text>
+      )}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -91,7 +100,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.secondary700,
     marginBottom: 8,
-    fontFamily: 'Inter',
+    fontFamily: 'Inter', // Adding back fontFamily - TEST THIS
   },
   inputContainer: {
     flexDirection: 'row',
@@ -102,24 +111,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     paddingHorizontal: 16,
     minHeight: 50,
-    
-  },
-  inputContainerFocused: {
-    borderColor: Colors.primary600,
-    shadowColor: Colors.primary600,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  inputContainerError: {
-    borderColor: Colors.error,
   },
   input: {
     flex: 1,
     fontSize: 16,
     color: Colors.secondary700,
-    fontFamily: 'Inter',
+    fontFamily: 'Inter', // Adding back fontFamily - TEST THIS
     paddingVertical: 0,
   },
   leftIcon: {
@@ -132,6 +129,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.error,
     marginTop: 4,
-    fontFamily: 'Inter',
+    fontFamily: 'Inter', // Adding back fontFamily - TEST THIS
   },
 });

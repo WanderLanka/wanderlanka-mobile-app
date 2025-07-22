@@ -1,3 +1,5 @@
+import * as React from 'react';
+
 import {
   Alert,
   Image,
@@ -15,14 +17,13 @@ import {
   ThemedText,
   ThemedView
 } from '../../components';
-import * as React from 'react';
-import { useState } from 'react';
 
 import { Colors } from '../../constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useState } from 'react';
 
 export default function LoginScreen() {
   const { login, isLoading } = useAuth();
@@ -55,8 +56,9 @@ export default function LoginScreen() {
     try {
       await login(formData.identifier, formData.password);
       
-      // Navigation will be handled by the auth state change
-      router.replace('../dashboard');
+      // Navigation will be handled by the auth state change in the main index
+      // Let the auth context handle the role-based navigation
+      router.replace('/');
     } catch (error) {
       Alert.alert(
         'Login Failed',
@@ -123,7 +125,7 @@ export default function LoginScreen() {
 
             <CustomButton
               title="Log In"
-              onPress={() => router.push('/tourGuide/home')}
+              onPress={handleLogin}
               loading={isLoading}
               style={styles.loginButton}
             />

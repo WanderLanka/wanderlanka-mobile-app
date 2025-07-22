@@ -628,11 +628,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.light200,
     maxHeight: 60,
+    height : 60,
   },
   categoriesContent: {
     paddingHorizontal: 20,
     paddingVertical: 12,
     gap: 8,
+    height: 60
   },
   categoryButton: {
     flexDirection: 'row',
@@ -703,6 +705,7 @@ const styles = StyleSheet.create({
   },
   challengeHeader: {
     marginBottom: 12,
+    marginTop: 15
   },
   challengeTitle: {
     marginBottom: 8,

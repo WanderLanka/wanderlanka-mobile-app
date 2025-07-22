@@ -40,7 +40,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({ image, title, price, city, r
       <Image source={{ uri: image }} style={styles.image} />
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={1}> {title.trim() || ' '}</Text>
-        {city && <Text style={styles.city} numberOfLines={1}>{city.trim()}</Text>} {/* Added conditional */}        
+        {city && <Text style={styles.city} numberOfLines={1}>{city.trim()}</Text>}      
         <View style={styles.row}>
           {typeof rating === 'number' ? (
             <View style={styles.ratingContainer}>

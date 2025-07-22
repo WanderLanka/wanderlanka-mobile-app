@@ -3,11 +3,14 @@ import { User, UserRole } from '../types';
 
 import { AuthService } from '../services/auth';
 
+// Frontend role type for signup form
+type FrontendRole = 'tourist' | 'guide';
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  signUp: (username: string, email: string, password: string, role: UserRole) => Promise<void>;
+  signUp: (username: string, email: string, password: string, role: FrontendRole) => Promise<void>;
   login: (identifier: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
@@ -55,14 +58,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const signUp = async (username: string, email: string, password: string, role: UserRole) => {
+  const signUp = async (username: string, email: string, password: string, role: FrontendRole) => {
     try {
       setIsLoading(true);
       const response = await AuthService.signUp({
         username,
         email,
         password,
-        role,
+        role, // This is 'tourist' or 'guide', backend will map 'tourist' to 'traveller'
       });
 
       if (response.success && response.data) {

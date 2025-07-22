@@ -2,6 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import { Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modalize } from 'react-native-modalize';
+import { CustomTextInput } from '../../components';
 import { CustomButton } from '../../components/CustomButton';
 import { ThemedText } from '../../components/ThemedText';
 import { UserReview } from '../../components/UserReview';
@@ -53,6 +55,7 @@ export default function AccomodationDetailsScreen() {
   const screenWidth = Dimensions.get('window').width;
   const [currentImage, setCurrentImage] = useState(0);
   const scrollRef = useRef(null);
+  const modalRef = useRef<Modalize>(null);
 
 interface ScrollEvent {
     nativeEvent: {
@@ -66,6 +69,10 @@ const handleScroll = (event: ScrollEvent) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const idx = Math.round(offsetX / screenWidth);
     setCurrentImage(idx);
+};
+
+const openBottomSheet = () => {
+  modalRef.current?.open();
 };
 
   return (
@@ -111,33 +118,33 @@ const handleScroll = (event: ScrollEvent) => {
             <ThemedText variant="title" style={styles.title}>{details.title}</ThemedText>
             <View style={styles.locationRow}>
               <Ionicons name="location-outline" size={16} color={Colors.primary600} />
-              <Text style={styles.city}>{details.city}</Text>
+              <ThemedText variant='caption' style={styles.city}>{details.city}</ThemedText>
             </View>
           </View>
           <View style={styles.ratingRow}>
             <Ionicons name="star" size={16} color={Colors.warning || '#FFD700'} />
-            <Text style={styles.rating}>{details.rating}</Text>
+            <ThemedText  variant='caption' style={styles.rating}>{details.rating}</ThemedText>
           </View>
         </View>
 
         <Text style={styles.price}>{details.price}</Text>
 
         <ThemedText variant="subtitle" style={styles.sectionHeading}>Description</ThemedText>
-        <Text style={styles.description}>{details.description}</Text>
+        <ThemedText variant='caption' style={styles.description}>{details.description}</ThemedText>
 
         <ThemedText variant="subtitle" style={styles.sectionHeading}>Amenities</ThemedText>
         <View style={styles.amenitiesList}>
           {details.amenities.map((amenity, i) => (
             <View key={i} style={styles.amenityRow}>
               <Ionicons name="checkmark-circle" size={18} color={Colors.primary600} />
-              <Text style={styles.amenityText}>{amenity}</Text>
+              <ThemedText variant='caption' style={styles.amenityText}>{amenity}</ThemedText>
             </View>
           ))}
         </View>
         <ThemedText variant="subtitle" style={styles.sectionHeading}>Location</ThemedText>
-        <View style={styles.mapPlaceholder}>
-          <Text style={styles.mapText}>[Map will be shown here]</Text>
-        </View>
+       <View style={styles.mapPlaceholder}>
+          <ThemedText variant='caption' style={styles.mapText}>[Map will be shown here]</ThemedText>
+      </View>
         <ThemedText variant="subtitle" style={styles.sectionHeading}>Reviews</ThemedText>
         <View style={styles.reviewsList}>
           <UserReview
@@ -153,10 +160,10 @@ const handleScroll = (event: ScrollEvent) => {
             profileImage="https://randomuser.me/api/portraits/women/2.jpg"
           />
           <TouchableOpacity style={styles.seeMoreBtn} onPress={() => router.push('/accomodation/reviews')}>
-            <Text style={styles.seeMoreText}>See more</Text>
+            <ThemedText variant='caption' style={styles.seeMoreText}>See more</ThemedText>
           </TouchableOpacity>
         </View>
-        <View style={{ height: 80 }} /> {/* Spacer for bottom bar */}
+        <View style={{ height: 80 }} />
       </ScrollView>
       <View style={styles.bottomBar}>
         <CustomButton
@@ -164,9 +171,77 @@ const handleScroll = (event: ScrollEvent) => {
           variant="primary"
           size="large"
           style={styles.bookBtn}
-          onPress={() => {/* booking logic here */}}
+          onPress={openBottomSheet}
         />
       </View>
+      <Modalize ref={modalRef} adjustToContentHeight>
+        <View style={styles.sheetContent}>
+          <View style={styles.sheetTitle}>
+            <ThemedText variant="title" style={styles.sheetTitleText}>Booking Details</ThemedText>
+          </View>
+          <View style={styles.sheetBody}>
+            <View style={styles.dateRow}>
+              <CustomTextInput
+                label="Check-in Date"
+                placeholder="YYYY-MM-DD"
+                leftIcon="calendar-outline"
+                containerStyle={{ flex: 1, marginRight: 8, marginBottom: 0 }}
+              />
+              <CustomTextInput
+                label="Check-out Date"
+                placeholder="YYYY-MM-DD"
+                leftIcon="calendar-outline"
+                containerStyle={{ flex: 1, marginLeft: 8, marginBottom: 0 }}
+              />
+            </View>
+            <View style={styles.peopleRow}>
+              <View style={styles.peopleCol}>
+                <ThemedText style={styles.peopleLabel}>Adults</ThemedText>
+                <View style={styles.counterRow}>
+                  <TouchableOpacity style={styles.counterBtn}>
+                    <Ionicons name="remove-circle-outline" size={28} color={Colors.primary600} />
+                  </TouchableOpacity>
+                  <Text style={styles.counterValue}>1</Text>
+                  <TouchableOpacity style={styles.counterBtn}>
+                    <Ionicons name="add-circle-outline" size={28} color={Colors.primary600} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <View style={styles.peopleCol}>
+                <ThemedText style={styles.peopleLabel}>Children</ThemedText>
+                <View style={styles.counterRow}>
+                  <TouchableOpacity style={styles.counterBtn}>
+                    <Ionicons name="remove-circle-outline" size={28} color={Colors.primary600} />
+                  </TouchableOpacity>
+                  <Text style={styles.counterValue}>0</Text>
+                  <TouchableOpacity style={styles.counterBtn}>
+                    <Ionicons name="add-circle-outline" size={28} color={Colors.primary600} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <View style={styles.peopleCol}>
+                <ThemedText style={styles.peopleLabel}>Rooms</ThemedText>
+                <View style={styles.counterRow}>
+                  <TouchableOpacity style={styles.counterBtn}>
+                    <Ionicons name="remove-circle-outline" size={28} color={Colors.primary600} />
+                  </TouchableOpacity>
+                  <Text style={styles.counterValue}>0</Text>
+                  <TouchableOpacity style={styles.counterBtn}>
+                    <Ionicons name="add-circle-outline" size={28} color={Colors.primary600} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+            <CustomButton
+              title="Confirm Booking"
+              variant="primary"
+              size="large"
+              style={{ marginTop: 24, borderRadius: 16 }}
+              onPress={() => {}}
+            />
+          </View>
+        </View>
+      </Modalize>
     </SafeAreaView>
   );
 }
@@ -364,5 +439,83 @@ const styles = StyleSheet.create({
   bookBtn: {
     width: '100%',
     borderRadius: 16,
+  },
+  sheetContent: {
+    alignItems: 'stretch',
+    minHeight: 400,
+    alignSelf: 'center',
+    borderRadius: 18,
+    marginTop: 10,
+    marginBottom: 24,
+    width: '95%',
+    backgroundColor: Colors.secondary50,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  sheetTitle: {
+    width: '100%',
+    backgroundColor: Colors.primary800,
+    paddingVertical: 28,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  sheetTitleText: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: Colors.white,
+    marginBottom: 0,
+    alignSelf: 'center',
+  },
+  sheetBody: {
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+    backgroundColor: Colors.secondary50,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+    alignItems: 'stretch',
+    gap: 0,
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 16,
+    gap: 12,
+  },
+  peopleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 18,
+    marginBottom: 8,
+    gap: 24,
+  },
+  peopleCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  peopleLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.primary800,
+    marginBottom: 8,
+  },
+  counterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  counterBtn: {
+    padding: 4,
+  },
+  counterValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.primary800,
+    marginHorizontal: 8,
   },
 });

@@ -12,8 +12,26 @@ export default function DashboardScreen() {
   useEffect(() => {
     if (!isAuthenticated) {
       router.replace('../auth/login');
+      return;
     }
-  }, [isAuthenticated]);
+
+    // Role-based navigation redirect
+    if (user && user.role) {
+      console.log('Dashboard: Redirecting user with role:', user.role);
+      
+      if (user.role === 'guide') {
+        // Redirect guides to their interface
+        console.log('Dashboard: Redirecting to guide interface');
+        router.replace('../tourGuide/home');
+      } else if (user.role === 'traveller' || user.role === 'tourist') {
+        // Redirect travellers/tourists to their interface  
+        console.log('Dashboard: Redirecting to traveller interface');
+        router.replace('../(travelerTabs)/home');
+      } else {
+        console.log('Dashboard: Unknown role, staying on dashboard:', user.role);
+      }
+    }
+  }, [isAuthenticated, user]);
 
   const handleLogout = async () => {
     try {
