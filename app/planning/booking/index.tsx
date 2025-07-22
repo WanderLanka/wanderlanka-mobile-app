@@ -11,7 +11,7 @@ import {
 import { CustomButton, CustomTextInput, ThemedText } from '../../../components';
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/Colors';
 import AccommodationBookingScreen from './accommodation';
@@ -20,7 +20,7 @@ import TransportBookingScreen from './transport';
 
 export default function BookingScreen() {
   const params = useLocalSearchParams();
-  const { destination, startDate, endDate, destinations } = params;
+  const { destination, startDate, endDate, destinations, newBooking } = params;
 
   // State management
   const [activeTab, setActiveTab] = useState('accommodation');
@@ -36,11 +36,30 @@ export default function BookingScreen() {
   const [propertyTypes, setPropertyTypes] = useState<string[]>([]);
 
   // Mock bookings data - in real app this would come from context or API
-  const [bookings] = useState({
-    accommodation: [],
-    transport: [],
-    guides: [],
+  const [bookings, setBookings] = useState({
+    accommodation: [] as any[],
+    transport: [] as any[],
+    guides: [] as any[],
   });
+
+  // Handle new booking data
+  useEffect(() => {
+    if (newBooking) {
+      try {
+        const booking = JSON.parse(newBooking as string);
+        if (booking.type === 'accommodation') {
+          setBookings(prev => ({
+            ...prev,
+            accommodation: [...prev.accommodation, booking]
+          }));
+          // Show booking summary modal automatically
+          setShowBookingsModal(true);
+        }
+      } catch (error) {
+        console.error('Error parsing new booking:', error);
+      }
+    }
+  }, [newBooking]);
 
   // Calculate trip duration
   const calculateTripDuration = () => {
@@ -102,12 +121,6 @@ export default function BookingScreen() {
         </TouchableOpacity>
         <ThemedText style={styles.headerTitle}>Book Your Trip</ThemedText>
         <View style={styles.headerActions}>
-          <TouchableOpacity 
-            style={styles.headerButton}
-            onPress={() => setFilterVisible(true)}
-          >
-            <Ionicons name="filter" size={20} color={Colors.primary600} />
-          </TouchableOpacity>
           <TouchableOpacity 
             style={styles.headerButton}
             onPress={() => setShowTripModal(true)}
@@ -229,13 +242,39 @@ export default function BookingScreen() {
                 <View style={styles.bookingSectionHeader}>
                   <Ionicons name="bed-outline" size={20} color={Colors.primary600} />
                   <ThemedText style={styles.bookingSectionTitle}>Accommodation</ThemedText>
+                  {bookings.accommodation.length > 0 && (
+                    <View style={styles.bookingCount}>
+                      <ThemedText style={styles.bookingCountText}>{bookings.accommodation.length}</ThemedText>
+                    </View>
+                  )}
                 </View>
                 {bookings.accommodation.length === 0 ? (
                   <ThemedText style={styles.noBookingsText}>No bookings made yet</ThemedText>
                 ) : (
                   bookings.accommodation.map((booking: any, index: number) => (
                     <View key={index} style={styles.bookingItem}>
-                      <ThemedText style={styles.bookingItemTitle}>{booking.name}</ThemedText>
+                      <View style={styles.bookingItemHeader}>
+                        <ThemedText style={styles.bookingItemTitle}>{booking.hotelName}</ThemedText>
+                        <ThemedText style={styles.bookingItemPrice}>${booking.totalPrice}</ThemedText>
+                      </View>
+                      <View style={styles.bookingItemDetails}>
+                        <View style={styles.bookingItemDetail}>
+                          <Ionicons name="location-outline" size={14} color={Colors.secondary500} />
+                          <ThemedText style={styles.bookingItemDetailText}>{booking.destination}</ThemedText>
+                        </View>
+                        <View style={styles.bookingItemDetail}>
+                          <Ionicons name="calendar-outline" size={14} color={Colors.secondary500} />
+                          <ThemedText style={styles.bookingItemDetailText}>
+                            {booking.checkInDate} - {booking.checkOutDate}
+                          </ThemedText>
+                        </View>
+                        <View style={styles.bookingItemDetail}>
+                          <Ionicons name="people-outline" size={14} color={Colors.secondary500} />
+                          <ThemedText style={styles.bookingItemDetailText}>
+                            {booking.numberOfRooms} room{booking.numberOfRooms > 1 ? 's' : ''}, {booking.numberOfGuests} guest{booking.numberOfGuests > 1 ? 's' : ''}
+                          </ThemedText>
+                        </View>
+                      </View>
                     </View>
                   ))
                 )}
@@ -273,6 +312,43 @@ export default function BookingScreen() {
                 )}
               </View>
             </View>
+            
+            {/* Total Summary */}
+            {(bookings.accommodation.length > 0 || bookings.transport.length > 0 || bookings.guides.length > 0) && (
+              <View style={styles.totalSummaryContainer}>
+                <View style={styles.totalSummaryHeader}>
+                  <Ionicons name="receipt-outline" size={20} color={Colors.primary600} />
+                  <ThemedText style={styles.totalSummaryTitle}>Trip Total</ThemedText>
+                </View>
+                <View style={styles.totalSummaryContent}>
+                  <View style={styles.totalSummaryRow}>
+                    <ThemedText style={styles.totalSummaryLabel}>Accommodation:</ThemedText>
+                    <ThemedText style={styles.totalSummaryValue}>
+                      ${bookings.accommodation.reduce((sum: number, booking: any) => sum + booking.totalPrice, 0)}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.totalSummaryRow}>
+                    <ThemedText style={styles.totalSummaryLabel}>Transportation:</ThemedText>
+                    <ThemedText style={styles.totalSummaryValue}>
+                      ${bookings.transport.reduce((sum: number, booking: any) => sum + (booking.totalPrice || 0), 0)}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.totalSummaryRow}>
+                    <ThemedText style={styles.totalSummaryLabel}>Tour Guides:</ThemedText>
+                    <ThemedText style={styles.totalSummaryValue}>
+                      ${bookings.guides.reduce((sum: number, booking: any) => sum + (booking.totalPrice || 0), 0)}
+                    </ThemedText>
+                  </View>
+                  <View style={[styles.totalSummaryRow, styles.totalSummaryFinalRow]}>
+                    <ThemedText style={styles.totalSummaryFinalLabel}>Total Trip Cost:</ThemedText>
+                    <ThemedText style={styles.totalSummaryFinalValue}>
+                      ${[...bookings.accommodation, ...bookings.transport, ...bookings.guides]
+                        .reduce((sum: number, booking: any) => sum + (booking.totalPrice || 0), 0)}
+                    </ThemedText>
+                  </View>
+                </View>
+              </View>
+            )}
           </ScrollView>
         </SafeAreaView>
       </Modal>
@@ -566,11 +642,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
     gap: 8,
+    justifyContent: 'space-between',
   },
   bookingSectionTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: Colors.secondary700,
+    flex: 1,
+  },
+  bookingCount: {
+    backgroundColor: Colors.primary600,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    minWidth: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bookingCountText: {
+    color: Colors.white,
+    fontSize: 12,
+    fontWeight: '600',
   },
   noBookingsText: {
     fontSize: 14,
@@ -580,14 +672,40 @@ const styles = StyleSheet.create({
   },
   bookingItem: {
     backgroundColor: Colors.white,
-    padding: 12,
-    borderRadius: 8,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: Colors.primary300,
+  },
+  bookingItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
   },
   bookingItemTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
     color: Colors.secondary700,
+    flex: 1,
+  },
+  bookingItemPrice: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.primary600,
+  },
+  bookingItemDetails: {
+    gap: 4,
+  },
+  bookingItemDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  bookingItemDetailText: {
+    fontSize: 14,
+    color: Colors.secondary600,
   },
   modalOverlay: {
     flex: 1,
@@ -662,5 +780,58 @@ const styles = StyleSheet.create({
   },
   filterModalActionBtn: {
     flex: 1,
+  },
+  // Total Summary Styles
+  totalSummaryContainer: {
+    backgroundColor: Colors.primary100,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: Colors.primary300,
+  },
+  totalSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  totalSummaryTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.primary700,
+  },
+  totalSummaryContent: {
+    gap: 8,
+  },
+  totalSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  totalSummaryLabel: {
+    fontSize: 14,
+    color: Colors.secondary600,
+  },
+  totalSummaryValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.secondary700,
+  },
+  totalSummaryFinalRow: {
+    paddingTop: 8,
+    marginTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: Colors.primary300,
+  },
+  totalSummaryFinalLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.primary700,
+  },
+  totalSummaryFinalValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.primary600,
   },
 });

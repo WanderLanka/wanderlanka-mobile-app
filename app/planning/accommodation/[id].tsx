@@ -1,17 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-    Alert,
-    Dimensions,
-    Image,
-    Linking,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  Alert,
+  Dimensions,
+  Image,
+  Linking,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { CustomButton } from '../../../components';
 import { ThemedText } from '../../../components/ThemedText';
 import { Colors } from '../../../constants/Colors';
 
@@ -90,12 +93,65 @@ const getHotelById = (id: string) => {
   return hotels.find(hotel => hotel.id === id);
 };
 
+// Helper function to calculate number of nights between two dates
+const calculateNights = (checkIn: string, checkOut: string): number => {
+  if (!checkIn || !checkOut) return 1;
+  
+  const checkInDate = new Date(checkIn);
+  const checkOutDate = new Date(checkOut);
+  
+  if (checkOutDate <= checkInDate) return 1;
+  
+  const diffTime = Math.abs(checkOutDate.getTime() - checkInDate.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  return diffDays;
+};
+
+// Helper function to format date for display
+const formatDateDisplay = (dateString: string): string => {
+  if (!dateString) return '';
+  
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { 
+    weekday: 'short', 
+    month: 'short', 
+    day: 'numeric' 
+  });
+};
+
 export default function HotelDetailsScreen() {
   const params = useLocalSearchParams();
-  const { id, destination, startDate, endDate, checkInDate, checkInDay } = params;
+  const { id, destination, endDate, checkInDate, checkInDay } = params;
 
   const hotel = getHotelById(id as string);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [showBookingSheet, setShowBookingSheet] = useState(false);
+  const [showRoomsDropdown, setShowRoomsDropdown] = useState(false);
+  const [showGuestsDropdown, setShowGuestsDropdown] = useState(false);
+  const [showCheckoutCalendar, setShowCheckoutCalendar] = useState(false);
+  
+  // Booking form state
+  // Guest information state - commented out for now
+  // const [guestName, setGuestName] = useState('');
+  // const [guestEmail, setGuestEmail] = useState('');
+  // const [phoneNumber, setPhoneNumber] = useState('');
+  // const [specialRequests, setSpecialRequests] = useState('');
+  const [numberOfRooms, setNumberOfRooms] = useState('1');
+  const [numberOfGuests, setNumberOfGuests] = useState('2');
+  const [checkoutDate, setCheckoutDate] = useState(endDate as string || '');
+
+  // Calculate number of nights and total price
+  const bookingDetails = useMemo(() => {
+    const nights = calculateNights(checkInDate as string, checkoutDate);
+    const totalPrice = hotel ? hotel.pricePerNight * parseInt(numberOfRooms) * nights : 0;
+    
+    return {
+      nights,
+      totalPrice,
+      pricePerRoom: hotel?.pricePerNight || 0
+    };
+  }, [checkInDate, checkoutDate, numberOfRooms, hotel]);
 
   if (!hotel) {
     return (
@@ -138,18 +194,72 @@ export default function HotelDetailsScreen() {
   };
 
   const handleBookNow = () => {
+    setShowBookingSheet(true);
+  };
+
+  const handleSelectCheckoutDate = (date: string) => {
+    setCheckoutDate(date);
+    setShowCheckoutCalendar(false);
+  };
+
+  const handleConfirmBooking = () => {
+    // Temporarily skip guest information validation since it's commented out
+    /* 
+    if (!guestName.trim() || !guestEmail.trim() || !phoneNumber.trim()) {
+      Alert.alert('Missing Information', 'Please fill in all required fields.');
+      return;
+    }
+    */
+
+    // Create booking object
+    const booking = {
+      id: `booking_${Date.now()}`,
+      hotelId: hotel.id,
+      hotelName: hotel.name,
+      checkInDate: checkInDate as string,
+      checkOutDate: checkoutDate,
+      checkInDay: checkInDay as string,
+      destination: destination as string,
+      pricePerNight: hotel.pricePerNight,
+      numberOfRooms: parseInt(numberOfRooms),
+      numberOfGuests: parseInt(numberOfGuests),
+      numberOfNights: bookingDetails.nights,
+      totalPrice: bookingDetails.totalPrice,
+      guestName: '', // Placeholder values since guest info is commented out
+      guestEmail: '',
+      phoneNumber: '',
+      specialRequests: '',
+      bookingDate: new Date().toISOString(),
+      type: 'accommodation' // Add booking type
+    };
+
+    // TODO: Add booking to global state/context
+    console.log('New booking:', booking);
+    
+    setShowBookingSheet(false);
     Alert.alert(
-      'Confirm Booking',
-      `Book ${hotel.name} for ${checkInDate}?\\n\\nCheck-in: Day ${checkInDay}\\nPrice: $${hotel.pricePerNight}/night`,
+      'Booking Confirmed!', 
+      `Your reservation at ${hotel.name} has been confirmed.\n\nDates: ${checkInDate} to ${checkoutDate}\nNights: ${bookingDetails.nights}\nRooms: ${numberOfRooms}\nGuests: ${numberOfGuests}\nTotal: $${bookingDetails.totalPrice}`,
       [
-        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Book Now',
+          text: 'View Summary',
           onPress: () => {
-            Alert.alert('Success!', 'Your booking has been confirmed.');
-            router.back();
-          },
+            // Navigate back to booking page with booking data
+            router.push({
+              pathname: '/planning/booking',
+              params: {
+                destination,
+                startDate: checkInDate,
+                endDate: checkoutDate,
+                newBooking: JSON.stringify(booking)
+              }
+            });
+          }
         },
+        {
+          text: 'OK',
+          onPress: () => router.back()
+        }
       ]
     );
   };
@@ -338,6 +448,380 @@ export default function HotelDetailsScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Booking Sheet Modal */}
+      <Modal
+        visible={showBookingSheet}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowBookingSheet(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.sheetHeader}>
+            <ThemedText style={styles.sheetTitle}>Book Hotel</ThemedText>
+            <TouchableOpacity onPress={() => setShowBookingSheet(false)}>
+              <Ionicons name="close" size={24} color={Colors.secondary700} />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.sheetContent}>
+            {/* Hotel Summary */}
+            <View style={styles.hotelSummaryCard}>
+              <View style={styles.hotelSummaryHeader}>
+                <Ionicons name="business-outline" size={20} color={Colors.primary600} />
+                <ThemedText style={styles.hotelTitle}>{hotel.name}</ThemedText>
+              </View>
+              <View style={styles.hotelSummaryContent}>
+                <View style={styles.locationContainer}>
+                  <Ionicons name="location-outline" size={14} color={Colors.primary600} />
+                  <ThemedText style={styles.hotelLocation}>{hotel.location}</ThemedText>
+                </View>
+                <ThemedText style={styles.hotelPrice}>${hotel.pricePerNight}/night</ThemedText>
+              </View>
+            </View>
+
+            {/* Booking Dates */}
+            <View style={styles.formSection}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="calendar" size={20} color={Colors.primary600} />
+                <ThemedText style={styles.sectionTitle}>Dates</ThemedText>
+              </View>
+              
+              <View style={styles.dateContainer}>
+                <View style={styles.dateItem}>
+                  <ThemedText style={styles.dateLabel}>
+                    <Ionicons name="log-in-outline" size={14} color={Colors.primary600} /> Check-in
+                  </ThemedText>
+                  <View style={styles.dateInputWrapper}>
+                    <ThemedText style={styles.dateValue}>{checkInDate} (Day {checkInDay})</ThemedText>
+                  </View>
+                </View>
+                
+                <View style={styles.dateItem}>
+                  <ThemedText style={styles.dateLabel}>
+                    <Ionicons name="log-out-outline" size={14} color={Colors.primary600} /> Check-out
+                  </ThemedText>
+                  <TouchableOpacity
+                    style={styles.dateSelector}
+                    onPress={() => setShowCheckoutCalendar(true)}
+                  >
+                    <ThemedText style={[
+                      styles.dateSelectorText, 
+                      !checkoutDate && styles.dateSelectorPlaceholder
+                    ]}>
+                      {checkoutDate ? formatDateDisplay(checkoutDate) : 'Select checkout date'}
+                    </ThemedText>
+                    <Ionicons name="calendar-outline" size={16} color={Colors.secondary500} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+
+            {/* Booking Details */}
+            <View style={styles.formSection}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="settings-outline" size={20} color={Colors.primary600} />
+                <ThemedText style={styles.sectionTitle}>Details</ThemedText>
+              </View>
+              
+              <View style={styles.detailsContainer}>
+                <View style={styles.detailItem}>
+                  <ThemedText style={styles.detailLabel}>
+                    <Ionicons name="bed-outline" size={14} color={Colors.primary600} /> Rooms
+                  </ThemedText>
+                  <TouchableOpacity 
+                    style={styles.dropdown}
+                    onPress={() => setShowRoomsDropdown(true)}
+                  >
+                    <ThemedText style={styles.dropdownText}>{numberOfRooms}</ThemedText>
+                    <Ionicons name="chevron-down" size={16} color={Colors.secondary500} />
+                  </TouchableOpacity>
+                </View>
+                
+                <View style={styles.detailItem}>
+                  <ThemedText style={styles.detailLabel}>
+                    <Ionicons name="people-outline" size={14} color={Colors.primary600} /> Guests
+                  </ThemedText>
+                  <TouchableOpacity 
+                    style={styles.dropdown}
+                    onPress={() => setShowGuestsDropdown(true)}
+                  >
+                    <ThemedText style={styles.dropdownText}>{numberOfGuests}</ThemedText>
+                    <Ionicons name="chevron-down" size={16} color={Colors.secondary500} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              
+              <View style={styles.totalPriceCard}>
+                <View style={styles.priceRow}>
+                  <View style={styles.priceLabelContainer}>
+                    <Ionicons name="card-outline" size={16} color={Colors.primary600} />
+                    <ThemedText style={styles.priceLabel}>Total</ThemedText>
+                  </View>
+                  <ThemedText style={styles.priceAmount}>${bookingDetails.totalPrice}</ThemedText>
+                </View>
+                <ThemedText style={styles.priceNote}>
+                  For {numberOfRooms} room{numberOfRooms !== '1' ? 's' : ''} × {bookingDetails.nights} night{bookingDetails.nights !== 1 ? 's' : ''}
+                </ThemedText>
+              </View>
+            </View>
+
+            {/* Guest Information - Commented out for now */}
+            {/* 
+            <View style={styles.formSection}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="person-outline" size={20} color={Colors.primary600} />
+                <ThemedText style={styles.sectionTitle}>Guest Information</ThemedText>
+              </View>
+              
+              <CustomTextInput
+                label="Full Name"
+                placeholder="Enter your full name"
+                value={guestName}
+                onChangeText={setGuestName}
+              />
+
+              <CustomTextInput
+                label="Email Address"
+                placeholder="Enter your email"
+                value={guestEmail}
+                onChangeText={setGuestEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+
+              <CustomTextInput
+                label="Phone Number"
+                placeholder="Enter your phone number"
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                keyboardType="phone-pad"
+              />
+
+              <CustomTextInput
+                label="Special Requests (Optional)"
+                placeholder="Any special requests?"
+                value={specialRequests}
+                onChangeText={setSpecialRequests}
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+            */}
+
+            <View style={styles.termsContainer}>
+              <Ionicons name="shield-checkmark-outline" size={16} color={Colors.primary600} />
+              <ThemedText style={styles.termsText}>
+                By booking, you agree to our terms of service and cancellation policy.
+              </ThemedText>
+            </View>
+          </ScrollView>
+
+          {/* Booking Actions */}
+          <View style={styles.sheetFooter}>
+            <CustomButton
+              title="Cancel"
+              variant="secondary"
+              onPress={() => setShowBookingSheet(false)}
+            />
+            <CustomButton
+              title="Book Now"
+              variant="primary"
+              onPress={handleConfirmBooking}
+            />
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Rooms Dropdown Modal */}
+      <Modal
+        visible={showRoomsDropdown}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowRoomsDropdown(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.sheetHeader}>
+            <ThemedText style={styles.sheetTitle}>Select Rooms</ThemedText>
+            <TouchableOpacity onPress={() => setShowRoomsDropdown(false)}>
+              <Ionicons name="close" size={24} color={Colors.secondary700} />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.dropdownList}>
+            {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
+              <TouchableOpacity
+                key={num}
+                style={[
+                  styles.dropdownItem,
+                  numberOfRooms === String(num) && styles.dropdownItemSelected
+                ]}
+                onPress={() => {
+                  setNumberOfRooms(String(num));
+                  setShowRoomsDropdown(false);
+                }}
+              >
+                <View style={styles.dropdownItemContent}>
+                  <Ionicons 
+                    name="bed-outline" 
+                    size={20} 
+                    color={numberOfRooms === String(num) ? Colors.primary600 : Colors.secondary500} 
+                  />
+                  <ThemedText style={[
+                    styles.dropdownItemText,
+                    numberOfRooms === String(num) && styles.dropdownItemTextSelected
+                  ]}>
+                    {num} Room{num > 1 ? 's' : ''}
+                  </ThemedText>
+                </View>
+                {numberOfRooms === String(num) && (
+                  <Ionicons name="checkmark" size={20} color={Colors.primary600} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Guests Dropdown Modal */}
+      <Modal
+        visible={showGuestsDropdown}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowGuestsDropdown(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.sheetHeader}>
+            <ThemedText style={styles.sheetTitle}>Select Guests</ThemedText>
+            <TouchableOpacity onPress={() => setShowGuestsDropdown(false)}>
+              <Ionicons name="close" size={24} color={Colors.secondary700} />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.dropdownList}>
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 20].map((num) => (
+              <TouchableOpacity
+                key={num}
+                style={[
+                  styles.dropdownItem,
+                  numberOfGuests === String(num) && styles.dropdownItemSelected
+                ]}
+                onPress={() => {
+                  setNumberOfGuests(String(num));
+                  setShowGuestsDropdown(false);
+                }}
+              >
+                <View style={styles.dropdownItemContent}>
+                  <Ionicons 
+                    name="people-outline" 
+                    size={20} 
+                    color={numberOfGuests === String(num) ? Colors.primary600 : Colors.secondary500} 
+                  />
+                  <ThemedText style={[
+                    styles.dropdownItemText,
+                    numberOfGuests === String(num) && styles.dropdownItemTextSelected
+                  ]}>
+                    {num} Guest{num > 1 ? 's' : ''}
+                  </ThemedText>
+                </View>
+                {numberOfGuests === String(num) && (
+                  <Ionicons name="checkmark" size={20} color={Colors.primary600} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Checkout Date Calendar Modal */}
+      <Modal
+        visible={showCheckoutCalendar}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowCheckoutCalendar(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.sheetHeader}>
+            <ThemedText style={styles.sheetTitle}>Select Checkout Date</ThemedText>
+            <TouchableOpacity onPress={() => setShowCheckoutCalendar(false)}>
+              <Ionicons name="close" size={24} color={Colors.secondary700} />
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.calendarContainer}>
+            <Calendar
+              style={styles.calendar}
+              theme={{
+                backgroundColor: Colors.white,
+                calendarBackground: Colors.white,
+                textSectionTitleColor: Colors.secondary700,
+                selectedDayBackgroundColor: Colors.primary600,
+                selectedDayTextColor: Colors.white,
+                todayTextColor: Colors.primary600,
+                dayTextColor: Colors.secondary700,
+                textDisabledColor: Colors.secondary400,
+                dotColor: Colors.primary600,
+                selectedDotColor: Colors.white,
+                arrowColor: Colors.primary600,
+                disabledArrowColor: Colors.secondary400,
+                monthTextColor: Colors.secondary700,
+                indicatorColor: Colors.primary600,
+                textDayFontWeight: '500',
+                textMonthFontWeight: '600',
+                textDayHeaderFontWeight: '500',
+                textDayFontSize: 16,
+                textMonthFontSize: 18,
+                textDayHeaderFontSize: 14,
+              }}
+              minDate={checkInDate as string}
+              onDayPress={(day) => {
+                handleSelectCheckoutDate(day.dateString);
+              }}
+              markedDates={{
+                [checkInDate as string]: {
+                  startingDay: true,
+                  color: Colors.primary600,
+                  textColor: Colors.white,
+                },
+                ...(checkoutDate && {
+                  [checkoutDate]: {
+                    endingDay: true,
+                    color: Colors.primary600,
+                    textColor: Colors.white,
+                  }
+                }),
+              }}
+              markingType="period"
+              hideExtraDays={true}
+              firstDay={1}
+            />
+            
+            <View style={styles.calendarFooter}>
+              <View style={styles.dateRangeInfo}>
+                <View style={styles.dateInfoRow}>
+                  <Ionicons name="log-in-outline" size={16} color={Colors.primary600} />
+                  <ThemedText style={styles.dateInfoLabel}>Check-in:</ThemedText>
+                  <ThemedText style={styles.dateInfoValue}>{formatDateDisplay(checkInDate as string)}</ThemedText>
+                </View>
+                {checkoutDate && (
+                  <>
+                    <View style={styles.dateInfoRow}>
+                      <Ionicons name="log-out-outline" size={16} color={Colors.primary600} />
+                      <ThemedText style={styles.dateInfoLabel}>Check-out:</ThemedText>
+                      <ThemedText style={styles.dateInfoValue}>{formatDateDisplay(checkoutDate)}</ThemedText>
+                    </View>
+                    <View style={styles.dateInfoRow}>
+                      <Ionicons name="moon-outline" size={16} color={Colors.primary600} />
+                      <ThemedText style={styles.dateInfoLabel}>Nights:</ThemedText>
+                      <ThemedText style={styles.dateInfoValue}>{calculateNights(checkInDate as string, checkoutDate)}</ThemedText>
+                    </View>
+                  </>
+                )}
+              </View>
+            </View>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -416,6 +900,7 @@ const styles = StyleSheet.create({
   },
   priceContainer: {
     alignItems: 'flex-end',
+    marginTop: 16,
   },
   price: {
     fontSize: 24,
@@ -469,11 +954,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
     gap: 8,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.secondary700,
   },
   bookingInfoSection: {
     padding: 20,
@@ -609,5 +1089,382 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.primary600,
     fontWeight: '600',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: Colors.white,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.secondary200,
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.secondary700,
+  },
+  sheetContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
+  },
+  bookingSummary: {
+    backgroundColor: Colors.primary100,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  summaryLabel: {
+    fontSize: 14,
+    color: Colors.secondary600,
+  },
+  summaryValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.secondary700,
+    flex: 1,
+    textAlign: 'right',
+  },
+  summaryPrice: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.primary600,
+  },
+  formSection: {
+    marginBottom: 28,
+  },
+  formSectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.secondary700,
+    marginBottom: 16,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.secondary700,
+    marginBottom: 8,
+  },
+  input: {
+    marginBottom: 0,
+  },
+  textArea: {
+    minHeight: 80,
+  },
+  termsSection: {
+    backgroundColor: Colors.secondary100,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 20,
+  },
+  termsText: {
+    fontSize: 12,
+    color: Colors.primary600,
+    lineHeight: 16,
+    flex: 1,
+  },
+  // Terms container with green background
+  termsContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: Colors.primary100,
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: Colors.primary300,
+  },
+  sheetFooter: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderTopWidth: 1,
+    borderTopColor: Colors.secondary200,
+    gap: 12,
+    backgroundColor: Colors.white,
+  },
+  cancelButton: {
+    flex: 1,
+  },
+  confirmButton: {
+    flex: 2,
+  },
+  dateRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  dateColumn: {
+    flex: 1,
+  },
+  // New improved date styles
+  dateContainer: {
+    gap: 16,
+  },
+  dateItem: {
+    gap: 8,
+  },
+  dateLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.secondary700,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dateValue: {
+    fontSize: 16,
+    color: Colors.secondary700,
+    backgroundColor: Colors.secondary100,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.secondary200,
+  },
+  dateInputWrapper: {
+    backgroundColor: Colors.white,
+    borderRadius: 8,
+  },
+  // Date selector styles
+  dateSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.secondary200,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    minHeight: 48,
+  },
+  dateSelectorText: {
+    fontSize: 16,
+    color: Colors.secondary700,
+    fontWeight: '500',
+  },
+  dateSelectorPlaceholder: {
+    color: Colors.secondary400,
+  },
+  // New improved details styles
+  detailsContainer: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 20,
+  },
+  detailItem: {
+    flex: 1,
+    gap: 8,
+  },
+  detailLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.secondary700,
+  },
+  dropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.secondary200,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    minHeight: 48,
+  },
+  dropdownText: {
+    fontSize: 16,
+    color: Colors.secondary700,
+    fontWeight: '500',
+  },
+
+  totalPriceContainer: {
+    backgroundColor: Colors.success100,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 8,
+  },
+  totalPrice: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.success700,
+  },
+  priceNote: {
+    fontSize: 12,
+    color: Colors.primary600,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  // New minimalistic styles
+  hotelTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.primary700,
+    flex: 1,
+  },
+  hotelLocation: {
+    fontSize: 14,
+    color: Colors.primary600,
+  },
+  hotelPrice: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.primary700,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.secondary700,
+  },
+
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  priceLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: Colors.primary700,
+  },
+  priceAmount: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.primary700,
+  },
+  // Hotel summary card with green background
+  hotelSummaryCard: {
+    backgroundColor: Colors.primary100,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: Colors.primary300,
+  },
+  hotelSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  hotelSummaryContent: {
+    gap: 8,
+    marginTop: 4,
+  },
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+
+  // Price label containers
+  priceLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  // Total price card with green background
+  totalPriceCard: {
+    backgroundColor: Colors.primary100,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: Colors.primary300,
+  },
+  // Dropdown list styles
+  dropdownList: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.secondary200,
+    backgroundColor: Colors.white,
+  },
+  dropdownItemSelected: {
+    backgroundColor: Colors.primary100,
+    borderBottomColor: Colors.primary300,
+  },
+  dropdownItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  dropdownItemText: {
+    fontSize: 16,
+    color: Colors.secondary700,
+    fontWeight: '500',
+  },
+  dropdownItemTextSelected: {
+    color: Colors.primary700,
+    fontWeight: '600',
+  },
+  // Calendar styles
+  calendarContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  calendar: {
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+  },
+  calendarFooter: {
+    marginTop: 20,
+    paddingVertical: 16,
+  },
+  dateRangeInfo: {
+    backgroundColor: Colors.primary100,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.primary300,
+  },
+  dateInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  dateInfoLabel: {
+    fontSize: 14,
+    color: Colors.primary700,
+    fontWeight: '500',
+  },
+  dateInfoValue: {
+    fontSize: 14,
+    color: Colors.primary700,
+    fontWeight: '600',
+    marginLeft: 'auto',
   },
 });
