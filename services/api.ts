@@ -16,7 +16,7 @@ export class ApiService {
   private static baseURL = API_CONFIG.BASE_URL;
 
   /**
-   * Make HTTP request with automatic token handling
+   * Make HTTP request with automatic token handling and timeout
    */
   private static async request<T>(
     url: string,
@@ -40,7 +40,24 @@ export class ApiService {
     }
 
     try {
-      const response = await fetch(`${this.baseURL}${url}`, config);
+      console.log('🔗 Making API request:', `${this.baseURL}${url}`);
+      
+      // Create timeout promise
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Network request timed out')), API_CONFIG.TIMEOUT)
+      );
+
+      // Make request with timeout
+      const responsePromise = fetch(`${this.baseURL}${url}`, config);
+      const response = await Promise.race([responsePromise, timeoutPromise]);
+
+      console.log('📡 API response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Network error' }));
+        throw new Error(errorData.message || `HTTP ${response.status}`);
+      }
+
       const data = await response.json();
 
       // Handle token refresh if needed
@@ -54,7 +71,8 @@ export class ApiService {
               ...config.headers,
               Authorization: `Bearer ${newAccessToken}`,
             };
-            const retryResponse = await fetch(`${this.baseURL}${url}`, config);
+            const retryResponsePromise = fetch(`${this.baseURL}${url}`, config);
+            const retryResponse = await Promise.race([retryResponsePromise, timeoutPromise]);
             return await retryResponse.json();
           }
         }
