@@ -585,16 +585,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.secondary100,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.light200,
   },
 
   headerTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '700',
-    color: Colors.secondary700,
-    flex: 1,
-    textAlign: 'center',
+    color: Colors.black,
+    fontFamily: 'Sans-Serif',
   },
 
   addButton: {

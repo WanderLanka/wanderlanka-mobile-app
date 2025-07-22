@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, UserRole } from '../types';
+import { User } from '../types';
 
 import { AuthService } from '../services/auth';
 
@@ -14,6 +14,25 @@ interface AuthContextType {
   login: (identifier: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
+  completeGuideRegistration: (data: GuideRegistrationData) => Promise<void>;
+}
+
+interface GuideRegistrationData {
+  username: string;
+  email: string;
+  password: string;
+  role: 'guide';
+  guideDetails: {
+    firstName: string;
+    lastName: string;
+    nicNumber: string;
+    dateOfBirth: string;
+    proofDocument: {
+      uri: string;
+      name: string;
+      type: string;
+    };
+  };
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -121,6 +140,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await checkAuthStatus();
   };
 
+  const completeGuideRegistration = async (data: GuideRegistrationData) => {
+    try {
+      setIsLoading(true);
+      await AuthService.completeGuideRegistration(data);
+    } catch (error) {
+      console.error('Guide registration error:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
@@ -129,6 +160,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     logout,
     refreshAuth,
+    completeGuideRegistration,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

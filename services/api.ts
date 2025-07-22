@@ -2,9 +2,6 @@ import { API_CONFIG, HTTP_STATUS } from './config';
 import {
   ApiResponse,
   AuthResponse,
-  LoginRequest,
-  RefreshTokenRequest,
-  SignUpRequest,
 } from '../types';
 
 import { StorageService } from './storage';
@@ -53,12 +50,11 @@ export class ApiService {
 
       console.log('📡 API response status:', response.status);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Network error' }));
-        throw new Error(errorData.message || `HTTP ${response.status}`);
-      }
-
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || `HTTP ${response.status}`);
+      }
 
       // Handle token refresh if needed
       if (response.status === HTTP_STATUS.UNAUTHORIZED && accessToken) {
@@ -73,7 +69,11 @@ export class ApiService {
             };
             const retryResponsePromise = fetch(`${this.baseURL}${url}`, config);
             const retryResponse = await Promise.race([retryResponsePromise, timeoutPromise]);
-            return await retryResponse.json();
+            const retryData = await retryResponse.json();
+            if (!retryResponse.ok) {
+              throw new Error(retryData.message || `HTTP ${retryResponse.status}`);
+            }
+            return retryData;
           }
         }
       }
@@ -81,7 +81,7 @@ export class ApiService {
       return data;
     } catch (error) {
       console.error('API request failed:', error);
-      throw new Error(error instanceof Error ? error.message : 'Network error');
+      throw error instanceof Error ? error : new Error('Network error');
     }
   }
 
@@ -147,8 +147,8 @@ export class ApiService {
       }
 
       return false;
-    } catch (error) {
-      console.error('Token refresh failed:', error);
+    } catch {
+      console.error('Token refresh failed');
       return false;
     }
   }
@@ -159,7 +159,7 @@ export class ApiService {
   static async checkHealth(): Promise<ApiResponse<any>> {
     try {
       return await this.get<ApiResponse<any>>(API_CONFIG.ENDPOINTS.HEALTH);
-    } catch (error) {
+    } catch {
       throw new Error('Service is not available');
     }
   }

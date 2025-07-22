@@ -60,9 +60,19 @@ export default function LoginScreen() {
       // Let the auth context handle the role-based navigation
       router.replace('/');
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Invalid credentials. Please try again.';
+      
+      // Check if it's a pending approval error
+      if (errorMessage.toLowerCase().includes('pending') || 
+          errorMessage.toLowerCase().includes('approval') ||
+          errorMessage.toLowerCase().includes('not approved')) {
+        router.push('./pending-approval');
+        return;
+      }
+      
       Alert.alert(
         'Login Failed',
-        error instanceof Error ? error.message : 'Invalid credentials. Please try again.'
+        errorMessage
       );
     }
   };
