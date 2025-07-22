@@ -16,7 +16,7 @@ export default function TourGuideTabsLayout() {
         name="home"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <Ionicons name="home-outline" size={size} color={color} />
           ),
         }}
@@ -25,7 +25,7 @@ export default function TourGuideTabsLayout() {
         name="bookings"
         options={{
           title: 'Bookings',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <Ionicons name="briefcase-outline" size={size} color={color} />
           ),
         }}
@@ -34,7 +34,7 @@ export default function TourGuideTabsLayout() {
         name="packages"
         options={{
           title: 'Packages',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <Ionicons name="cube-outline" size={size} color={color} />
           ),
         }}
@@ -43,7 +43,7 @@ export default function TourGuideTabsLayout() {
         name="community"
         options={{
           title: 'Community',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <Ionicons name="newspaper-outline" size={size} color={color} />
           ),
         }}
@@ -52,7 +52,7 @@ export default function TourGuideTabsLayout() {
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color, size }) => (
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <Ionicons name="person-circle-outline" size={size} color={color} />
           ),
         }}

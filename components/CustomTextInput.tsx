@@ -91,6 +91,8 @@ export const CustomTextInput: React.FC<CustomTextInputProps> = React.memo(({
   );
 });
 
+CustomTextInput.displayName = 'CustomTextInput';
+
 const styles = StyleSheet.create({
   container: {
     marginBottom: 16,
