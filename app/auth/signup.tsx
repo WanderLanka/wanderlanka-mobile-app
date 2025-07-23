@@ -85,6 +85,20 @@ export default function SignUpScreen() {
   const handleSignUp = async () => {
     if (!validateForm()) return;
 
+    // If guide is selected, navigate to guide registration
+    if (formData.role === 'guide') {
+      router.push({
+        pathname: './guide-registration',
+        params: {
+          username: formData.username,
+          email: formData.email,
+          password: formData.password,
+        }
+      });
+      return;
+    }
+
+    // For tourist, proceed with normal signup
     try {
       await signUp(
         formData.username,
@@ -201,7 +215,7 @@ export default function SignUpScreen() {
             />
 
             <CustomButton
-              title="Create Account"
+              title={formData.role === 'guide' ? 'Continue' : 'Create Account'}
               onPress={handleSignUp}
               loading={isLoading}
               style={styles.signUpButton}

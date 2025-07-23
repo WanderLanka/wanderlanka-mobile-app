@@ -186,7 +186,7 @@ const AnswerCard: React.FC<AnswerCardProps> = ({
 };
 
 export default function QuestionDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id } = useLocalSearchParams() as { id: string };
   const [question] = useState(MOCK_QUESTION_DETAIL);
   const [userVote, setUserVote] = useState<'up' | 'down' | null>(null);
   const [questionVotes, setQuestionVotes] = useState(question.votes);

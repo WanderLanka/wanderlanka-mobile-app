@@ -355,13 +355,13 @@ const MapPointCard: React.FC<MapPointCardProps> = ({ point }) => {
 };
 
 export default function CrowdsourceMapScreen() {
-  const { filter, selectedPointId, lat, lng, viewMode } = useLocalSearchParams<{ 
+  const { filter, selectedPointId, lat, lng, viewMode } = useLocalSearchParams() as { 
     filter?: string; 
     selectedPointId?: string; 
     lat?: string; 
     lng?: string; 
     viewMode?: string;
-  }>();
+  };
   const [showAddModal, setShowAddModal] = useState(false);
   const [filterType, setFilterType] = useState<string>(filter || 'all');
   const [mapPoints, setMapPoints] = useState<MapPoint[]>(MOCK_MAP_POINTS);

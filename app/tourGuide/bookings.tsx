@@ -198,16 +198,18 @@ export default function BookingsScreen() {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.calendarButton} 
-          onPress={() => setShowCalendar(true)}
-        >
-          <Ionicons name="calendar" size={24} color={Colors.primary600} />
-        </TouchableOpacity>
         <ThemedText variant="title" style={styles.headerTitle}>Bookings</ThemedText>
-        <TouchableOpacity style={styles.filterButton}>
-          <Ionicons name="filter" size={24} color={Colors.secondary700} />
-        </TouchableOpacity>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity 
+            style={styles.calendarButton} 
+            onPress={() => setShowCalendar(true)}
+          >
+            <Ionicons name="calendar" size={24} color={Colors.primary600} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.filterButton}>
+            <Ionicons name="filter" size={24} color={Colors.secondary700} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Calendar Component */}
@@ -290,6 +292,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: Colors.white,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.light200,
   },
 
   calendarButton: {
@@ -297,11 +301,15 @@ const styles = StyleSheet.create({
   },
 
   headerTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '700',
-    color: Colors.secondary700,
-    flex: 1,
-    textAlign: 'center',
+    color: Colors.black,
+    fontFamily: 'Sans-Serif',
+  },
+
+  headerIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 
   filterButton: {

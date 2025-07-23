@@ -12,5 +12,6 @@ export { ThemedText } from './ThemedText';
 export { ThemedView } from './ThemedView';
 export { TopBar } from './TopBar';
 export { TripDetailsModal } from './TripDetailsModal';
+export { default as CreatePackageComponent } from './create-package';
 
 

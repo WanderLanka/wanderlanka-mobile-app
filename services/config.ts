@@ -2,14 +2,13 @@
  * API Configuration and Base URL
  */
 export const API_CONFIG = {
-  // Updated URL to point to user-service instead of backend-auth-service
-  // Using 192.168.8.159 (your current local IP) instead of localhost for mobile device connectivity
-  BASE_URL: __DEV__ ? 'http://192.168.8.159:3001' : 'https://your-production-api.com',
+  // Updated URL to point to user-service with current network IP
+  BASE_URL: __DEV__ ? 'http://192.168.8.142:3001' : 'https://your-production-api.com',
   ENDPOINTS: {
     AUTH: '/api/auth', // Mobile auth endpoints with /api/auth prefix
     HEALTH: '/health',
   },
-  TIMEOUT: 10000, // 10 seconds
+  TIMEOUT: 15000, // 15 seconds - increased for better reliability
 } as const;
 
 /**

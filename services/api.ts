@@ -2,9 +2,6 @@ import { API_CONFIG, HTTP_STATUS } from './config';
 import {
   ApiResponse,
   AuthResponse,
-  LoginRequest,
-  RefreshTokenRequest,
-  SignUpRequest,
 } from '../types';
 
 import { StorageService } from './storage';
@@ -16,7 +13,7 @@ export class ApiService {
   private static baseURL = API_CONFIG.BASE_URL;
 
   /**
-   * Make HTTP request with automatic token handling
+   * Make HTTP request with automatic token handling and timeout
    */
   private static async request<T>(
     url: string,
@@ -40,8 +37,24 @@ export class ApiService {
     }
 
     try {
-      const response = await fetch(`${this.baseURL}${url}`, config);
+      console.log('🔗 Making API request:', `${this.baseURL}${url}`);
+      
+      // Create timeout promise
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Network request timed out')), API_CONFIG.TIMEOUT)
+      );
+
+      // Make request with timeout
+      const responsePromise = fetch(`${this.baseURL}${url}`, config);
+      const response = await Promise.race([responsePromise, timeoutPromise]);
+
+      console.log('📡 API response status:', response.status);
+
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || `HTTP ${response.status}`);
+      }
 
       // Handle token refresh if needed
       if (response.status === HTTP_STATUS.UNAUTHORIZED && accessToken) {
@@ -54,8 +67,13 @@ export class ApiService {
               ...config.headers,
               Authorization: `Bearer ${newAccessToken}`,
             };
-            const retryResponse = await fetch(`${this.baseURL}${url}`, config);
-            return await retryResponse.json();
+            const retryResponsePromise = fetch(`${this.baseURL}${url}`, config);
+            const retryResponse = await Promise.race([retryResponsePromise, timeoutPromise]);
+            const retryData = await retryResponse.json();
+            if (!retryResponse.ok) {
+              throw new Error(retryData.message || `HTTP ${retryResponse.status}`);
+            }
+            return retryData;
           }
         }
       }
@@ -63,7 +81,7 @@ export class ApiService {
       return data;
     } catch (error) {
       console.error('API request failed:', error);
-      throw new Error(error instanceof Error ? error.message : 'Network error');
+      throw error instanceof Error ? error : new Error('Network error');
     }
   }
 
@@ -129,8 +147,8 @@ export class ApiService {
       }
 
       return false;
-    } catch (error) {
-      console.error('Token refresh failed:', error);
+    } catch {
+      console.error('Token refresh failed');
       return false;
     }
   }
@@ -141,7 +159,7 @@ export class ApiService {
   static async checkHealth(): Promise<ApiResponse<any>> {
     try {
       return await this.get<ApiResponse<any>>(API_CONFIG.ENDPOINTS.HEALTH);
-    } catch (error) {
+    } catch {
       throw new Error('Service is not available');
     }
   }

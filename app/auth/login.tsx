@@ -54,15 +54,92 @@ export default function LoginScreen() {
     if (!validateForm()) return;
 
     try {
-      await login(formData.identifier, formData.password);
+      const result = await login(formData.identifier, formData.password);
+      
+      // Check if login returned a status (non-error case)
+      if (result && !result.success) {
+        if (result.status === 'pending') {
+          // Redirect to pending approval page for pending accounts
+          router.push('./pending-approval');
+          return;
+        }
+      }
       
       // Navigation will be handled by the auth state change in the main index
       // Let the auth context handle the role-based navigation
       router.replace('/');
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Login failed. Please try again.';
+      
+      // Check if account is suspended or rejected
+      if (errorMessage.toLowerCase().includes('suspended')) {
+        Alert.alert(
+          'Account Suspended',
+          'Your account has been suspended. Please contact support for assistance.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
+      if (errorMessage.toLowerCase().includes('rejected')) {
+        Alert.alert(
+          'Application Rejected',
+          'Your guide application has been rejected. Please contact support for more information.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
+      // Check for invalid credentials
+      if (errorMessage.toLowerCase().includes('invalid username') || 
+          errorMessage.toLowerCase().includes('invalid password') ||
+          errorMessage.toLowerCase().includes('invalid credentials') ||
+          errorMessage.toLowerCase().includes('check your credentials')) {
+        
+        // Set field-level errors for invalid credentials
+        setErrors({
+          identifier: 'Invalid username or email',
+          password: 'Invalid password'
+        });
+        
+        Alert.alert(
+          'Invalid Credentials',
+          'The username/email or password you entered is incorrect. Please check your credentials and try again.',
+          [
+            { text: 'Forgot Password?', onPress: () => router.push('./forgotPassword') },
+            { text: 'Try Again', style: 'default' }
+          ]
+        );
+        return;
+      }
+      
+      // Check for network errors
+      if (errorMessage.toLowerCase().includes('network') || 
+          errorMessage.toLowerCase().includes('internet connection')) {
+        Alert.alert(
+          'Connection Error',
+          'Please check your internet connection and try again.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
+      // Check for server errors
+      if (errorMessage.toLowerCase().includes('server error') || 
+          errorMessage.toLowerCase().includes('try again later')) {
+        Alert.alert(
+          'Server Error',
+          'Our servers are experiencing issues. Please try again in a few minutes.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
+      // Generic error for other cases
       Alert.alert(
         'Login Failed',
-        error instanceof Error ? error.message : 'Invalid credentials. Please try again.'
+        errorMessage || 'An unexpected error occurred. Please try again.',
+        [{ text: 'OK' }]
       );
     }
   };
