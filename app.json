@@ -12,6 +12,10 @@
       "supportsTablet": true,
       "config": {
         "googleMapsApiKey": "AIzaSyClCL8iZ9n7AtjF3J3nVSCaQcoCJ5SaKtw"
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app needs location access for navigation.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs location access for navigation."
       }
     },
     "android": {

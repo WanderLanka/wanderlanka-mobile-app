@@ -1,19 +1,19 @@
 /**
- * API Configuration and Base URL
+ * API Configuration with dynamic IP support
  */
 export const API_CONFIG = {
-  // Updated URL to point to user-service instead of backend-auth-service
-  // Using 192.168.8.159 (your current local IP) instead of localhost for mobile device connectivity
+  // This will be updated dynamically by serverDetection.ts
   BASE_URL: __DEV__ ? 'http://192.168.8.159:3001' : 'https://your-production-api.com',
   ENDPOINTS: {
-    AUTH: '/api/auth', // Mobile auth endpoints with /api/auth prefix
+    AUTH: '/api/auth',
     HEALTH: '/health',
+    PING: '/api/ping',
   },
-  TIMEOUT: 10000, // 10 seconds
+  TIMEOUT: 15000, // 15 seconds
 } as const;
 
 /**
- * API Response status codes
+ * HTTP Status codes
  */
 export const HTTP_STATUS = {
   OK: 200,

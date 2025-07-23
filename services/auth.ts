@@ -11,7 +11,7 @@ import { ApiService } from './api';
 import { StorageService } from './storage';
 
 /**
- * Authentication Service for handling user authentication
+ * Authentication Service with dynamic server detection
  */
 export class AuthService {
   private static readonly AUTH_ENDPOINT = API_CONFIG.ENDPOINTS.AUTH;
