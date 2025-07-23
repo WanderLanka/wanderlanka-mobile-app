@@ -2,7 +2,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import {
     FlatList,
     Image,
-    ScrollView,
     StyleSheet,
     TouchableOpacity,
     View,
@@ -11,7 +10,6 @@ import { ThemedText } from '../../../components';
 
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/Colors';
 
 interface Transport {
@@ -33,7 +31,7 @@ interface Transport {
 
 export default function TransportBookingScreen() {
   const params = useLocalSearchParams();
-  const { destination, startPoint, startDate, endDate, destinations } = params;
+  const { destination, startDate, endDate, destinations, startPoint } = params;
 
   // Calculate trip duration
   const calculateTripDuration = () => {
@@ -48,9 +46,6 @@ export default function TransportBookingScreen() {
   };
 
   const tripDuration = calculateTripDuration();
-
-  // Parse destinations from the trip planning data
-  const selectedPlaces = destinations ? JSON.parse(destinations as string) : [destination];
 
   // Mock transport data - in real app, this would come from API
   const transports: Transport[] = [
@@ -203,12 +198,14 @@ export default function TransportBookingScreen() {
       onPress={() => {
         if (transport.availability) {
           router.push({
-            pathname: '/planning/booking/transport-details',
+            pathname: '/planning/transport/[id]',
             params: {
-              transportId: transport.id,
+              id: transport.id,
               destination,
               startDate,
               endDate,
+              destinations,
+              startPoint,
             },
           });
         }
@@ -290,66 +287,7 @@ export default function TransportBookingScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={Colors.secondary700} />
-        </TouchableOpacity>
-        <ThemedText style={styles.headerTitle}>Transportation</ThemedText>
-        <TouchableOpacity>
-          <Ionicons name="options-outline" size={24} color={Colors.secondary700} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.tripSummary}>
-        <ThemedText style={styles.tripTitle}>{destination}</ThemedText>
-        <ThemedText style={styles.tripSubtitle}>
-          {startDate} - {endDate} • {tripDuration} {tripDuration === 1 ? 'day' : 'days'} • From {startPoint}
-        </ThemedText>
-      </View>
-
-      <View style={styles.selectedPlacesContainer}>
-        <View style={styles.selectedPlacesHeader}>
-          <Ionicons name="location" size={18} color={Colors.primary600} />
-          <ThemedText style={styles.selectedPlacesTitle}>Your Planned Destinations</ThemedText>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.placesScroll}>
-          {selectedPlaces.map((place: string, index: number) => (
-            <View key={index} style={styles.placeChip}>
-              <ThemedText style={styles.placeChipText}>{place}</ThemedText>
-            </View>
-          ))}
-        </ScrollView>
-        <ThemedText style={styles.placesSubtitle}>
-          Transportation between these locations • {tripDuration} {tripDuration === 1 ? 'day' : 'days'} rental
-        </ThemedText>
-      </View>
-
-      <View style={styles.filtersContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll}>
-          <TouchableOpacity style={styles.filterChip}>
-            <Ionicons name="options-outline" size={16} color={Colors.primary600} />
-            <ThemedText style={styles.filterText}>Filters</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.filterChip}>
-            <ThemedText style={styles.filterText}>Type</ThemedText>
-            <Ionicons name="chevron-down" size={16} color={Colors.secondary500} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.filterChip}>
-            <ThemedText style={styles.filterText}>Price</ThemedText>
-            <Ionicons name="chevron-down" size={16} color={Colors.secondary500} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.filterChip}>
-            <ThemedText style={styles.filterText}>Capacity</ThemedText>
-            <Ionicons name="chevron-down" size={16} color={Colors.secondary500} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.filterChip}>
-            <ThemedText style={styles.filterText}>Fuel Type</ThemedText>
-            <Ionicons name="chevron-down" size={16} color={Colors.secondary500} />
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-
+    <View style={styles.container}>
       <FlatList
         data={transports}
         renderItem={renderTransportCard}
@@ -367,7 +305,7 @@ export default function TransportBookingScreen() {
           </View>
         }
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -375,62 +313,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.secondary50,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.secondary200,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.secondary700,
-  },
-  tripSummary: {
-    backgroundColor: Colors.white,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.secondary200,
-  },
-  tripTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Colors.secondary700,
-    marginBottom: 4,
-  },
-  tripSubtitle: {
-    fontSize: 14,
-    color: Colors.secondary500,
-  },
-  filtersContainer: {
-    backgroundColor: Colors.white,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.secondary200,
-  },
-  filtersScroll: {
-    paddingHorizontal: 20,
-  },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.secondary100,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 12,
-    gap: 6,
-  },
-  filterText: {
-    fontSize: 14,
-    color: Colors.secondary600,
-    fontWeight: '500',
   },
   listContent: {
     padding: 20,
@@ -593,42 +475,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.secondary500,
     fontStyle: 'italic',
-  },
-  selectedPlacesContainer: {
-    backgroundColor: Colors.white,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.secondary200,
-  },
-  selectedPlacesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
-  },
-  selectedPlacesTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.secondary700,
-  },
-  placesScroll: {
-    marginBottom: 8,
-  },
-  placeChip: {
-    backgroundColor: Colors.primary100,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
-  },
-  placeChipText: {
-    fontSize: 13,
-    color: Colors.primary700,
-    fontWeight: '500',
-  },
-  placesSubtitle: {
-    fontSize: 13,
-    color: Colors.secondary500,
   },
 });

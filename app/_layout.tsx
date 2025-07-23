@@ -9,6 +9,7 @@ import { Stack } from "expo-router";
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../context/AuthContext';
+import { BookingProvider } from '../context/BookingContext';
 import useFontLoader from '../hooks/useFontLoader';
 
 // Keep the splash screen visible while we fetch resources
@@ -31,7 +32,9 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <AuthProvider>
-          <Stack screenOptions={{ headerShown: false }} />
+          <BookingProvider>
+            <Stack screenOptions={{ headerShown: false }} />
+          </BookingProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

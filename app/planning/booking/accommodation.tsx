@@ -1,18 +1,17 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import {
-    Alert,
     FlatList,
-    Linking,
+    Modal,
     ScrollView,
     StyleSheet,
+    Text,
     TouchableOpacity,
     View,
 } from 'react-native';
-import { HotelCard, ThemedText, TripDetailsModal } from '../../../components';
+import { CustomButton, CustomTextInput, HotelCard, ThemedText, TripDetailsModal } from '../../../components';
 
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/Colors';
 
 interface Hotel {
@@ -43,6 +42,14 @@ export default function AccommodationBookingScreen() {
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [tripDetailsVisible, setTripDetailsVisible] = useState(false);
   const [showDaySelector, setShowDaySelector] = useState(false);
+  const [filterVisible, setFilterVisible] = useState(false);
+
+  // Filter state
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
+  const [location, setLocation] = useState('');
+  const [minRating, setMinRating] = useState(0);
+  const [propertyTypes, setPropertyTypes] = useState<string[]>([]);
 
   // Calculate trip duration and generate days
   const generateTripDays = (): TripDay[] => {
@@ -77,22 +84,24 @@ export default function AccommodationBookingScreen() {
   // Parse destinations from the trip planning data
   const selectedPlaces = destinations ? JSON.parse(destinations as string) : [destination];
 
-  // Google Maps integration
-  const handleOpenMaps = () => {
-    const searchQuery = encodeURIComponent(`hotels in ${destination} Sri Lanka`);
-    const mapsUrl = `https://maps.google.com/maps?q=${searchQuery}`;
-    
-    Alert.alert(
-      'Open Google Maps',
-      `View hotels in ${destination} on Google Maps?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Open Maps', onPress: () => Linking.openURL(mapsUrl) },
-      ]
+  // Filter functions
+  const propertyTypeOptions = ['Hotel', 'Villa', 'Guest House', 'Hostel', 'Apartment'];
+
+  const togglePropertyType = (type: string) => {
+    setPropertyTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
     );
   };
 
-  // Mock hotel data - in real app, this would come from API based on planned destinations
+  const handleApplyFilters = () => {
+    // TODO: Connect to actual filtering logic
+    setFilterVisible(false);
+  };
+
+  const handleCancelFilters = () => {
+    setFilterVisible(false);
+  };
+
   const hotels: Hotel[] = [
     {
       id: '1',
@@ -155,32 +164,13 @@ export default function AccommodationBookingScreen() {
       destination={destination as string}
       startDate={startDate as string}
       endDate={endDate as string}
+      destinations={destinations as string}
+      startPoint={startPoint as string}
     />
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={Colors.secondary700} />
-        </TouchableOpacity>
-        <ThemedText style={styles.headerTitle}>Accommodation</ThemedText>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity 
-            style={styles.headerButton} 
-            onPress={handleOpenMaps}
-          >
-            <Ionicons name="map" size={20} color={Colors.primary600} />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.headerButton} 
-            onPress={() => setTripDetailsVisible(true)}
-          >
-            <Ionicons name="information-circle" size={20} color={Colors.primary600} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
+    <View style={styles.container}>
       {/* Booking Details Section */}
       <View style={styles.bookingDetailsContainer}>
         <TouchableOpacity 
@@ -272,32 +262,22 @@ export default function AccommodationBookingScreen() {
         )}
       </View>
 
-      <View style={styles.filtersContainer}>
-        <View style={styles.filtersHeader}>
-          <ThemedText style={styles.filtersTitle}>Find Your Perfect Stay</ThemedText>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll}>
-          <TouchableOpacity style={styles.primaryFilterChip}>
-            <Ionicons name="options-outline" size={16} color={Colors.white} />
-            <ThemedText style={styles.primaryFilterText}>All Filters</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.filterChip}>
-            <Ionicons name="diamond-outline" size={14} color={Colors.primary600} />
-            <ThemedText style={styles.filterText}>Price Range</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.filterChip}>
-            <Ionicons name="star-outline" size={14} color={Colors.primary600} />
-            <ThemedText style={styles.filterText}>Rating 4+</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.filterChip}>
-            <Ionicons name="wifi-outline" size={14} color={Colors.primary600} />
-            <ThemedText style={styles.filterText}>Free WiFi</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.filterChip}>
-            <Ionicons name="car-outline" size={14} color={Colors.primary600} />
-            <ThemedText style={styles.filterText}>Parking</ThemedText>
-          </TouchableOpacity>
-        </ScrollView>
+      {/* Search Area */}
+      <View style={styles.searchArea}>
+        <CustomTextInput
+          label=''
+          placeholder='Search accommodations'
+          leftIcon='search-outline'
+          containerStyle={[styles.searchInput, { marginBottom: 0 }]}
+        />
+        <CustomButton
+          variant='primary'
+          size='small'
+          title=""
+          rightIcon={<Ionicons name="filter" size={22} color="white" />}
+          style={styles.filterButton}
+          onPress={() => setFilterVisible(true)}
+        />
       </View>
 
       <FlatList
@@ -306,13 +286,6 @@ export default function AccommodationBookingScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={
-          <View style={styles.listHeader}>
-            <ThemedText style={styles.simpleResultsText}>
-              Check-in: {tripDays[selectedDayIndex]?.formattedDate}
-            </ThemedText>
-          </View>
-        }
       />
 
       <TripDetailsModal
@@ -326,7 +299,103 @@ export default function AccommodationBookingScreen() {
         tripDays={tripDays}
         selectedDayIndex={selectedDayIndex}
       />
-    </SafeAreaView>
+
+      <Modal
+        visible={filterVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={handleCancelFilters}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.filterModalContainer}>
+            <ScrollView contentContainerStyle={styles.filterModalContent}>
+              <ThemedText variant="title" style={styles.filterModalTitle}>Find Your Perfect Stay</ThemedText>
+              
+              {/* Price Range */}
+              <View style={styles.filterModalSection}>
+                <ThemedText variant='subtitle' style={styles.filterModalLabel}>Price Range ($)</ThemedText>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <CustomTextInput
+                    label=''
+                    placeholder="Min"
+                    keyboardType="numeric"
+                    value={minPrice}
+                    onChangeText={setMinPrice}
+                    containerStyle={[styles.filterModalInput, { flex: 1 }]}
+                  />
+                  <CustomTextInput
+                    label=''
+                    placeholder="Max"
+                    keyboardType="numeric"
+                    value={maxPrice}
+                    onChangeText={setMaxPrice}
+                    containerStyle={[styles.filterModalInput, { flex: 1 }]}
+                  />
+                </View>
+              </View>
+
+              {/* Location */}
+              <View style={styles.filterModalSection}>
+                <ThemedText variant='subtitle' style={styles.filterModalLabel}>Location</ThemedText>
+                <CustomTextInput
+                  label=""
+                  placeholder="Enter preferred location"
+                  value={location}
+                  onChangeText={setLocation}
+                />
+              </View>
+
+              {/* Minimum Rating */}
+              <View style={styles.filterModalSection}>
+                <ThemedText variant='subtitle' style={[styles.filterModalLabel, {marginBottom: 20}]}>Minimum Rating</ThemedText>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {[1,2,3,4,5].map((r) => (
+                    <TouchableOpacity
+                      key={r}
+                      style={[styles.typeChip, minRating === r && styles.typeChipSelected]}
+                      onPress={() => setMinRating(r)}
+                    >
+                      <Text style={[styles.typeChipText, minRating === r && styles.typeChipTextSelected]}>{r} Star{r > 1 ? 's' : ''}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Property Type */}
+              <View style={styles.filterModalSection}>
+                <ThemedText variant='subtitle' style={[styles.filterModalLabel, {marginBottom: 20}]}>Property Type</ThemedText>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {propertyTypeOptions.map((type) => (
+                    <TouchableOpacity
+                      key={type}
+                      style={[styles.typeChip, propertyTypes.includes(type) && styles.typeChipSelected]}
+                      onPress={() => togglePropertyType(type)}
+                    >
+                      <Text style={[styles.typeChipText, propertyTypes.includes(type) && styles.typeChipTextSelected]}>{type}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </ScrollView>
+            
+            <View style={styles.filterModalActions}>
+              <CustomButton
+                title="Cancel"
+                variant="secondary"
+                style={styles.filterModalActionBtn}
+                onPress={handleCancelFilters}
+              />
+              <CustomButton
+                title="Apply Filters"
+                variant="primary"
+                style={styles.filterModalActionBtn}
+                onPress={handleApplyFilters}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
@@ -334,44 +403,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.secondary200,
-    minHeight: 56,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.secondary700,
-    textAlign: 'center',
-    flex: 1,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-  },
-  headerButton: {
-    padding: 10,
-    borderRadius: 10,
-    backgroundColor: Colors.primary100,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   bookingDetailsContainer: {
     backgroundColor: Colors.white,
@@ -448,6 +479,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: Colors.primary700,
+  },
+  searchArea: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: Colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.secondary200,
+    gap: 10,
+  },
+  searchInput: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+  },
+  filterButton: {
+    height: 48,
+    aspectRatio: 1, // makes it square
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   filtersContainer: {
     backgroundColor: Colors.white,
@@ -627,5 +682,79 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary600,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterModalContainer: {
+    width: '90%',
+    maxHeight: '90%',
+    backgroundColor: Colors.white,
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: Colors.secondary500,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  filterModalContent: {
+    paddingBottom: 10,
+  },
+  filterModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 18,
+    color: Colors.primary800,
+    textAlign: 'center',
+  },
+  filterModalSection: {
+    marginBottom: 20,
+  },
+  filterModalLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 10,
+    color: Colors.primary700,
+  },
+  filterModalInput: {
+    flex: 1,
+    padding: 12,
+    marginBottom: 0,
+    fontSize: 15,
+    minWidth: 80,
+  },
+  typeChip: {
+    borderWidth: 1,
+    borderColor: Colors.primary100,
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    marginBottom: 6,
+    backgroundColor: Colors.secondary50,
+  },
+  typeChipSelected: {
+    borderColor: Colors.primary600,
+    backgroundColor: Colors.primary100,
+  },
+  typeChipText: {
+    color: Colors.primary700,
+    fontWeight: '500',
+  },
+  typeChipTextSelected: {
+    color: Colors.primary800,
+    fontWeight: '700',
+  },
+  filterModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginTop: 10,
+  },
+  filterModalActionBtn: {
+    flex: 1,
   },
 });

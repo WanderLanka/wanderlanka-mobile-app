@@ -34,6 +34,8 @@ interface HotelCardProps {
   destination?: string;
   startDate?: string;
   endDate?: string;
+  destinations?: string;
+  startPoint?: string;
   onPress?: () => void;
   onBook?: () => void;
 }
@@ -44,6 +46,8 @@ export const HotelCard: React.FC<HotelCardProps> = ({
   destination,
   startDate,
   endDate,
+  destinations,
+  startPoint,
   onPress,
   onBook,
 }) => {
@@ -85,6 +89,8 @@ export const HotelCard: React.FC<HotelCardProps> = ({
           destination,
           startDate,
           endDate,
+          destinations,
+          startPoint,
           checkInDate: selectedDay.date,
           checkInDay: selectedDay.dayNumber,
         },
