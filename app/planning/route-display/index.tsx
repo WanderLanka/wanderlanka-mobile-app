@@ -1,5 +1,3 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -12,14 +10,16 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { CustomButton, ThemedText } from '../../../components';
+import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
+import React, { useEffect, useRef, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
 
+import { Colors } from '../../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import MapViewDirections from 'react-native-maps-directions';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors } from '../../../constants/Colors';
 
 const { width, height } = Dimensions.get('window');
 
@@ -210,10 +210,17 @@ function RouteDisplayScreen() {
   const [modalRouteType, setModalRouteType] = useState<RouteType>('recommended');
   const [isModalProcessing, setIsModalProcessing] = useState(false);
   
-  // Route direction state
-  const [routeDirections, setRouteDirections] = useState<any>(null);
+  // Route direction state - separate for each route type
+  // This enables route-specific visualization: each route type (recommended, shortest, scenic) 
+  // gets its own unique path data from Google Directions API with different parameters
+  const [routeDirections, setRouteDirections] = useState<{
+    recommended?: any;
+    shortest?: any;
+    scenic?: any;
+  }>({});
   const [isLoadingDirections, setIsLoadingDirections] = useState(false);
   const [directionsError, setDirectionsError] = useState<string | null>(null);
+  const [mapViewDirectionsKey, setMapViewDirectionsKey] = useState(0);
   
   // Map reference for auto-fitting
   const mapRef = useRef<MapView>(null);
@@ -223,6 +230,37 @@ function RouteDisplayScreen() {
   
   // Ref to prevent multiple initializations
   const initializedRef = useRef(false);
+
+  // iOS-specific effect to ensure route rendering in modal
+  useEffect(() => {
+    if (isModalVisible && routeDirections[modalRouteType] && mapRef.current) {
+      console.log('🍎 iOS Modal opened - forcing route refresh...');
+      
+      // Small delay to ensure modal is fully rendered
+      const timer = setTimeout(() => {
+        console.log('🔄 iOS: Refreshing map region and route rendering');
+        
+        // Force refresh MapViewDirections key for iOS
+        setMapViewDirectionsKey(prev => prev + 3);
+        
+        // Update map region to ensure proper rendering
+        const currentRouteData = routeDirections[modalRouteType];
+        if (currentRouteData && currentRouteData.bounds) {
+          const { northeast, southwest } = currentRouteData.bounds;
+          const newRegion = {
+            latitude: (northeast.lat + southwest.lat) / 2,
+            longitude: (northeast.lng + southwest.lng) / 2,
+            latitudeDelta: Math.abs(northeast.lat - southwest.lat) * 1.4,
+            longitudeDelta: Math.abs(northeast.lng - southwest.lng) * 1.4,
+          };
+          console.log('🗺️ iOS: Setting optimal map region for route visibility');
+          setMapRegion(newRegion);
+        }
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isModalVisible, routeDirections, modalRouteType]);
 
   // Add geocoding function using Google Places API
   const geocodeStartPoint = async (locationName: string): Promise<{ latitude: number; longitude: number } | null> => {
@@ -451,79 +489,52 @@ function RouteDisplayScreen() {
   // Handle route selection from modal
   const handleRouteSelect = async (routeType: RouteType) => {
     console.log(`🎯 Route selection initiated: ${routeType}`);
-    console.log(`📊 Current state:`, {
-      isLoadingRoute,
-      isLoadingDirections,
-      isModalVisible,
-      isModalProcessing,
-      selectedRouteType,
-      currentRouteType: routeType
-    });
     
-    // Clear any existing timeout
-    if (routeSelectionTimeoutRef.current) {
-      clearTimeout(routeSelectionTimeoutRef.current);
-    }
-    
-    // Prevent multiple simultaneous selections or if already processing
-    if (isLoadingRoute || isLoadingDirections || isModalVisible || isModalProcessing) {
-      console.log('⏸️ Already processing/modal open, ignoring selection');
+    // Prevent multiple simultaneous selections
+    if (isLoadingRoute || isLoadingDirections || isModalProcessing) {
+      console.log('⏸️ Already processing, ignoring selection');
       return;
     }
     
-    // Prevent selecting the same route type that's already selected
-    if (selectedRouteType === routeType && !isLoadingRoute && !isLoadingDirections) {
-      console.log('⏸️ Same route type already selected, ignoring');
+    // Check if route data already exists for this route type
+    if (selectedRouteType === routeType && routeDirections[routeType]) {
+      console.log('⏸️ Same route already selected, opening modal directly');
+      // Force refresh route rendering for iOS
+      setMapViewDirectionsKey(prev => prev + 1);
+      setIsModalVisible(true);
       return;
     }
     
-    // Debounce the route selection
-    routeSelectionTimeoutRef.current = setTimeout(async () => {
-      console.log(`🚀 Processing route selection: ${routeType}`);
-      
-      // Set processing state
-      setIsModalProcessing(true);
+    console.log(`🚀 Processing route selection: ${routeType}`);
+    
+    try {
+      // Set processing state immediately
       setIsLoadingRoute(true);
       setDirectionsError(null);
+      setSelectedRouteType(routeType);
+      setModalRouteType(routeType);
       
-      try {
-        // Set the modal route type and main screen selection
-        setModalRouteType(routeType);
-        setSelectedRouteType(routeType);
-        
-        console.log(`📡 Fetching directions for ${routeType}...`);
-        
-        // Fetch directions for the selected route type first
-        const directionsResult = await fetchDirections(routeType);
-        
-        if (directionsResult) {
-          console.log(`✅ Directions loaded successfully for ${routeType}`);
-          console.log(`📈 Route details:`, {
-            distance: directionsResult.distance,
-            duration: directionsResult.duration,
-            legs: directionsResult.legs?.length || 0
-          });
-        } else {
-          console.log(`❌ Failed to load directions for ${routeType}`);
-        }
-        
-        // Small delay to prevent rapid modal opening/closing
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Only open modal after directions are loaded successfully
-        if (!isModalVisible) {
-          console.log(`📱 Opening modal for ${routeType}`);
-          setIsModalVisible(true);
-        }
-      } catch (error) {
-        console.error(`❌ Error handling route selection for ${routeType}:`, error);
-        setDirectionsError('Failed to load route. Please try again.');
-      } finally {
-        console.log(`🏁 Route selection processing complete for ${routeType}`);
+      // Fetch directions for specific route type
+      console.log(`📍 Fetching directions for ${routeType}...`);
+      await fetchDirections(routeType);
+      
+      console.log(`✅ Directions loaded successfully for ${routeType}`);
+      
+      // Force refresh MapViewDirections for iOS compatibility
+      setMapViewDirectionsKey(prev => prev + 2);
+      
+      // Small delay before opening modal to ensure state is stable
+      setTimeout(() => {
+        console.log(`📱 Opening modal for ${routeType}`);
+        setIsModalVisible(true);
         setIsLoadingRoute(false);
-        setIsModalProcessing(false);
-      }
-    }, 300); // 300ms debounce
+      }, 300);
+      
+    } catch (error) {
+      console.error(`❌ Error in route selection for ${routeType}:`, error);
+      setDirectionsError(`Failed to load ${routeType} route`);
+      setIsLoadingRoute(false);
+    }
   };
 
   // Handle route confirmation
@@ -567,6 +578,8 @@ function RouteDisplayScreen() {
       optimizeWaypoints: false,
       precision: 'high' as const,
       mode: 'DRIVING' as const,
+      splitWaypoints: false,
+      resetOnChange: true,
     };
 
     switch (routeType) {
@@ -579,13 +592,11 @@ function RouteDisplayScreen() {
       case 'scenic':
         // Beautiful views, avoid highways for local roads and cultural sites
         params.avoid = 'highways';
-        params.alternatives = true;
         console.log(`🌅 Scenic route params:`, params);
         break;
       case 'recommended':
       default:
         // Balanced route with best attractions, moderate traffic
-        params.alternatives = true;
         console.log(`⭐ Recommended route params:`, params);
         break;
     }
@@ -686,8 +697,14 @@ function RouteDisplayScreen() {
         console.log(`  📏 Distance: ${directionsData.distance}`);
         console.log(`  ⏱️ Duration: ${directionsData.duration}`);
         console.log(`  🔢 Raw values: ${totalDistance}m, ${totalDuration}s`);
+        console.log(`🗺️ Route will use pure Google native rendering for perfect road accuracy`);
         
-        setRouteDirections(directionsData);
+        // Store route data for specific route type
+        setRouteDirections(prev => ({
+          ...prev,
+          [routeType]: directionsData
+        }));
+        setMapViewDirectionsKey(prev => prev + 1); // Force re-render for accuracy
         
         // Update route info with real data
         const realRouteInfo: RouteInfo = {
@@ -835,6 +852,12 @@ function RouteDisplayScreen() {
               scrollEnabled={true}
               zoomEnabled={true}
               pitchEnabled={true}
+              loadingEnabled={true}
+              loadingIndicatorColor={routeOption?.color}
+              loadingBackgroundColor={Colors.white}
+              moveOnMarkerPress={false}
+              showsPointsOfInterest={false}
+              toolbarEnabled={false}
             >
               {/* Start Location Marker */}
               {startLocation && (
@@ -873,42 +896,49 @@ function RouteDisplayScreen() {
                 </Marker>
               ))}
 
-              {/* Route Directions with route-specific parameters */}
+              {/* SINGLE ROUTE RENDERING - Only show the selected route type with ONE path */}
               {startLocation && allPlaces.length > 0 && GOOGLE_DIRECTIONS_API_KEY && (
                 <MapViewDirections
-                  key={`${modalRouteType}-${startLocation.latitude}-${startLocation.longitude}`}
+                  key={`single-route-${modalRouteType}-${mapViewDirectionsKey}`}
                   origin={startLocation}
                   destination={allPlaces[allPlaces.length - 1].coordinates}
                   waypoints={allPlaces.slice(0, -1).map(place => place.coordinates)}
                   apikey={GOOGLE_DIRECTIONS_API_KEY}
-                  strokeWidth={6}
-                  strokeColor={routeOption?.color || Colors.primary600}
-                  strokeColors={[routeOption?.color || Colors.primary600]}
+                  strokeWidth={8}
+                  strokeColor={routeOption?.color || getRouteTypeColor(modalRouteType)}
                   lineCap="round"
                   lineJoin="round"
                   mode="DRIVING"
                   precision="high"
-                  // Add route-specific parameters here
-                  {...(() => {
-                    const params = getRouteParameters(modalRouteType);
-                    console.log(`🔧 MapViewDirections params for ${modalRouteType}:`, params);
-                    return params;
-                  })()}
+                  timePrecision="now"
+                  channel={`wanderlanka-${modalRouteType}`}
+                  language="en"
+                  region="LK"
+                  optimizeWaypoints={modalRouteType === 'shortest'}
+                  resetOnChange={true}
+                  splitWaypoints={false}
+                  // Route-specific parameters passed via Google Directions API in fetchDirections()
+                  onStart={(params) => {
+                    console.log(`🚀 Rendering SINGLE ${modalRouteType.toUpperCase()} route:`, params);
+                  }}
                   onReady={(result) => {
-                    console.log(`📍 ${modalRouteType} route ready - Distance: ${result.distance} km, Duration: ${result.duration} min`);
-                    console.log(`📊 Route comparison - API: ${routeDirections?.distance || 'N/A'}, MapView: ${result.distance} km`);
+                    console.log(`✅ SINGLE ${modalRouteType.toUpperCase()} route displayed successfully:`);
+                    console.log(`📏 Distance: ${result.distance} km, Duration: ${result.duration} min`);
+                    console.log(`📍 Coordinates: ${result.coordinates.length} points`);
+                    console.log(`🎨 Route color: ${routeOption?.color}`);
+                    console.log(`🛣️ Route type: ${modalRouteType}`);
                     
-                    // Auto-fit map to show entire route
-                    if (mapRef.current) {
+                    // Auto-fit map to show the specific route
+                    if (mapRef.current && result.coordinates.length > 0) {
+                      console.log(`🗺️ Auto-fitting map to ${modalRouteType} route bounds`);
                       mapRef.current.fitToCoordinates(result.coordinates, {
-                        edgePadding: { top: 100, right: 50, bottom: 200, left: 50 },
+                        edgePadding: { top: 120, right: 60, bottom: 240, left: 60 },
                         animated: true,
                       });
                     }
                   }}
                   onError={(errorMessage) => {
-                    console.error('❌ MapViewDirections error:', errorMessage);
-                    setDirectionsError('Failed to load route directions');
+                    console.error(`❌ ${modalRouteType.toUpperCase()} route failed to render:`, errorMessage);
                   }}
                 />
               )}
@@ -965,8 +995,8 @@ function RouteDisplayScreen() {
     return R * c;
   };
 
-  // Helper function to decode polyline
-  const decodePolyline = (polyline: string): { latitude: number; longitude: number }[] => {
+  // iOS-compatible polyline decoder for fallback route rendering
+  const decodeGooglePolyline = (polyline: string): { latitude: number; longitude: number }[] => {
     const points: { latitude: number; longitude: number }[] = [];
     let index = 0;
     let lat = 0;
@@ -1004,6 +1034,7 @@ function RouteDisplayScreen() {
       });
     }
 
+    console.log(`📍 Decoded ${points.length} polyline coordinates for iOS fallback`);
     return points;
   };
 
@@ -1038,227 +1069,6 @@ function RouteDisplayScreen() {
         return ['Beautiful views', 'Local roads', 'Cultural sites'];
       default:
         return [];
-    }
-  };
-
-  // Generate routes function
-  const generateRoutes = async (places: Place[] = allPlaces) => {
-    if (!startLocation || places.length === 0) {
-      console.warn('Cannot generate routes: missing start location or places');
-      return;
-    }
-
-    setIsGeneratingRoutes(true);
-    setRoutesGenerated(false);
-    setGeneratedRoutes([]);
-    setSelectedRoute(null);
-
-    try {
-      console.log('🚀 Generating multiple route options using Google Directions API...');
-      
-      if (!GOOGLE_DIRECTIONS_API_KEY) {
-        console.warn('⚠️ API key missing, using fallback route generation');
-        // Fallback to basic route generation
-        const routeTypes: RouteType[] = ['recommended', 'shortest', 'scenic'];
-        const mockRoutes: GeneratedRoute[] = routeTypes.map(routeType => {
-          const allWaypoints = places.map(p => p.coordinates);
-          const totalDistance = allWaypoints.reduce((total, point, index) => {
-            if (index === 0) return calculateDistance(startLocation, point);
-            return total + calculateDistance(allWaypoints[index - 1], point);
-          }, 0);
-          
-          let adjustedDistance = totalDistance;
-          let adjustedDuration = totalDistance * 1.2;
-          
-          switch (routeType) {
-            case 'shortest':
-              adjustedDistance *= 0.95;
-              adjustedDuration *= 1.1;
-              break;
-            case 'scenic':
-              adjustedDistance *= 1.25;
-              adjustedDuration *= 1.4;
-              break;
-            default:
-              break;
-          }
-          
-          return {
-            id: routeType,
-            name: getRouteTypeName(routeType),
-            type: routeType,
-            color: getRouteTypeColor(routeType),
-            totalDistance: Math.round(adjustedDistance),
-            totalDuration: Math.round(adjustedDuration),
-            segments: [],
-            coordinates: [startLocation, ...allWaypoints],
-            polyline: 'handled_by_mapviewdirections',
-            instructions: [`Route from ${startPoint} through ${places.length} places`],
-            bounds: {
-              northeast: {
-                latitude: Math.max(startLocation.latitude, ...allWaypoints.map(p => p.latitude)),
-                longitude: Math.max(startLocation.longitude, ...allWaypoints.map(p => p.longitude)),
-              },
-              southwest: {
-                latitude: Math.min(startLocation.latitude, ...allWaypoints.map(p => p.latitude)),
-                longitude: Math.min(startLocation.longitude, ...allWaypoints.map(p => p.longitude)),
-              },
-            },
-            highlights: getRouteHighlights(routeType),
-          };
-        });
-        
-        setGeneratedRoutes(mockRoutes);
-        setSelectedRoute(mockRoutes[0]);
-        setRoutesGenerated(true);
-        setShowRouteComparison(true);
-        return;
-      }
-
-      // Generate different route types using Google Directions API
-      const routes: GeneratedRoute[] = [];
-      const destination = places[places.length - 1].coordinates;
-      const waypoints = places.slice(0, -1).map(p => p.coordinates);
-      
-      // Build waypoints string for API calls
-      const waypointsStr = waypoints.length > 0 
-        ? waypoints.map(w => `${w.latitude},${w.longitude}`).join('|')
-        : '';
-      
-      // Route 1: Recommended (default balanced route)
-      const recommendedUrl = `https://maps.googleapis.com/maps/api/directions/json?` +
-        `origin=${startLocation.latitude},${startLocation.longitude}&` +
-        `destination=${destination.latitude},${destination.longitude}&` +
-        `${waypointsStr ? `waypoints=${waypointsStr}&` : ''}` +
-        `mode=driving&` +
-        `alternatives=true&` +
-        `key=${GOOGLE_DIRECTIONS_API_KEY}`;
-      
-      console.log('📍 Fetching recommended route...');
-      const recommendedResponse = await fetch(recommendedUrl);
-      const recommendedData = await recommendedResponse.json();
-      
-      if (recommendedData.status === 'OK' && recommendedData.routes.length > 0) {
-        const route = recommendedData.routes[0];
-        const coordinates = decodePolyline(route.overview_polyline.points);
-        
-        routes.push({
-          id: 'recommended',
-          name: 'Recommended Route',
-          type: 'recommended',
-          color: '#3B82F6',
-          totalDistance: Math.round(route.legs.reduce((total: number, leg: any) => total + leg.distance.value, 0) / 1000),
-          totalDuration: Math.round(route.legs.reduce((total: number, leg: any) => total + leg.duration.value, 0) / 60),
-          segments: route.legs,
-          coordinates: coordinates,
-          polyline: route.overview_polyline.points,
-          instructions: route.legs.flatMap((leg: any) => leg.steps.map((step: any) => step.html_instructions)),
-          bounds: route.bounds,
-          highlights: getRouteHighlights('recommended'),
-        });
-      }
-      
-      // Route 2: Shortest (optimized for distance, avoid tolls)
-      const shortestUrl = `https://maps.googleapis.com/maps/api/directions/json?` +
-        `origin=${startLocation.latitude},${startLocation.longitude}&` +
-        `destination=${destination.latitude},${destination.longitude}&` +
-        `${waypointsStr ? `waypoints=optimize:true|${waypointsStr}&` : ''}` +
-        `mode=driving&` +
-        `avoid=tolls&` +
-        `alternatives=true&` +
-        `key=${GOOGLE_DIRECTIONS_API_KEY}`;
-      
-      console.log('📍 Fetching shortest route...');
-      const shortestResponse = await fetch(shortestUrl);
-      const shortestData = await shortestResponse.json();
-      
-      if (shortestData.status === 'OK' && shortestData.routes.length > 0) {
-        const route = shortestData.routes[0];
-        const coordinates = decodePolyline(route.overview_polyline.points);
-        
-        routes.push({
-          id: 'shortest',
-          name: 'Shortest Route',
-          type: 'shortest',
-          color: '#10B981',
-          totalDistance: Math.round(route.legs.reduce((total: number, leg: any) => total + leg.distance.value, 0) / 1000),
-          totalDuration: Math.round(route.legs.reduce((total: number, leg: any) => total + leg.duration.value, 0) / 60),
-          segments: route.legs,
-          coordinates: coordinates,
-          polyline: route.overview_polyline.points,
-          instructions: route.legs.flatMap((leg: any) => leg.steps.map((step: any) => step.html_instructions)),
-          bounds: route.bounds,
-          highlights: getRouteHighlights('shortest'),
-        });
-      }
-      
-      // Route 3: Scenic (avoid highways for scenic local roads)
-      const scenicUrl = `https://maps.googleapis.com/maps/api/directions/json?` +
-        `origin=${startLocation.latitude},${startLocation.longitude}&` +
-        `destination=${destination.latitude},${destination.longitude}&` +
-        `${waypointsStr ? `waypoints=${waypointsStr}&` : ''}` +
-        `mode=driving&` +
-        `avoid=highways,ferries&` +
-        `alternatives=true&` +
-        `key=${GOOGLE_DIRECTIONS_API_KEY}`;
-      
-      console.log('📍 Fetching scenic route...');
-      const scenicResponse = await fetch(scenicUrl);
-      const scenicData = await scenicResponse.json();
-      
-      if (scenicData.status === 'OK' && scenicData.routes.length > 0) {
-        const route = scenicData.routes[0];
-        const coordinates = decodePolyline(route.overview_polyline.points);
-        
-        routes.push({
-          id: 'scenic',
-          name: 'Scenic Route',
-          type: 'scenic',
-          color: '#F59E0B',
-          totalDistance: Math.round(route.legs.reduce((total: number, leg: any) => total + leg.distance.value, 0) / 1000),
-          totalDuration: Math.round(route.legs.reduce((total: number, leg: any) => total + leg.duration.value, 0) / 60),
-          segments: route.legs,
-          coordinates: coordinates,
-          polyline: route.overview_polyline.points,
-          instructions: route.legs.flatMap((leg: any) => leg.steps.map((step: any) => step.html_instructions)),
-          bounds: route.bounds,
-          highlights: getRouteHighlights('scenic'),
-        });
-      }
-
-      if (routes.length === 0) {
-        throw new Error('No routes found');
-      }
-
-      console.log(`✅ Generated ${routes.length} distinct routes from Google Directions API`);
-      
-      setGeneratedRoutes(routes);
-      setSelectedRoute(routes[0]);
-      setRoutesGenerated(true);
-      setShowRouteComparison(true);
-    } catch (error) {
-      console.error('Error generating routes:', error);
-      Alert.alert('Route Generation Error', 'Failed to generate routes. Please check your internet connection and try again.');
-    } finally {
-      setIsGeneratingRoutes(false);
-    }
-  };
-
-  // Handle route selection from comparison view
-  const handleRouteSelectFromComparison = (route: GeneratedRoute) => {
-    console.log(`🔄 Switching to ${route.type} route`);
-    setSelectedRoute(route);
-    setSelectedRouteType(route.type);
-    
-    // Update map region to show the selected route
-    if (route.bounds) {
-      const { northeast, southwest } = route.bounds;
-      setMapRegion({
-        latitude: (northeast.latitude + southwest.latitude) / 2,
-        longitude: (northeast.longitude + southwest.longitude) / 2,
-        latitudeDelta: Math.abs(northeast.latitude - southwest.latitude) * 1.2,
-        longitudeDelta: Math.abs(northeast.longitude - southwest.longitude) * 1.2,
-      });
     }
   };
 
