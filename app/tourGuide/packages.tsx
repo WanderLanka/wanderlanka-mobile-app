@@ -13,6 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 import { ThemedText, CustomTextInput } from '../../components';
+import CreatePackageComponent from '../../components/create-package';
 
 interface TourPackage {
   id: string;
@@ -43,6 +44,7 @@ interface TourPackage {
 export default function PackagesScreen() {
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'draft'>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [sortBy] = useState<'popular' | 'newest' | 'price_low' | 'price_high'>('popular');
@@ -244,8 +246,8 @@ export default function PackagesScreen() {
   const handlePackageAction = (packageId: string, action: 'edit' | 'duplicate' | 'delete' | 'toggle') => {
     switch (action) {
       case 'edit':
-        // Navigate to edit package screen
-        console.log('Edit package:', packageId);
+        // Show create form for editing
+        setShowCreateForm(true);
         break;
       case 'duplicate':
         Alert.alert('Duplicate Package', 'Create a copy of this package?');
@@ -265,6 +267,16 @@ export default function PackagesScreen() {
         console.log('Toggle package status:', packageId);
         break;
     }
+  };
+
+  const handleCreateFromTemplate = (template: string) => {
+    setShowCreateModal(false);
+    setShowCreateForm(true);
+  };
+
+  const handleCreateFromScratch = () => {
+    setShowCreateModal(false);
+    setShowCreateForm(true);
   };
 
   const renderPackageCard = (pkg: TourPackage) => (
@@ -405,7 +417,10 @@ export default function PackagesScreen() {
         <ScrollView style={styles.modalContent}>
           <Text style={styles.modalSectionTitle}>Package Templates</Text>
           
-          <TouchableOpacity style={styles.templateCard}>
+          <TouchableOpacity 
+            style={styles.templateCard}
+            onPress={() => handleCreateFromTemplate('Cultural')}
+          >
             <Ionicons name="library" size={24} color={Colors.primary600} />
             <View style={styles.templateInfo}>
               <Text style={styles.templateName}>Cultural Experience</Text>
@@ -414,7 +429,10 @@ export default function PackagesScreen() {
             <Ionicons name="chevron-forward" size={20} color={Colors.secondary400} />
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.templateCard}>
+          <TouchableOpacity 
+            style={styles.templateCard}
+            onPress={() => handleCreateFromTemplate('Adventure')}
+          >
             <Ionicons name="trail-sign" size={24} color={Colors.primary600} />
             <View style={styles.templateInfo}>
               <Text style={styles.templateName}>Adventure Tour</Text>
@@ -423,7 +441,10 @@ export default function PackagesScreen() {
             <Ionicons name="chevron-forward" size={20} color={Colors.secondary400} />
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.templateCard}>
+          <TouchableOpacity 
+            style={styles.templateCard}
+            onPress={() => handleCreateFromTemplate('Nature')}
+          >
             <Ionicons name="leaf" size={24} color={Colors.primary600} />
             <View style={styles.templateInfo}>
               <Text style={styles.templateName}>Nature & Wildlife</Text>
@@ -438,7 +459,7 @@ export default function PackagesScreen() {
             <View style={styles.dividerLine} />
           </View>
           
-          <TouchableOpacity style={styles.createFromScratchButton}>
+          <TouchableOpacity style={styles.createFromScratchButton} onPress={handleCreateFromScratch}>
             <Ionicons name="add-circle" size={24} color={Colors.primary600} />
             <Text style={styles.createFromScratchText}>Create from scratch</Text>
           </TouchableOpacity>
@@ -446,6 +467,43 @@ export default function PackagesScreen() {
       </SafeAreaView>
     </Modal>
   );
+
+  const renderCreatePackageForm = () => {
+    // We'll need to handle the router.back() calls from CreatePackageComponent
+    // For now, let's use the component directly in the modal
+    return (
+      <Modal
+        visible={showCreateForm}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setShowCreateForm(false)}
+      >
+        <View style={{ flex: 1 }}>
+          <CreatePackageComponent />
+          {/* Add a custom header to handle close if needed */}
+          <TouchableOpacity 
+            style={{
+              position: 'absolute',
+              top: 50,
+              right: 20,
+              zIndex: 1000,
+              backgroundColor: Colors.white,
+              borderRadius: 20,
+              padding: 8,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.2,
+              shadowRadius: 4,
+              elevation: 5,
+            }}
+            onPress={() => setShowCreateForm(false)}
+          >
+            <Ionicons name="close" size={24} color={Colors.secondary700} />
+          </TouchableOpacity>
+        </View>
+      </Modal>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -568,6 +626,9 @@ export default function PackagesScreen() {
 
       {/* Create Package Modal */}
       {renderCreatePackageModal()}
+      
+      {/* Create Package Form */}
+      {renderCreatePackageForm()}
     </SafeAreaView>
   );
 }
