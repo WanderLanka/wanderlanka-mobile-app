@@ -18,12 +18,12 @@ import {
   ThemedView
 } from '../../components';
 
-import { Colors } from '../../constants/Colors';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
-import { useAuth } from '../../context/AuthContext';
+import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Colors } from '../../constants/Colors';
+import { useAuth } from '../../context/AuthContext';
 
 export default function LoginScreen() {
   const { login, isLoading } = useAuth();
@@ -68,6 +68,7 @@ export default function LoginScreen() {
       // Navigation will be handled by the auth state change in the main index
       // Let the auth context handle the role-based navigation
       router.replace('/');
+       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed. Please try again.';
       
@@ -203,6 +204,7 @@ export default function LoginScreen() {
             <CustomButton
               title="Log In"
               onPress={handleLogin}
+              // onPress={() => router.replace('/(travelerTabs)/home')}
               loading={isLoading}
               style={styles.loginButton}
             />
