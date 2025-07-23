@@ -6,6 +6,7 @@ export interface User {
   username: string;
   email: string;
   role: UserRole;
+  status?: 'active' | 'pending' | 'suspended' | 'rejected';
   avatar?: string;
   isActive: boolean;
   emailVerified: boolean;
@@ -31,8 +32,8 @@ export interface AuthResponse {
   message: string;
   data?: {
     user: User;
-    accessToken: string;
-    refreshToken: string;
+    accessToken?: string; // Optional for pending users
+    refreshToken?: string; // Optional for pending users
   };
   error?: string;
 }

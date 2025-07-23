@@ -3,6 +3,7 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -15,6 +16,7 @@ import { StatusBar } from 'expo-status-bar';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 import {
   CustomButton,
@@ -54,6 +56,8 @@ export default function GuideRegistrationScreen() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -112,6 +116,52 @@ export default function GuideRegistrationScreen() {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
   }, [errors]);
+
+  const handleDateChange = (event: any, date?: Date) => {
+    // For Android, always close the picker after selection
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    
+    // Only update if a date was actually selected (not dismissed)
+    if (event.type === 'set' && date) {
+      setSelectedDate(date);
+      const formattedDate = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+      setFormData(prev => ({ ...prev, dateOfBirth: formattedDate }));
+      
+      if (errors.dateOfBirth) {
+        setErrors(prev => ({ ...prev, dateOfBirth: '' }));
+      }
+      
+      // For iOS, close picker when user taps "Done" or finishes selection
+      if (Platform.OS === 'ios') {
+        setShowDatePicker(false);
+      }
+    } else if (event.type === 'dismissed') {
+      // User cancelled the picker
+      setShowDatePicker(false);
+    }
+  };
+
+  const showDatePickerModal = () => {
+    // Initialize selectedDate with current dateOfBirth or a default date
+    if (formData.dateOfBirth) {
+      setSelectedDate(new Date(formData.dateOfBirth));
+    } else {
+      setSelectedDate(new Date(2000, 0, 1)); // Default to Jan 1, 2000
+    }
+    setShowDatePicker(true);
+  };
+
+  const formatDisplayDate = (dateString: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
 
   const handleDocumentPicker = async () => {
     try {
@@ -235,15 +285,94 @@ export default function GuideRegistrationScreen() {
               autoCapitalize="characters"
             />
 
-            <CustomTextInput
-              label="Date of Birth"
-              value={formData.dateOfBirth}
-              onChangeText={(value) => handleFieldChange('dateOfBirth', value)}
-              error={errors.dateOfBirth}
-              placeholder="YYYY-MM-DD"
-              leftIcon="calendar"
-              keyboardType="numeric"
-            />
+            <View style={styles.datePickerSection}>
+              <Text style={styles.datePickerLabel}>Date of Birth *</Text>
+              <TouchableOpacity
+                style={[
+                  styles.datePickerButton,
+                  errors.dateOfBirth && styles.datePickerButtonError
+                ]}
+                onPress={showDatePickerModal}
+              >
+                <Ionicons name="calendar" size={20} color={Colors.primary600} style={styles.datePickerIcon} />
+                <Text style={[
+                  styles.datePickerText,
+                  formData.dateOfBirth && styles.datePickerTextSelected
+                ]}>
+                  {formData.dateOfBirth 
+                    ? formatDisplayDate(formData.dateOfBirth)
+                    : 'Select your date of birth'
+                  }
+                </Text>
+              </TouchableOpacity>
+              {errors.dateOfBirth && (
+                <Text style={styles.errorText}>{errors.dateOfBirth}</Text>
+              )}
+            </View>
+
+            {showDatePicker && (
+              <>
+                {Platform.OS === 'ios' ? (
+                  <Modal
+                    transparent={true}
+                    animationType="slide"
+                    visible={showDatePicker}
+                    onRequestClose={() => setShowDatePicker(false)}
+                  >
+                    <View style={styles.modalOverlay}>
+                      <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                          <TouchableOpacity
+                            onPress={() => setShowDatePicker(false)}
+                            style={styles.modalButton}
+                          >
+                            <Text style={styles.modalButtonText}>Cancel</Text>
+                          </TouchableOpacity>
+                          <Text style={styles.modalTitle}>Select Date of Birth</Text>
+                          <TouchableOpacity
+                            onPress={() => {
+                              if (selectedDate) {
+                                const formattedDate = selectedDate.toISOString().split('T')[0];
+                                setFormData(prev => ({ ...prev, dateOfBirth: formattedDate }));
+                                if (errors.dateOfBirth) {
+                                  setErrors(prev => ({ ...prev, dateOfBirth: '' }));
+                                }
+                              }
+                              setShowDatePicker(false);
+                            }}
+                            style={styles.modalButton}
+                          >
+                            <Text style={[styles.modalButtonText, styles.modalButtonTextDone]}>Done</Text>
+                          </TouchableOpacity>
+                        </View>
+                        <DateTimePicker
+                          value={selectedDate || new Date(2000, 0, 1)}
+                          mode="date"
+                          display="spinner"
+                          onChange={(event, date) => {
+                            if (date) {
+                              setSelectedDate(date);
+                            }
+                          }}
+                          maximumDate={new Date()}
+                          minimumDate={new Date(1940, 0, 1)}
+                          style={styles.iosDatePicker}
+                        />
+                      </View>
+                    </View>
+                  </Modal>
+                ) : (
+                  <DateTimePicker
+                    value={selectedDate || new Date(2000, 0, 1)}
+                    mode="date"
+                    display="default"
+                    onChange={handleDateChange}
+                    maximumDate={new Date()}
+                    minimumDate={new Date(1940, 0, 1)}
+                  />
+                )}
+              </>
+            )}
 
             <View style={styles.documentSection}>
               <Text style={styles.documentLabel}>Tour Guide Registration Proof *</Text>
@@ -393,6 +522,82 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontFamily: 'Inter',
     lineHeight: 16,
+  },
+  datePickerSection: {
+    marginBottom: 16,
+  },
+  datePickerLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.secondary700,
+    marginBottom: 8,
+    fontFamily: 'Inter',
+  },
+  datePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.secondary200,
+    borderRadius: 12,
+    backgroundColor: Colors.white,
+    padding: 16,
+    minHeight: 56,
+  },
+  datePickerButtonError: {
+    borderColor: Colors.error,
+  },
+  datePickerIcon: {
+    marginRight: 12,
+  },
+  datePickerText: {
+    flex: 1,
+    fontSize: 16,
+    color: Colors.secondary400,
+    fontFamily: 'Inter',
+  },
+  datePickerTextSelected: {
+    color: Colors.secondary700,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 34, // Safe area for iOS
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.secondary200,
+  },
+  modalButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    color: Colors.primary600,
+    fontFamily: 'Inter',
+  },
+  modalButtonTextDone: {
+    fontWeight: '600',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.secondary700,
+    fontFamily: 'Inter',
+  },
+  iosDatePicker: {
+    backgroundColor: Colors.white,
   },
   submitButton: {
     marginTop: 24,

@@ -5,6 +5,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -33,89 +34,95 @@ export default function PendingApprovalScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
       
-      <View style={styles.content}>
-        <ThemedView style={styles.header}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="time-outline" size={60} color={Colors.warning} />
-          </View>
-          
-          <Image
-            source={require('../../assets/images/wander_logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          
-          <ThemedText variant="title" style={styles.title}>
-            Account Pending Approval
-          </ThemedText>
-          
-          <ThemedText variant="default" style={styles.subtitle}>
-            Your tour guide application is currently under review by our admin team.
-          </ThemedText>
-        </ThemedView>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.content}>
+          <ThemedView style={styles.header}>
+            <View style={styles.iconContainer}>
+              <Ionicons name="time-outline" size={60} color={Colors.warning} />
+            </View>
+            
+            <Image
+              source={require('../../assets/images/wander_logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            
+            <ThemedText variant="title" style={styles.title}>
+              Account Pending Approval
+            </ThemedText>
+            
+            <ThemedText variant="default" style={styles.subtitle}>
+              Your tour guide application is currently under review by our admin team.
+            </ThemedText>
+          </ThemedView>
 
-        <View style={styles.infoSection}>
-          <View style={styles.infoItem}>
-            <Ionicons name="checkmark-circle" size={24} color={Colors.success} />
-            <Text style={styles.infoText}>Application submitted successfully</Text>
+          <View style={styles.infoSection}>
+            <View style={styles.infoItem}>
+              <Ionicons name="checkmark-circle" size={24} color={Colors.success} />
+              <Text style={styles.infoText}>Application submitted successfully</Text>
+            </View>
+            
+            <View style={styles.infoItem}>
+              <Ionicons name="document-text" size={24} color={Colors.info} />
+              <Text style={styles.infoText}>Documents under review</Text>
+            </View>
+            
+            <View style={styles.infoItem}>
+              <Ionicons name="mail" size={24} color={Colors.secondary500} />
+              <Text style={styles.infoText}>Email notification will be sent upon approval</Text>
+            </View>
           </View>
-          
-          <View style={styles.infoItem}>
-            <Ionicons name="document-text" size={24} color={Colors.info} />
-            <Text style={styles.infoText}>Documents under review</Text>
+
+          <View style={styles.timelineContainer}>
+            <Text style={styles.timelineTitle}>What happens next?</Text>
+            
+            <View style={styles.timelineItem}>
+              <View style={[styles.timelineIcon, styles.timelineIconCompleted]}>
+                <Ionicons name="checkmark" size={16} color={Colors.white} />
+              </View>
+              <View style={styles.timelineContent}>
+                <Text style={styles.timelineItemTitle}>Application Submitted</Text>
+                <Text style={styles.timelineItemSubtitle}>Your application has been received</Text>
+              </View>
+            </View>
+            
+            <View style={styles.timelineItem}>
+              <View style={[styles.timelineIcon, styles.timelineIconActive]}>
+                <Ionicons name="document-text" size={16} color={Colors.white} />
+              </View>
+              <View style={styles.timelineContent}>
+                <Text style={styles.timelineItemTitle}>Document Review</Text>
+                <Text style={styles.timelineItemSubtitle}>Admin reviewing your credentials</Text>
+              </View>
+            </View>
+            
+            <View style={styles.timelineItem}>
+              <View style={[styles.timelineIcon, styles.timelineIconPending]}>
+                <Ionicons name="mail" size={16} color={Colors.secondary400} />
+              </View>
+              <View style={styles.timelineContent}>
+                <Text style={[styles.timelineItemTitle, styles.timelineItemTitlePending]}>
+                  Approval Notification
+                </Text>
+                <Text style={styles.timelineItemSubtitle}>
+                  You&apos;ll receive an email once approved
+                </Text>
+              </View>
+            </View>
           </View>
-          
-          <View style={styles.infoItem}>
-            <Ionicons name="mail" size={24} color={Colors.secondary500} />
-            <Text style={styles.infoText}>Email notification will be sent upon approval</Text>
+
+          <View style={styles.estimateContainer}>
+            <Ionicons name="time" size={20} color={Colors.primary600} />
+            <Text style={styles.estimateText}>
+              <Text style={styles.estimateBold}>Estimated review time:</Text> 1-3 business days
+            </Text>
           </View>
         </View>
-
-        <View style={styles.timelineContainer}>
-          <Text style={styles.timelineTitle}>What happens next?</Text>
-          
-          <View style={styles.timelineItem}>
-            <View style={[styles.timelineIcon, styles.timelineIconCompleted]}>
-              <Ionicons name="checkmark" size={16} color={Colors.white} />
-            </View>
-            <View style={styles.timelineContent}>
-              <Text style={styles.timelineItemTitle}>Application Submitted</Text>
-              <Text style={styles.timelineItemSubtitle}>Your application has been received</Text>
-            </View>
-          </View>
-          
-          <View style={styles.timelineItem}>
-            <View style={[styles.timelineIcon, styles.timelineIconActive]}>
-              <Ionicons name="document-text" size={16} color={Colors.white} />
-            </View>
-            <View style={styles.timelineContent}>
-              <Text style={styles.timelineItemTitle}>Document Review</Text>
-              <Text style={styles.timelineItemSubtitle}>Admin reviewing your credentials</Text>
-            </View>
-          </View>
-          
-          <View style={styles.timelineItem}>
-            <View style={[styles.timelineIcon, styles.timelineIconPending]}>
-              <Ionicons name="mail" size={16} color={Colors.secondary400} />
-            </View>
-            <View style={styles.timelineContent}>
-              <Text style={[styles.timelineItemTitle, styles.timelineItemTitlePending]}>
-                Approval Notification
-              </Text>
-              <Text style={styles.timelineItemSubtitle}>
-                You&apos;ll receive an email once approved
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.estimateContainer}>
-          <Ionicons name="time" size={20} color={Colors.primary600} />
-          <Text style={styles.estimateText}>
-            <Text style={styles.estimateBold}>Estimated review time:</Text> 1-3 business days
-          </Text>
-        </View>
-      </View>
+      </ScrollView>
 
       <View style={styles.footer}>
         <CustomButton
@@ -142,8 +149,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.secondary50,
   },
-  content: {
+  scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
+  content: {
     paddingHorizontal: 24,
     paddingTop: 40,
   },
@@ -262,13 +275,23 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: 24,
     paddingBottom: 40,
+    paddingTop: 20,
+    backgroundColor: Colors.white,
+    borderTopWidth: 1,
+    borderTopColor: Colors.secondary100,
   },
   loginButton: {
     marginBottom: 16,
+    backgroundColor: Colors.primary600,
+    borderRadius: 12,
+    paddingVertical: 16,
   },
   supportButton: {
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: Colors.secondary100,
+    borderRadius: 12,
   },
   supportButtonText: {
     fontSize: 16,
