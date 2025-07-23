@@ -1,20 +1,20 @@
 import React, { useState } from 'react';
 import {
-  SafeAreaView,
-  ScrollView,
-  View,
-  Text,
   Image,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
+  Text,
   TouchableOpacity,
+  View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Ionicons } from '@expo/vector-icons'; 
-import { Colors } from '../../constants/Colors';
-import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { Colors } from '../../constants/Colors';
 
 import { CustomButton, CustomTextInput, ThemedText, ThemedView } from '../../components';
 
@@ -24,6 +24,7 @@ export default function ForgotPasswordScreen() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const handleSendResetLink = () => {
     if (!email || !email.includes('@')) {
@@ -39,7 +40,7 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -47,7 +48,7 @@ export default function ForgotPasswordScreen() {
       >
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
           keyboardShouldPersistTaps="handled"
         >
           <ThemedView style={styles.header}>
@@ -107,14 +108,14 @@ export default function ForgotPasswordScreen() {
             )}
           </View>
         </ScrollView>
-        <View style={styles.loginPrompt}>
+        <View style={[styles.loginPrompt, { paddingBottom: insets.bottom + 15 }]}>
           <Text style={styles.loginPromptText}>Remember password? </Text>
           <TouchableOpacity onPress={() => router.replace('./login')}>
             <Text style={styles.loginLink}>Sign in</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -133,7 +134,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 20,
-    paddingBottom: 40,
   },
   header: {
     alignItems: 'center',
@@ -170,15 +170,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.secondary500,
     fontFamily: 'Inter',
-    marginBottom: 15,
   },
   loginLink: {
     fontSize: 14,
     color: Colors.primary600,
     fontWeight: '600',
     fontFamily: 'Inter',
-    marginBottom: 15,
-
   },
   successText: {
     fontSize: 16,

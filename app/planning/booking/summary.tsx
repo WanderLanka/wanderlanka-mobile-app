@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { ThemedText } from '../../../components';
 import { Colors } from '../../../constants/Colors';
@@ -19,8 +20,6 @@ export default function SummaryBookingScreen({ onNavigateToTab }: SummaryBooking
   const { 
     bookings, 
     removeBooking, 
-    clearAllBookings,
-    clearBookingsForNewSession,
     getTotalAmount,
     getAccommodationTotal,
     getTransportTotal,
@@ -37,54 +36,16 @@ export default function SummaryBookingScreen({ onNavigateToTab }: SummaryBooking
     }));
   };
 
-  const handleClearAllBookings = () => {
-    clearAllBookings();
-  };
-
-  const handleStartNewSession = () => {
-    Alert.alert(
-      'Start New Session',
-      'This will clear all current bookings and start a fresh booking session. Are you sure?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Start Fresh',
-          style: 'destructive',
-          onPress: () => {
-            clearBookingsForNewSession();
-            // Navigate to accommodation tab if callback is provided
-            if (onNavigateToTab) {
-              onNavigateToTab('accommodation');
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const handleProceedToPayment = () => {
     const totalAmount = getTotalAmount();
     
-    Alert.alert(
-      'Proceed to Payment',
-      `Total Amount: $${totalAmount}\n\nThis will redirect you to the secure payment gateway.`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Continue',
-          style: 'default',
-          onPress: () => {
-            console.log('Proceeding to payment with bookings:', bookings, 'Total:', totalAmount);
-          },
-        },
-      ]
-    );
+    if (totalAmount === 0) {
+      Alert.alert('No Bookings', 'Please add some bookings before proceeding to payment.');
+      return;
+    }
+    
+    // Navigate to payment screen
+    router.push('/planning/booking/payment');
   };
 
   const handleCancelBooking = (bookingId: string, bookingType: 'accommodation' | 'transport' | 'guides') => {
@@ -164,23 +125,23 @@ export default function SummaryBookingScreen({ onNavigateToTab }: SummaryBooking
     };
 
     return (
-      <View key={bookingKey} style={styles.modernBookingCard}>
+      <View key={bookingKey} style={styles.bookingCard}>
         <TouchableOpacity 
-          style={styles.modernBookingHeader}
+          style={styles.bookingHeader}
           onPress={() => toggleBookingExpansion(bookingKey)}
           activeOpacity={0.7}
         >
-          <View style={styles.modernBookingIcon}>
+          <View style={styles.bookingIcon}>
             <Ionicons name={getIcon() as any} size={20} color={Colors.primary600} />
           </View>
           
-          <View style={styles.modernBookingInfo}>
-            <ThemedText style={styles.modernBookingTitle}>{getTitle()}</ThemedText>
-            <ThemedText style={styles.modernBookingSubtitle}>{getSubtitle()}</ThemedText>
+          <View style={styles.bookingInfo}>
+            <ThemedText style={styles.bookingTitle}>{getTitle()}</ThemedText>
+            <ThemedText style={styles.bookingSubtitle}>{getSubtitle()}</ThemedText>
           </View>
           
-          <View style={styles.modernBookingRight}>
-            <ThemedText style={styles.modernBookingPrice}>
+          <View style={styles.bookingRight}>
+            <ThemedText style={styles.bookingPrice}>
               ${booking.totalPrice || 0}
             </ThemedText>
             <Ionicons 
@@ -192,40 +153,40 @@ export default function SummaryBookingScreen({ onNavigateToTab }: SummaryBooking
         </TouchableOpacity>
 
         {isExpanded && (
-          <View style={styles.modernBookingDetails}>
-            <View style={styles.modernBookingDetailsContent}>
+          <View style={styles.bookingDetails}>
+            <View style={styles.bookingDetailsContent}>
               {type === 'accommodation' && (
                 <>
-                  <View style={styles.modernDetailRow}>
+                  <View style={styles.detailRow}>
                     <Ionicons name="location-outline" size={16} color={Colors.secondary500} />
-                    <ThemedText style={styles.modernDetailText}>
+                    <ThemedText style={styles.detailText}>
                       {booking.destination || 'Unknown Location'}
                     </ThemedText>
                   </View>
-                  <View style={styles.modernDetailRow}>
+                  <View style={styles.detailRow}>
                     <Ionicons name="calendar-outline" size={16} color={Colors.secondary500} />
-                    <ThemedText style={styles.modernDetailText}>
+                    <ThemedText style={styles.detailText}>
                       {getStartDate()} → {getEndDate()}
                     </ThemedText>
                   </View>
-                  <View style={styles.modernDetailRow}>
+                  <View style={styles.detailRow}>
                     <Ionicons name="bed-outline" size={16} color={Colors.secondary500} />
-                    <ThemedText style={styles.modernDetailText}>
+                    <ThemedText style={styles.detailText}>
                       {booking.numberOfRooms || 1} {(booking.numberOfRooms || 1) === 1 ? 'room' : 'rooms'}
                     </ThemedText>
                   </View>
                   {(booking.numberOfGuests && booking.numberOfGuests > 1) && (
-                    <View style={styles.modernDetailRow}>
+                    <View style={styles.detailRow}>
                       <Ionicons name="people-outline" size={16} color={Colors.secondary500} />
-                      <ThemedText style={styles.modernDetailText}>
+                      <ThemedText style={styles.detailText}>
                         {booking.numberOfGuests} guests
                       </ThemedText>
                     </View>
                   )}
                   {booking.pricePerNight && (
-                    <View style={styles.modernDetailRow}>
+                    <View style={styles.detailRow}>
                       <Ionicons name="cash-outline" size={16} color={Colors.secondary500} />
-                      <ThemedText style={styles.modernDetailText}>
+                      <ThemedText style={styles.detailText}>
                         ${booking.pricePerNight}/night × {booking.numberOfNights || 1} nights
                       </ThemedText>
                     </View>
@@ -235,44 +196,44 @@ export default function SummaryBookingScreen({ onNavigateToTab }: SummaryBooking
               
               {type === 'transport' && (
                 <>
-                  <View style={styles.modernDetailRow}>
+                  <View style={styles.detailRow}>
                     <Ionicons name="location-outline" size={16} color={Colors.secondary500} />
-                    <ThemedText style={styles.modernDetailText}>
+                    <ThemedText style={styles.detailText}>
                       {booking.destination || 'Unknown Location'}
                     </ThemedText>
                   </View>
-                  <View style={styles.modernDetailRow}>
+                  <View style={styles.detailRow}>
                     <Ionicons name="calendar-outline" size={16} color={Colors.secondary500} />
-                    <ThemedText style={styles.modernDetailText}>
+                    <ThemedText style={styles.detailText}>
                       {getStartDate()} → {getEndDate()}
                     </ThemedText>
                   </View>
-                  <View style={styles.modernDetailRow}>
+                  <View style={styles.detailRow}>
                     <Ionicons name="car-outline" size={16} color={Colors.secondary500} />
-                    <ThemedText style={styles.modernDetailText}>
+                    <ThemedText style={styles.detailText}>
                       {booking.provider || 'Transport Service'} - {booking.transportInfo?.type || 'Vehicle'}
                     </ThemedText>
                   </View>
                   {booking.pickupLocation && (
-                    <View style={styles.modernDetailRow}>
+                    <View style={styles.detailRow}>
                       <Ionicons name="navigate-outline" size={16} color={Colors.secondary500} />
-                      <ThemedText style={styles.modernDetailText}>
+                      <ThemedText style={styles.detailText}>
                         Pickup: {booking.pickupLocation}
                       </ThemedText>
                     </View>
                   )}
                   {booking.dropoffLocation && (
-                    <View style={styles.modernDetailRow}>
+                    <View style={styles.detailRow}>
                       <Ionicons name="location" size={16} color={Colors.secondary500} />
-                      <ThemedText style={styles.modernDetailText}>
+                      <ThemedText style={styles.detailText}>
                         Drop-off: {booking.dropoffLocation}
                       </ThemedText>
                     </View>
                   )}
                   {booking.pricePerDay && (
-                    <View style={styles.modernDetailRow}>
+                    <View style={styles.detailRow}>
                       <Ionicons name="cash-outline" size={16} color={Colors.secondary500} />
-                      <ThemedText style={styles.modernDetailText}>
+                      <ThemedText style={styles.detailText}>
                         ${booking.pricePerDay}/day × {booking.days || 1} days
                       </ThemedText>
                     </View>
@@ -282,44 +243,44 @@ export default function SummaryBookingScreen({ onNavigateToTab }: SummaryBooking
               
               {type === 'guides' && (
                 <>
-                  <View style={styles.modernDetailRow}>
+                  <View style={styles.detailRow}>
                     <Ionicons name="location-outline" size={16} color={Colors.secondary500} />
-                    <ThemedText style={styles.modernDetailText}>
+                    <ThemedText style={styles.detailText}>
                       {booking.destination || 'Unknown Location'}
                     </ThemedText>
                   </View>
-                  <View style={styles.modernDetailRow}>
+                  <View style={styles.detailRow}>
                     <Ionicons name="calendar-outline" size={16} color={Colors.secondary500} />
-                    <ThemedText style={styles.modernDetailText}>
+                    <ThemedText style={styles.detailText}>
                       {getStartDate()} → {getEndDate()}
                     </ThemedText>
                   </View>
-                  <View style={styles.modernDetailRow}>
+                  <View style={styles.detailRow}>
                     <Ionicons name="person-outline" size={16} color={Colors.secondary500} />
-                    <ThemedText style={styles.modernDetailText}>
+                    <ThemedText style={styles.detailText}>
                       {booking.tourType || 'Custom Tour'}
                     </ThemedText>
                   </View>
                   {booking.meetingPoint && (
-                    <View style={styles.modernDetailRow}>
+                    <View style={styles.detailRow}>
                       <Ionicons name="navigate-outline" size={16} color={Colors.secondary500} />
-                      <ThemedText style={styles.modernDetailText}>
+                      <ThemedText style={styles.detailText}>
                         Meet at: {booking.meetingPoint}
                       </ThemedText>
                     </View>
                   )}
                   {booking.guideInfo?.experience && (
-                    <View style={styles.modernDetailRow}>
+                    <View style={styles.detailRow}>
                       <Ionicons name="time-outline" size={16} color={Colors.secondary500} />
-                      <ThemedText style={styles.modernDetailText}>
+                      <ThemedText style={styles.detailText}>
                         Experience: {booking.guideInfo.experience}
                       </ThemedText>
                     </View>
                   )}
                   {booking.pricePerDay && (
-                    <View style={styles.modernDetailRow}>
+                    <View style={styles.detailRow}>
                       <Ionicons name="cash-outline" size={16} color={Colors.secondary500} />
-                      <ThemedText style={styles.modernDetailText}>
+                      <ThemedText style={styles.detailText}>
                         ${booking.pricePerDay}/day × {booking.days || 1} days
                       </ThemedText>
                     </View>
@@ -329,11 +290,11 @@ export default function SummaryBookingScreen({ onNavigateToTab }: SummaryBooking
             </View>
             
             <TouchableOpacity 
-              style={styles.modernCancelButton}
+              style={styles.cancelButton}
               onPress={() => handleCancelBooking(booking.id, type)}
             >
               <Ionicons name="trash-outline" size={18} color={Colors.error} />
-              <ThemedText style={styles.modernCancelButtonText}>Cancel Booking</ThemedText>
+              <ThemedText style={styles.cancelButtonText}>Cancel Booking</ThemedText>
             </TouchableOpacity>
           </View>
         )}
@@ -343,15 +304,15 @@ export default function SummaryBookingScreen({ onNavigateToTab }: SummaryBooking
 
   return (
     <ScrollView style={styles.summaryTabContent} showsVerticalScrollIndicator={false}>
-      <View style={styles.modernBookingSummary}>
+      <View style={styles.bookingSummary}>
         {/* All Bookings in a single clean list */}
         {bookings.accommodation.length > 0 && (
-          <View style={styles.modernSectionContainer}>
-            <View style={styles.modernSectionHeader}>
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
               <Ionicons name="bed-outline" size={22} color={Colors.primary600} />
-              <ThemedText style={styles.modernSectionTitle}>Accommodation</ThemedText>
-              <View style={styles.modernBookingCount}>
-                <ThemedText style={styles.modernBookingCountText}>{bookings.accommodation.length}</ThemedText>
+              <ThemedText style={styles.sectionTitle}>Accommodation</ThemedText>
+              <View style={styles.bookingCount}>
+                <ThemedText style={styles.bookingCountText}>{bookings.accommodation.length}</ThemedText>
               </View>
             </View>
             {bookings.accommodation.map((booking: any, index: number) => 
@@ -361,12 +322,12 @@ export default function SummaryBookingScreen({ onNavigateToTab }: SummaryBooking
         )}
 
         {bookings.transport.length > 0 && (
-          <View style={styles.modernSectionContainer}>
-            <View style={styles.modernSectionHeader}>
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
               <Ionicons name="car-outline" size={22} color={Colors.primary600} />
-              <ThemedText style={styles.modernSectionTitle}>Transportation</ThemedText>
-              <View style={styles.modernBookingCount}>
-                <ThemedText style={styles.modernBookingCountText}>{bookings.transport.length}</ThemedText>
+              <ThemedText style={styles.sectionTitle}>Transportation</ThemedText>
+              <View style={styles.bookingCount}>
+                <ThemedText style={styles.bookingCountText}>{bookings.transport.length}</ThemedText>
               </View>
             </View>
             {bookings.transport.map((booking: any, index: number) => 
@@ -376,12 +337,12 @@ export default function SummaryBookingScreen({ onNavigateToTab }: SummaryBooking
         )}
 
         {bookings.guides.length > 0 && (
-          <View style={styles.modernSectionContainer}>
-            <View style={styles.modernSectionHeader}>
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
               <Ionicons name="person-outline" size={22} color={Colors.primary600} />
-              <ThemedText style={styles.modernSectionTitle}>Tour Guides</ThemedText>
-              <View style={styles.modernBookingCount}>
-                <ThemedText style={styles.modernBookingCountText}>{bookings.guides.length}</ThemedText>
+              <ThemedText style={styles.sectionTitle}>Tour Guides</ThemedText>
+              <View style={styles.bookingCount}>
+                <ThemedText style={styles.bookingCountText}>{bookings.guides.length}</ThemedText>
               </View>
             </View>
             {bookings.guides.map((booking: any, index: number) => 
@@ -393,78 +354,60 @@ export default function SummaryBookingScreen({ onNavigateToTab }: SummaryBooking
       
       {/* Modern Total Summary */}
       {(bookings.accommodation.length > 0 || bookings.transport.length > 0 || bookings.guides.length > 0) && (
-        <View style={styles.modernTotalSummary}>
-          <View style={styles.modernTotalHeader}>
-            <View style={styles.modernTotalIconContainer}>
-              <Ionicons name="receipt-outline" size={24} color={Colors.primary600} />
+        <View style={styles.totalSummary}>
+          <View style={styles.totalHeader}>
+            <View style={styles.totalIconContainer}>
+              <Ionicons name="receipt-outline" size={24} color={Colors.white} />
             </View>
-            <ThemedText style={styles.modernTotalTitle}>Trip Summary</ThemedText>
+            <ThemedText style={styles.totalTitle}>Booking Summary</ThemedText>
           </View>
           
-          <View style={styles.modernTotalContent}>
+          <View style={styles.totalContent}>
             {bookings.accommodation.length > 0 && (
-              <View style={styles.modernTotalRow}>
-                <View style={styles.modernTotalRowLeft}>
+              <View style={styles.totalRow}>
+                <View style={styles.totalRowLeft}>
                   <Ionicons name="bed-outline" size={18} color={Colors.secondary600} />
-                  <ThemedText style={styles.modernTotalLabel}>Accommodation</ThemedText>
+                  <ThemedText style={styles.totalLabel}>Accommodation</ThemedText>
                 </View>
-                <ThemedText style={styles.modernTotalValue}>${getAccommodationTotal()}</ThemedText>
+                <ThemedText style={styles.totalValue}>${getAccommodationTotal()}</ThemedText>
               </View>
             )}
             
             {bookings.transport.length > 0 && (
-              <View style={styles.modernTotalRow}>
-                <View style={styles.modernTotalRowLeft}>
+              <View style={styles.totalRow}>
+                <View style={styles.totalRowLeft}>
                   <Ionicons name="car-outline" size={18} color={Colors.secondary600} />
-                  <ThemedText style={styles.modernTotalLabel}>Transportation</ThemedText>
+                  <ThemedText style={styles.totalLabel}>Transportation</ThemedText>
                 </View>
-                <ThemedText style={styles.modernTotalValue}>${getTransportTotal()}</ThemedText>
+                <ThemedText style={styles.totalValue}>${getTransportTotal()}</ThemedText>
               </View>
             )}
             
             {bookings.guides.length > 0 && (
-              <View style={styles.modernTotalRow}>
-                <View style={styles.modernTotalRowLeft}>
+              <View style={styles.totalRow}>
+                <View style={styles.totalRowLeft}>
                   <Ionicons name="person-outline" size={18} color={Colors.secondary600} />
-                  <ThemedText style={styles.modernTotalLabel}>Tour Guides</ThemedText>
+                  <ThemedText style={styles.totalLabel}>Tour Guides</ThemedText>
                 </View>
-                <ThemedText style={styles.modernTotalValue}>${getGuidesTotal()}</ThemedText>
+                <ThemedText style={styles.totalValue}>${getGuidesTotal()}</ThemedText>
               </View>
             )}
             
-            <View style={styles.modernTotalDivider} />
+            <View style={styles.totalDivider} />
             
-            <View style={styles.modernTotalFinalRow}>
-              <ThemedText style={styles.modernTotalFinalLabel}>Total Trip Cost</ThemedText>
-              <ThemedText style={styles.modernTotalFinalValue}>${getTotalAmount()}</ThemedText>
+            <View style={styles.totalFinalRow}>
+              <ThemedText style={styles.totalFinalLabel}>Total Bookings Cost</ThemedText>
+              <ThemedText style={styles.totalFinalValue}>${getTotalAmount()}</ThemedText>
             </View>
           </View>
           
-          <View style={styles.modernTotalActions}>
-            <View style={styles.modernTotalLeftActions}>
-              <TouchableOpacity 
-                onPress={handleStartNewSession}
-                style={styles.modernNewSessionButton}
-              >
-                <Ionicons name="refresh-outline" size={16} color={Colors.error} />
-                <ThemedText style={styles.modernNewSessionButtonText}>New Session</ThemedText>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                onPress={handleClearAllBookings}
-                style={styles.modernClearButton}
-              >
-                <Ionicons name="trash-outline" size={16} color={Colors.error} />
-                <ThemedText style={styles.modernClearButtonText}>Clear All</ThemedText>
-              </TouchableOpacity>
-            </View>
-
+          <View style={styles.totalActions}>
             <TouchableOpacity 
               onPress={() => handleProceedToPayment()}
-              style={styles.modernPaymentButton}
+              style={styles.paymentButton}
             >
               <Ionicons name="card-outline" size={20} color={Colors.white} />
-              <ThemedText style={styles.modernPaymentButtonText}>Proceed to Payment</ThemedText>
+              <ThemedText style={styles.paymentButtonText}>Proceed to Payment</ThemedText>
             </TouchableOpacity>
           </View>
         </View>
@@ -472,29 +415,15 @@ export default function SummaryBookingScreen({ onNavigateToTab }: SummaryBooking
 
       {/* Modern Empty State */}
       {bookings.accommodation.length === 0 && bookings.transport.length === 0 && bookings.guides.length === 0 && (
-        <View style={styles.modernEmptyState}>
-          <View style={styles.modernEmptyIconContainer}>
+        <View style={styles.emptyState}>
+          <View style={styles.emptyIconContainer}>
             <Ionicons name="receipt-outline" size={64} color={Colors.secondary400} />
           </View>
-          <ThemedText style={styles.modernEmptyTitle}>No Bookings Yet</ThemedText>
-          <ThemedText style={styles.modernEmptyText}>
+          <ThemedText style={styles.emptyTitle}>No Bookings Yet</ThemedText>
+          <ThemedText style={styles.emptyText}>
             Start by browsing accommodations, transportation, or guides using the tabs below.
           </ThemedText>
-          <View style={styles.modernEmptyActions}>
-            <TouchableOpacity 
-              style={styles.modernEmptyButton}
-              onPress={() => {
-                if (onNavigateToTab) {
-                  onNavigateToTab('accommodation');
-                } else {
-                  console.log('Navigate to accommodation tab');
-                }
-              }}
-            >
-              <Ionicons name="bed-outline" size={20} color={Colors.primary600} />
-              <ThemedText style={styles.modernEmptyButtonText}>Browse Hotels</ThemedText>
-            </TouchableOpacity>
-          </View>
+          
         </View>
       )}
     </ScrollView>
@@ -502,418 +431,293 @@ export default function SummaryBookingScreen({ onNavigateToTab }: SummaryBooking
 }
 
 const styles = StyleSheet.create({
-  // Summary Tab Styles
+  // Main Container
   summaryTabContent: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Colors.secondary50,
   },
 
-  // Modern Booking Card Styles
-  modernBookingSummary: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    gap: 24,
+  // Booking Summary
+  bookingSummary: {
+    padding: 16,
+    gap: 16,
   },
-  modernSectionContainer: {
-    marginBottom: 12,
+
+  // Section Styles
+  sectionContainer: {
+    marginBottom: 8,
+    backgroundColor: Colors.white,
   },
-  modernSectionHeader: {
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    marginBottom: 12,
+    padding: 16,
+    backgroundColor: Colors.primary100,
+    borderRadius: 12,
+    marginBottom: 8,
     gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
-  modernSectionTitle: {
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#1E293B',
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.secondary700,
     flex: 1,
-    letterSpacing: -0.3,
   },
-  modernBookingCount: {
-    backgroundColor: '#3B82F6',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    minWidth: 32,
+  bookingCount: {
+    backgroundColor: Colors.primary600,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    minWidth: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  modernBookingCountText: {
+  bookingCountText: {
     color: Colors.white,
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.2,
-  },
-  modernBookingCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    marginBottom: 16,
-    overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 4,
-    borderWidth: 0.5,
-    borderColor: '#E2E8F0',
-  },
-  modernBookingHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 24,
-    gap: 16,
-  },
-  modernBookingIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 0,
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  modernBookingInfo: {
-    flex: 1,
-    gap: 6,
-  },
-  modernBookingTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#0F172A',
-    lineHeight: 22,
-    letterSpacing: -0.2,
-  },
-  modernBookingSubtitle: {
-    fontSize: 14,
-    color: '#64748B',
-    lineHeight: 20,
-    fontWeight: '500',
-  },
-  modernBookingRight: {
-    alignItems: 'flex-end',
-    gap: 8,
-  },
-  modernBookingPrice: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#059669',
-    letterSpacing: -0.3,
-  },
-  modernBookingDetails: {
-    backgroundColor: '#FAFBFC',
-    borderTopWidth: 0.5,
-    borderTopColor: '#E2E8F0',
-  },
-  modernBookingDetailsContent: {
-    padding: 24,
-    paddingBottom: 16,
-    gap: 16,
-  },
-  modernDetailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  modernDetailText: {
-    fontSize: 14,
-    color: '#475569',
-    flex: 1,
-    lineHeight: 20,
-    fontWeight: '500',
-  },
-  modernCancelButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    marginHorizontal: 24,
-    marginBottom: 24,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    backgroundColor: '#FEF2F2',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    shadowColor: '#EF4444',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  modernCancelButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#DC2626',
-    letterSpacing: -0.1,
+    fontSize: 12,
+    fontWeight: '600',
   },
 
-  // Modern Total Summary Styles
-  modernTotalSummary: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    marginTop: 24,
-    marginHorizontal: 16,
-    marginBottom: 32,
-    overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 6,
-    borderWidth: 0.5,
-    borderColor: '#E2E8F0',
+  // Booking Card
+  bookingCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    marginBottom: 8,
   },
-  modernTotalHeader: {
+  bookingHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    gap: 16,
+    padding: 16,
+    gap: 12,
   },
-  modernTotalIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  bookingIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.primary100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bookingInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  bookingTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.secondary700,
+  },
+  bookingSubtitle: {
+    fontSize: 14,
+    color: Colors.secondary500,
+  },
+  bookingRight: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  bookingPrice: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.primary600,
+  },
+
+  // Booking Details
+  bookingDetails: {
+    backgroundColor: Colors.white,
+    borderTopWidth: 1,
+    borderTopColor: Colors.secondary200,
+  },
+  bookingDetailsContent: {
+    padding: 16,
+    gap: 12,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  detailText: {
+    fontSize: 14,
+    color: Colors.secondary600,
+    flex: 1,
+  },
+  cancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    margin: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: Colors.secondary100,
+    borderRadius: 8,
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.error,
+  },
+
+  // Total Summary
+  totalSummary: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    margin: 16,
+  },
+  totalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary600,
+    padding: 16,
+    gap: 12,
+    borderRadius: 16,
+  },
+  totalIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
-  modernTotalTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    flex: 1,
-    letterSpacing: -0.3,
-  },
-  modernTotalContent: {
-    padding: 24,
-    gap: 16,
-  },
-  modernTotalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-  },
-  modernTotalRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  modernTotalLabel: {
-    fontSize: 16,
-    color: '#475569',
+  totalTitle: {
+    fontSize: 18,
     fontWeight: '600',
-  },
-  modernTotalValue: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -0.2,
-  },
-  modernTotalDivider: {
-    height: 1,
-    backgroundColor: '#E2E8F0',
-    marginVertical: 12,
-  },
-  modernTotalFinalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    backgroundColor: '#F0F9FF',
+    color: Colors.white,
+    flex: 1,
     borderRadius: 16,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#BAE6FD',
   },
-  modernTotalFinalLabel: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: '#0369A1',
-    letterSpacing: -0.2,
+  totalContent: {
+    padding: 16,
+    gap: 12,
   },
-  modernTotalFinalValue: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#0284C7',
-    letterSpacing: -0.4,
-  },
-  modernTotalActions: {
+  totalRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 24,
-    gap: 16,
-    borderTopWidth: 0.5,
-    borderTopColor: '#E2E8F0',
-    backgroundColor: '#FAFBFC',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: Colors.secondary50,
+    borderRadius: 8,
   },
-  modernClearButton: {
+  totalRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  totalLabel: {
+    fontSize: 14,
+    color: Colors.secondary600,
+    fontWeight: '500',
+  },
+  totalValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.secondary700,
+  },
+  totalDivider: {
+    height: 1,
+    backgroundColor: Colors.secondary200,
+    marginVertical: 8,
+  },
+  totalFinalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: Colors.primary100,
+    borderRadius: 8,
+  },
+  totalFinalLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.primary700,
+  },
+  totalFinalValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.primary700,
+  },
+  totalActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: Colors.secondary200,
+    backgroundColor: Colors.secondary50,
+  },
+  paymentButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#FEF2F2',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    shadowColor: '#EF4444',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
+    paddingHorizontal: 20,
+    backgroundColor: Colors.primary600,
+    borderRadius: 8,
   },
-  modernClearButtonText: {
-    fontSize: 13,
+  paymentButtonText: {
+    fontSize: 16,
     fontWeight: '600',
-    color: '#DC2626',
-    letterSpacing: -0.1,
-  },
-  modernPaymentButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    backgroundColor: '#3B82F6',
-    borderRadius: 16,
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  modernPaymentButtonText: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.2,
+    color: Colors.white,
   },
 
-  // Modern Empty State Styles
-  modernEmptyState: {
+  // Empty State
+  emptyState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 120,
-    paddingHorizontal: 40,
-    backgroundColor: '#FAFBFC',
-    marginHorizontal: 16,
-    borderRadius: 24,
+    padding: 40,
+    backgroundColor: Colors.white,
+    margin: 16,
+    borderRadius: 12,
     marginTop: 40,
   },
-  modernEmptyIconContainer: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: '#F1F5F9',
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.secondary100,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 24,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: Colors.secondary700,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: Colors.secondary500,
+    textAlign: 'center',
+    lineHeight: 24,
     marginBottom: 32,
-    borderWidth: 2,
-    borderColor: '#E2E8F0',
-    shadowColor: '#64748B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 3,
-  },
-  modernEmptyTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#1E293B',
-    marginBottom: 16,
-    textAlign: 'center',
-    letterSpacing: -0.4,
-  },
-  modernEmptyText: {
-    fontSize: 17,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 26,
-    marginBottom: 40,
-    fontWeight: '500',
     maxWidth: 280,
   },
-  modernEmptyActions: {
+  emptyActions: {
     alignItems: 'center',
     width: '100%',
   },
-  modernEmptyButton: {
+  emptyButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    paddingVertical: 18,
-    paddingHorizontal: 32,
-    backgroundColor: '#3B82F6',
-    borderRadius: 20,
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
-    minWidth: 200,
-  },
-  modernEmptyButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: -0.2,
-  },
-  modernTotalLeftActions: {
-    flexDirection: 'row',
     gap: 8,
-  },
-  modernNewSessionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
     paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: Colors.error + '10',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.error + '30',
+    paddingHorizontal: 24,
+    backgroundColor: Colors.primary600,
+    borderRadius: 8,
+    minWidth: 160,
   },
-  modernNewSessionButtonText: {
-    fontSize: 13,
+  emptyButtonText: {
+    fontSize: 16,
     fontWeight: '600',
-    color: Colors.error,
+    color: Colors.white,
   },
 });

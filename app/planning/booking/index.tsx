@@ -22,7 +22,7 @@ import TransportBookingScreen from './transport';
 
 export default function BookingScreen() {
   const params = useLocalSearchParams();
-  const { destination, startDate, endDate, destinations, newBooking, hideModal, clearPrevious } = params;
+  const { destination, startDate, endDate, destinations, newBooking, hideModal, clearPrevious, activeTab: initialTab } = params;
 
   // State management
   const [activeTab, setActiveTab] = useState('accommodation');
@@ -50,6 +50,13 @@ export default function BookingScreen() {
     getTransportTotal,
     getGuidesTotal
   } = useBooking();
+
+  // Set initial tab if provided
+  useEffect(() => {
+    if (initialTab && typeof initialTab === 'string') {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   // Clear previous bookings when starting a new booking session
   useEffect(() => {

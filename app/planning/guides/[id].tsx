@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CustomButton, CustomTextInput, ThemedText } from '../../../components';
 import { Colors } from '../../../constants/Colors';
+import { useBooking } from '../../../context/BookingContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -144,6 +145,7 @@ const formatDateDisplay = (dateString: string): string => {
 export default function GuideDetailsScreen() {
   const params = useLocalSearchParams();
   const { id, destination, startDate, endDate, destinations, startPoint } = params;
+  const { addBooking } = useBooking();
 
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -169,10 +171,10 @@ export default function GuideDetailsScreen() {
     setShowBookingModal(true);
   };
 
-  const handleConfirmBooking = () => {
+  const handleConfirmBooking = async () => {
     const booking = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      type: 'guide',
+      type: 'guide' as const,
       guideName: guide.name,
       guideId: guide.id,
       destination: destination as string,
@@ -203,20 +205,9 @@ export default function GuideDetailsScreen() {
       [
         {
           text: 'OK',
-          onPress: () => {
-            // Navigate to booking screen with the new booking data
-            router.replace({
-              pathname: '/planning/booking',
-              params: {
-                destination,
-                startDate,
-                endDate,
-                destinations,
-                startPoint,
-                newBooking: JSON.stringify(booking),
-                hideModal: 'true'
-              },
-            });
+          onPress: async () => {
+            // Add booking to context
+            await addBooking(booking);
           }
         }
       ]

@@ -2,21 +2,22 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
-    Alert,
-    Dimensions,
-    Image,
-    Linking,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  Alert,
+  Dimensions,
+  Image,
+  Linking,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CustomButton } from '../../../components';
 import { ThemedText } from '../../../components/ThemedText';
 import { Colors } from '../../../constants/Colors';
+import { useBooking } from '../../../context/BookingContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -123,6 +124,7 @@ const formatDateDisplay = (dateString: string): string => {
 export default function HotelDetailsScreen() {
   const params = useLocalSearchParams();
   const { id, destination, startDate, endDate, destinations, startPoint, checkInDate, checkInDay } = params;
+  const { addBooking } = useBooking();
 
   const hotel = getHotelById(id as string);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -202,7 +204,7 @@ export default function HotelDetailsScreen() {
     setShowCheckoutCalendar(false);
   };
 
-  const handleConfirmBooking = () => {
+  const handleConfirmBooking = async () => {
     // Temporarily skip guest information validation since it's commented out
     /* 
     if (!guestName.trim() || !guestEmail.trim() || !phoneNumber.trim()) {
@@ -230,12 +232,9 @@ export default function HotelDetailsScreen() {
       phoneNumber: '',
       specialRequests: '',
       bookingDate: new Date().toISOString(),
-      type: 'accommodation' // Add booking type
+      type: 'accommodation' as const // Add booking type
     };
 
-    // TODO: Add booking to global state/context
-    console.log('New booking:', booking);
-    
     setShowBookingSheet(false);
 
     // Simple confirmation alert with single OK button
@@ -245,20 +244,9 @@ export default function HotelDetailsScreen() {
       [
         {
           text: 'OK',
-          onPress: () => {
-            // Navigate to booking screen with the new booking data
-            router.replace({
-              pathname: '/planning/booking',
-              params: {
-                destination,
-                startDate: startDate || checkInDate,
-                endDate: endDate || checkoutDate,
-                destinations,
-                startPoint,
-                newBooking: JSON.stringify(booking),
-                hideModal: 'true'
-              }
-            });
+          onPress: async () => {
+            // Add booking to context
+            await addBooking(booking);
           }
         }
       ]

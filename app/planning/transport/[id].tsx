@@ -2,18 +2,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
-    Alert,
-    Dimensions,
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  Alert,
+  Dimensions,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CustomButton, CustomTextInput, ThemedText } from '../../../components';
 import { Colors } from '../../../constants/Colors';
+import { useBooking } from '../../../context/BookingContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -90,6 +91,7 @@ const formatDateDisplay = (dateString: string): string => {
 export default function TransportDetailsScreen() {
   const params = useLocalSearchParams();
   const { id, destination, startDate, endDate, destinations, startPoint } = params;
+  const { addBooking } = useBooking();
 
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -115,10 +117,10 @@ export default function TransportDetailsScreen() {
     setShowBookingModal(true);
   };
 
-  const handleConfirmBooking = () => {
+  const handleConfirmBooking = async () => {
     const booking = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      type: 'transport',
+      type: 'transport' as const,
       transportName: transport.name,
       transportId: transport.id,
       provider: transport.provider,
@@ -151,20 +153,9 @@ export default function TransportDetailsScreen() {
       [
         {
           text: 'OK',
-          onPress: () => {
-            // Navigate to booking screen with the new booking data
-            router.replace({
-              pathname: '/planning/booking',
-              params: {
-                destination,
-                startDate,
-                endDate,
-                destinations,
-                startPoint,
-                newBooking: JSON.stringify(booking),
-                hideModal: 'true'
-              },
-            });
+          onPress: async () => {
+            // Add booking to context
+            await addBooking(booking);
           }
         }
       ]
