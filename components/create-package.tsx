@@ -150,7 +150,11 @@ const templateDefaults = {
   }
 };
 
-export default function CreatePackageComponent() {
+interface CreatePackageProps {
+  onClose?: () => void;
+}
+
+export default function CreatePackageComponent({ onClose }: CreatePackageProps) {
   const params = useLocalSearchParams();
   const template = params.template as string | undefined;
   const packageId = params.packageId as string | undefined;
@@ -283,6 +287,14 @@ export default function CreatePackageComponent() {
     }
   };
 
+  const handleStepPress = (stepIndex: number) => {
+    // Clear any existing errors when navigating
+    setErrors({});
+    
+    // Allow navigation to any step - users can freely move between steps
+    setCurrentStep(stepIndex);
+  };
+
   const handleSave = async () => {
     try {
       // Filter out empty items
@@ -305,7 +317,16 @@ export default function CreatePackageComponent() {
       Alert.alert(
         'Success',
         'Package saved successfully!',
-        [{ text: 'OK', onPress: () => router.back() }]
+        [{
+          text: 'OK', 
+          onPress: () => {
+            if (onClose) {
+              onClose();
+            } else {
+              router.back();
+            }
+          }
+        }]
       );
     } catch (error) {
       console.error('Error saving package:', error);
@@ -314,7 +335,11 @@ export default function CreatePackageComponent() {
   };
 
   const renderBasicInfo = () => (
-    <View style={styles.stepContainer}>
+    <ScrollView 
+      style={styles.stepContainer}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={styles.scrollContent}
+    >
       <CustomTextInput
         label="Package Name"
         value={formData.name}
@@ -410,7 +435,7 @@ export default function CreatePackageComponent() {
           </TouchableOpacity>
         ))}
       </ScrollView>
-    </View>
+    </ScrollView>
   );
 
   const renderListSection = (
@@ -458,7 +483,11 @@ export default function CreatePackageComponent() {
   );
 
   const renderDetails = () => (
-    <ScrollView style={styles.stepContainer} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      style={styles.stepContainer} 
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={styles.scrollContent}
+    >
       {renderListSection(
         'Highlights',
         formData.highlights,
@@ -498,7 +527,11 @@ export default function CreatePackageComponent() {
   );
 
   const renderItinerary = () => (
-    <View style={styles.stepContainer}>
+    <ScrollView 
+      style={styles.stepContainer}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={styles.scrollContent}
+    >
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Itinerary</Text>
         <TouchableOpacity style={styles.addButton} onPress={addItineraryItem}>
@@ -507,8 +540,7 @@ export default function CreatePackageComponent() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {formData.itinerary.map((item, index) => (
+      {formData.itinerary.map((item, index) => (
           <View key={index} style={styles.itineraryItem}>
             <View style={styles.itineraryHeader}>
               <Text style={styles.itineraryNumber}>{index + 1}</Text>
@@ -547,12 +579,15 @@ export default function CreatePackageComponent() {
             />
           </View>
         ))}
-      </ScrollView>
-    </View>
+    </ScrollView>
   );
 
   const renderPolicies = () => (
-    <View style={styles.stepContainer}>
+    <ScrollView 
+      style={styles.stepContainer}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={styles.scrollContent}
+    >
       <CustomTextInput
         label="Meeting Point"
         value={formData.meetingPoint}
@@ -587,7 +622,7 @@ export default function CreatePackageComponent() {
           : 'Package will be saved as draft'
         }
       </Text>
-    </View>
+    </ScrollView>
   );
 
   const renderStepContent = () => {
@@ -606,8 +641,8 @@ export default function CreatePackageComponent() {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={Colors.secondary700} />
+        <TouchableOpacity onPress={onClose || (() => router.back())} style={styles.closeButton}>
+          <Ionicons name="close" size={24} color={Colors.secondary700} />
         </TouchableOpacity>
         <ThemedText variant="title" style={styles.headerTitle}>
           {packageId ? 'Edit Package' : 'Create Package'}
@@ -618,11 +653,17 @@ export default function CreatePackageComponent() {
       {/* Progress Indicator */}
       <View style={styles.progressContainer}>
         {steps.map((step, index) => (
-          <View key={step.id} style={styles.progressStep}>
+          <TouchableOpacity 
+            key={step.id} 
+            style={styles.progressStep}
+            onPress={() => handleStepPress(index)}
+            activeOpacity={0.7}
+          >
             <View style={[
               styles.progressCircle,
               index <= currentStep && styles.progressCircleActive,
-              index < currentStep && styles.progressCircleCompleted
+              index < currentStep && styles.progressCircleCompleted,
+              styles.progressCircleClickable // All steps are now clickable
             ]}>
               {index < currentStep ? (
                 <Ionicons name="checkmark" size={16} color={Colors.white} />
@@ -646,7 +687,7 @@ export default function CreatePackageComponent() {
                 index < currentStep && styles.progressLineCompleted
               ]} />
             )}
-          </View>
+          </TouchableOpacity>
         ))}
       </View>
 
@@ -700,6 +741,10 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.secondary100,
   },
 
+  closeButton: {
+    padding: 4,
+  },
+
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -710,7 +755,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 20,
     backgroundColor: Colors.secondary50,
   },
 
@@ -718,6 +763,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     position: 'relative',
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+    justifyContent: 'flex-start',
   },
 
   progressCircle: {
@@ -728,14 +776,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
 
   progressCircleActive: {
     backgroundColor: Colors.primary600,
+    borderColor: Colors.primary600,
   },
 
   progressCircleCompleted: {
     backgroundColor: Colors.success,
+    borderColor: Colors.success,
+  },
+
+  progressCircleClickable: {
+    transform: [{ scale: 1.02 }],
+    borderColor: Colors.secondary400,
   },
 
   progressLabel: {
@@ -751,9 +808,9 @@ const styles = StyleSheet.create({
 
   progressLine: {
     position: 'absolute',
-    top: 16,
-    left: '50%',
-    right: '-50%',
+    top: 23, // Perfectly center with circle (8px margin + 16px circle center - 1px adjustment)
+    left: '65%', // Start from center-right of current circle
+    width: '70%', // Connect to center-left of next circle
     height: 2,
     backgroundColor: Colors.secondary200,
     zIndex: -1,
@@ -765,16 +822,23 @@ const styles = StyleSheet.create({
 
   content: {
     flex: 1,
+    minHeight: 0, // Ensure flex works properly
   },
 
   stepContainer: {
     flex: 1,
-    padding: 20,
+    paddingHorizontal: 20,
+  },
+
+  scrollContent: {
+    paddingVertical: 20,
+    paddingBottom: 40,
   },
 
   row: {
     flexDirection: 'row',
     gap: 16,
+    marginBottom: 16,
   },
 
   halfWidth: {
@@ -790,6 +854,7 @@ const styles = StyleSheet.create({
 
   pickerContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginBottom: 16,
   },
@@ -820,6 +885,7 @@ const styles = StyleSheet.create({
 
   categoryScroll: {
     marginBottom: 16,
+    paddingVertical: 4,
   },
 
   categoryChip: {
@@ -848,7 +914,7 @@ const styles = StyleSheet.create({
   },
 
   listSection: {
-    marginBottom: 24,
+    marginBottom: 32,
   },
 
   sectionTitle: {
@@ -897,6 +963,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 14,
     color: Colors.secondary700,
+    minHeight: 44, // Ensure consistent height
   },
 
   addItemButton: {
@@ -967,7 +1034,7 @@ const styles = StyleSheet.create({
   },
 
   itineraryInput: {
-    marginBottom: 12,
+    marginBottom: 16,
   },
 
   switchContainer: {
