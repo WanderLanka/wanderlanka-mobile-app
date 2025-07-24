@@ -10,13 +10,13 @@ export const initializeServerConnection = async () => {
   console.log('🔍 Detecting server IP...');
   
   const possibleIPs = [
+    '172.20.10.2',  // Current hotspot (confirmed working)
+    '10.21.83.2',   // Previous WiFi
+    '192.168.8.159', // Original IP
+    '192.168.1.100',
+    '10.0.2.2',     // Android emulator
     'localhost',
     '127.0.0.1', 
-    '172.20.10.2',  // Current hotspot
-    '10.0.2.2',     // Android emulator
-    '10.21.83.2',   // Previous WiFi
-    '192.168.1.100',
-    '192.168.8.159', // Original IP
     '192.168.0.100',
   ];
 
@@ -25,11 +25,15 @@ export const initializeServerConnection = async () => {
       const testURL = `http://${ip}:3001/api/ping`;
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
       
       const response = await fetch(testURL, {
         method: 'GET',
         signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
       });
       
       clearTimeout(timeoutId);

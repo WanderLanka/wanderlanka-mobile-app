@@ -739,7 +739,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   bottomSheetTitle: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '600',
     color: Colors.white,
     marginBottom: 0,

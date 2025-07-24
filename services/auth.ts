@@ -48,8 +48,11 @@ export class AuthService {
    */
   static async login(credentials: LoginRequest): Promise<AuthResponse> {
     try {
+      const loginUrl = `${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/login`;
+      console.log('🔐 Attempting login to:', loginUrl);
+      
       // Use direct fetch for login to handle 403 responses properly
-      const response = await fetch(`${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/login`, {
+      const response = await fetch(loginUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -264,7 +267,7 @@ export class AuthService {
         { refreshToken }
       );
 
-      if (response.success && response.data) {
+      if (response.success && response.data && response.data.accessToken && response.data.refreshToken) {
         await StorageService.setAccessToken(response.data.accessToken);
         await StorageService.setRefreshToken(response.data.refreshToken);
         await StorageService.setUserData(response.data.user);

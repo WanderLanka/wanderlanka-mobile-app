@@ -3,7 +3,7 @@
  */
 export const API_CONFIG = {
   // This will be updated dynamically by serverDetection.ts
-  BASE_URL: __DEV__ ? 'http://192.168.8.159:3001' : 'https://your-production-api.com',
+  BASE_URL: __DEV__ ? 'http://172.20.10.2:3001' : 'https://your-production-api.com',
   ENDPOINTS: {
     AUTH: '/api/auth',
     HEALTH: '/health',

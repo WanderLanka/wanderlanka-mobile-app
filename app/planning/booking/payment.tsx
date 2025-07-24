@@ -256,7 +256,7 @@ export default function PaymentScreen() {
           loading={loading}
           variant="primary"
           size="large"
-          leftIcon={loading ? undefined : "lock-closed"}
+          leftIcon={loading ? undefined : <Ionicons name="lock-closed" size={20} color={Colors.white} />}
         />
       </View>
       </ScrollView>

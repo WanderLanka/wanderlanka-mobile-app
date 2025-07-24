@@ -352,15 +352,50 @@ export default function TravelerHomeScreen() {
             <ThemedText style={styles.sectionDescription}>Your travel memories and plans</ThemedText>
           </View>
           <View style={styles.personalContainer}>
-            {[{title:'Saved Plans',desc:'3 itineraries',icon:'bookmark'},{title:'Unfinished',desc:'2 drafts',icon:'document'},{title:'Upcoming',desc:'1 trip',icon:'airplane'}].map((item,i)=>(
-              <TouchableOpacity key={i} style={styles.personalCard}>
-                <View style={styles.personalIconContainer}>
-                  <Ionicons name={item.icon as any} size={28} color={Colors.primary600} />
-                </View>
-                <ThemedText style={styles.personalTitle}>{item.title}</ThemedText>
-                <ThemedText style={styles.personalDesc}>{item.desc}</ThemedText>
-              </TouchableOpacity>
-            ))}
+            <TouchableOpacity 
+              style={styles.personalCard}
+              onPress={() => router.push('/myTrips/saved-plans' as any)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.personalIconContainer, { backgroundColor: Colors.primary100 }]}>
+                <Ionicons name="bookmark" size={28} color={Colors.primary600} />
+              </View>
+              <ThemedText style={styles.personalTitle}>Saved Plans</ThemedText>
+              <ThemedText style={styles.personalDesc}>3 itineraries</ThemedText>
+              <View style={styles.personalBadge}>
+                <ThemedText style={styles.personalBadgeText}>Ready to use</ThemedText>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.personalCard}
+              onPress={() => router.push('/myTrips/unfinished' as any)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.personalIconContainer, { backgroundColor: Colors.warning + '20' }]}>
+                <Ionicons name="document" size={28} color={Colors.warning} />
+              </View>
+              <ThemedText style={styles.personalTitle}>Unfinished</ThemedText>
+              <ThemedText style={styles.personalDesc}>2 drafts</ThemedText>
+              <View style={[styles.personalBadge, { backgroundColor: Colors.warning + '20' }]}>
+                <ThemedText style={[styles.personalBadgeText, { color: Colors.warning }]}>Continue</ThemedText>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.personalCard}
+              onPress={() => router.push('/myTrips/upcoming' as any)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.personalIconContainer, { backgroundColor: Colors.success + '20' }]}>
+                <Ionicons name="airplane" size={28} color={Colors.success} />
+              </View>
+              <ThemedText style={styles.personalTitle}>Upcoming</ThemedText>
+              <ThemedText style={styles.personalDesc}>1 trip</ThemedText>
+              <View style={[styles.personalBadge, { backgroundColor: Colors.success + '20' }]}>
+                <ThemedText style={[styles.personalBadgeText, { color: Colors.success }]}>22 days</ThemedText>
+              </View>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -645,6 +680,22 @@ const styles = StyleSheet.create({
     color: Colors.primary700,
     textAlign: 'center',
     lineHeight: 16,
+  },
+
+  personalBadge: {
+    backgroundColor: Colors.primary100,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginTop: 8,
+    alignSelf: 'center',
+  },
+
+  personalBadgeText: {
+    fontSize: 10,
+    color: Colors.primary600,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 
   // Modal styles

@@ -231,36 +231,13 @@ function RouteDisplayScreen() {
   // Ref to prevent multiple initializations
   const initializedRef = useRef(false);
 
-  // iOS-specific effect to ensure route rendering in modal
+  // iOS-specific effect for modal stability - simplified to prevent freezing
   useEffect(() => {
-    if (isModalVisible && routeDirections[modalRouteType] && mapRef.current) {
-      console.log('🍎 iOS Modal opened - forcing route refresh...');
-      
-      // Small delay to ensure modal is fully rendered
-      const timer = setTimeout(() => {
-        console.log('🔄 iOS: Refreshing map region and route rendering');
-        
-        // Force refresh MapViewDirections key for iOS
-        setMapViewDirectionsKey(prev => prev + 3);
-        
-        // Update map region to ensure proper rendering
-        const currentRouteData = routeDirections[modalRouteType];
-        if (currentRouteData && currentRouteData.bounds) {
-          const { northeast, southwest } = currentRouteData.bounds;
-          const newRegion = {
-            latitude: (northeast.lat + southwest.lat) / 2,
-            longitude: (northeast.lng + southwest.lng) / 2,
-            latitudeDelta: Math.abs(northeast.lat - southwest.lat) * 1.4,
-            longitudeDelta: Math.abs(northeast.lng - southwest.lng) * 1.4,
-          };
-          console.log('🗺️ iOS: Setting optimal map region for route visibility');
-          setMapRegion(newRegion);
-        }
-      }, 500);
-      
-      return () => clearTimeout(timer);
+    if (isModalVisible && routeDirections[modalRouteType]) {
+      console.log('🍎 iOS Modal opened - route data available');
+      // No automatic map region changes to prevent re-render loops on iOS
     }
-  }, [isModalVisible, routeDirections, modalRouteType]);
+  }, [isModalVisible, modalRouteType]);
 
   // Add geocoding function using Google Places API
   const geocodeStartPoint = async (locationName: string): Promise<{ latitude: number; longitude: number } | null> => {
@@ -499,40 +476,47 @@ function RouteDisplayScreen() {
     // Check if route data already exists for this route type
     if (selectedRouteType === routeType && routeDirections[routeType]) {
       console.log('⏸️ Same route already selected, opening modal directly');
-      // Force refresh route rendering for iOS
-      setMapViewDirectionsKey(prev => prev + 1);
-      setIsModalVisible(true);
+      setModalRouteType(routeType);
+      // Use setTimeout to prevent rapid state changes on iOS
+      setTimeout(() => {
+        setIsModalVisible(true);
+      }, 50);
       return;
     }
     
     console.log(`🚀 Processing route selection: ${routeType}`);
     
+    // Set processing state immediately with iOS-friendly approach
+    setIsLoadingRoute(true);
+    setIsModalProcessing(true);
+    setDirectionsError(null);
+    setSelectedRouteType(routeType);
+    setModalRouteType(routeType);
+    
     try {
-      // Set processing state immediately
-      setIsLoadingRoute(true);
-      setDirectionsError(null);
-      setSelectedRouteType(routeType);
-      setModalRouteType(routeType);
-      
       // Fetch directions for specific route type
       console.log(`📍 Fetching directions for ${routeType}...`);
-      await fetchDirections(routeType);
+      const routeData = await fetchDirections(routeType);
       
-      console.log(`✅ Directions loaded successfully for ${routeType}`);
-      
-      // Force refresh MapViewDirections for iOS compatibility
-      setMapViewDirectionsKey(prev => prev + 2);
-      
-      // Small delay before opening modal to ensure state is stable
-      setTimeout(() => {
-        console.log(`📱 Opening modal for ${routeType}`);
-        setIsModalVisible(true);
-        setIsLoadingRoute(false);
-      }, 300);
+      if (routeData) {
+        console.log(`✅ Directions loaded successfully for ${routeType}`);
+        
+        // Ensure modal processing is complete before opening
+        setTimeout(() => {
+          setIsModalProcessing(false);
+          setIsModalVisible(true);
+        }, 100);
+      } else {
+        console.error(`❌ Failed to load route data for ${routeType}`);
+        setDirectionsError(`Failed to load ${routeType} route`);
+        setIsModalProcessing(false);
+      }
       
     } catch (error) {
       console.error(`❌ Error in route selection for ${routeType}:`, error);
       setDirectionsError(`Failed to load ${routeType} route`);
+      setIsModalProcessing(false);
+    } finally {
       setIsLoadingRoute(false);
     }
   };
@@ -771,22 +755,28 @@ function RouteDisplayScreen() {
         routeSelectionTimeoutRef.current = null;
       }
       
-      // Reset all modal-related states
+      // Reset modal-related states immediately to prevent conflicts
       setIsModalVisible(false);
       setIsModalProcessing(false);
-      setIsLoadingRoute(false);
-      setIsLoadingDirections(false);
-      setDirectionsError(null);
       
-      console.log('✅ Modal cleanup complete');
+      // Use setTimeout to ensure modal is closed before resetting loading states
+      setTimeout(() => {
+        setIsLoadingRoute(false);
+        setIsLoadingDirections(false);
+        setDirectionsError(null);
+        console.log('✅ Modal cleanup complete with delay');
+      }, 100);
     };
     
     return (
       <Modal
+        key={`route-modal-${modalRouteType}-${isModalVisible}`}
         visible={isModalVisible}
         animationType="slide"
         presentationStyle="fullScreen"
         onRequestClose={handleModalClose}
+        statusBarTranslucent={false}
+        supportedOrientations={['portrait']}
       >
         <View style={styles.modalContainer}>
           {/* Fixed Header */}
@@ -896,51 +886,52 @@ function RouteDisplayScreen() {
                 </Marker>
               ))}
 
-              {/* SINGLE ROUTE RENDERING - Only show the selected route type with ONE path */}
-              {startLocation && allPlaces.length > 0 && GOOGLE_DIRECTIONS_API_KEY && (
-                <MapViewDirections
-                  key={`single-route-${modalRouteType}-${mapViewDirectionsKey}`}
-                  origin={startLocation}
-                  destination={allPlaces[allPlaces.length - 1].coordinates}
-                  waypoints={allPlaces.slice(0, -1).map(place => place.coordinates)}
-                  apikey={GOOGLE_DIRECTIONS_API_KEY}
-                  strokeWidth={8}
-                  strokeColor={routeOption?.color || getRouteTypeColor(modalRouteType)}
-                  lineCap="round"
-                  lineJoin="round"
-                  mode="DRIVING"
-                  precision="high"
-                  timePrecision="now"
-                  channel={`wanderlanka-${modalRouteType}`}
-                  language="en"
-                  region="LK"
-                  optimizeWaypoints={modalRouteType === 'shortest'}
-                  resetOnChange={true}
-                  splitWaypoints={false}
-                  // Route-specific parameters passed via Google Directions API in fetchDirections()
-                  onStart={(params) => {
-                    console.log(`🚀 Rendering SINGLE ${modalRouteType.toUpperCase()} route:`, params);
-                  }}
-                  onReady={(result) => {
-                    console.log(`✅ SINGLE ${modalRouteType.toUpperCase()} route displayed successfully:`);
-                    console.log(`📏 Distance: ${result.distance} km, Duration: ${result.duration} min`);
-                    console.log(`📍 Coordinates: ${result.coordinates.length} points`);
-                    console.log(`🎨 Route color: ${routeOption?.color}`);
-                    console.log(`🛣️ Route type: ${modalRouteType}`);
-                    
-                    // Auto-fit map to show the specific route
-                    if (mapRef.current && result.coordinates.length > 0) {
-                      console.log(`🗺️ Auto-fitting map to ${modalRouteType} route bounds`);
-                      mapRef.current.fitToCoordinates(result.coordinates, {
-                        edgePadding: { top: 120, right: 60, bottom: 240, left: 60 },
-                        animated: true,
-                      });
-                    }
-                  }}
-                  onError={(errorMessage) => {
-                    console.error(`❌ ${modalRouteType.toUpperCase()} route failed to render:`, errorMessage);
-                  }}
-                />
+              {/* ACCURATE POLYLINE RENDERING - Using Google Directions API data */}
+              {startLocation && allPlaces.length > 0 && routeDirections[modalRouteType] && (
+                <>
+                  {/* Primary: Accurate polyline from Google Directions API */}
+                  <Polyline
+                    key={`accurate-route-${modalRouteType}-${mapViewDirectionsKey}`}
+                    coordinates={decodeGooglePolyline(routeDirections[modalRouteType].polyline)}
+                    strokeWidth={8}
+                    strokeColor={routeOption?.color || getRouteTypeColor(modalRouteType)}
+                    lineCap="round"
+                    lineJoin="round"
+                    onLayout={() => {
+                      console.log(`✅ ACCURATE ${modalRouteType.toUpperCase()} polyline rendered with ${decodeGooglePolyline(routeDirections[modalRouteType].polyline).length} points`);
+                      
+                      // Auto-fit map to show the route
+                      if (mapRef.current && routeDirections[modalRouteType]) {
+                        const coordinates = decodeGooglePolyline(routeDirections[modalRouteType].polyline);
+                        if (coordinates.length > 0) {
+                          console.log(`�️ Auto-fitting map to ${modalRouteType} polyline bounds`);
+                          mapRef.current.fitToCoordinates(coordinates, {
+                            edgePadding: { top: 120, right: 60, bottom: 240, left: 60 },
+                            animated: true,
+                          });
+                        }
+                      }
+                    }}
+                  />
+                  
+                  {/* Fallback: Simple coordinate line if polyline fails */}
+                  {(!routeDirections[modalRouteType].polyline || decodeGooglePolyline(routeDirections[modalRouteType].polyline).length === 0) && (
+                    <Polyline
+                      key={`fallback-route-${modalRouteType}-${mapViewDirectionsKey}`}
+                      coordinates={[
+                        startLocation,
+                        ...allPlaces.map(place => place.coordinates),
+                      ]}
+                      strokeWidth={6}
+                      strokeColor={routeOption?.color || getRouteTypeColor(modalRouteType)}
+                      lineCap="round"
+                      lineJoin="round"
+                      onLayout={() => {
+                        console.log(`⚠️ FALLBACK ${modalRouteType.toUpperCase()} coordinate line rendered`);
+                      }}
+                    />
+                  )}
+                </>
               )}
             </MapView>
           </View>
@@ -995,47 +986,70 @@ function RouteDisplayScreen() {
     return R * c;
   };
 
-  // iOS-compatible polyline decoder for fallback route rendering
+  // Enhanced Google polyline decoder for accurate route rendering
   const decodeGooglePolyline = (polyline: string): { latitude: number; longitude: number }[] => {
+    if (!polyline || polyline.length === 0) {
+      console.warn('⚠️ Empty polyline provided to decoder');
+      return [];
+    }
+
     const points: { latitude: number; longitude: number }[] = [];
     let index = 0;
     let lat = 0;
     let lng = 0;
 
-    while (index < polyline.length) {
-      let b;
-      let shift = 0;
-      let result = 0;
+    try {
+      while (index < polyline.length) {
+        let b;
+        let shift = 0;
+        let result = 0;
 
-      do {
-        b = polyline.charCodeAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
+        // Decode latitude
+        do {
+          b = polyline.charCodeAt(index++) - 63;
+          result |= (b & 0x1f) << shift;
+          shift += 5;
+        } while (b >= 0x20);
 
-      const dlat = ((result & 1) !== 0 ? ~(result >> 1) : (result >> 1));
-      lat += dlat;
+        const dlat = ((result & 1) !== 0 ? ~(result >> 1) : (result >> 1));
+        lat += dlat;
 
-      shift = 0;
-      result = 0;
+        shift = 0;
+        result = 0;
 
-      do {
-        b = polyline.charCodeAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
+        // Decode longitude
+        do {
+          b = polyline.charCodeAt(index++) - 63;
+          result |= (b & 0x1f) << shift;
+          shift += 5;
+        } while (b >= 0x20);
 
-      const dlng = ((result & 1) !== 0 ? ~(result >> 1) : (result >> 1));
-      lng += dlng;
+        const dlng = ((result & 1) !== 0 ? ~(result >> 1) : (result >> 1));
+        lng += dlng;
 
-      points.push({
-        latitude: lat / 1e5,
-        longitude: lng / 1e5,
-      });
+        // Convert to decimal degrees with high precision
+        const decodedLat = lat / 1e5;
+        const decodedLng = lng / 1e5;
+
+        // Validate coordinates are within reasonable bounds for Sri Lanka
+        if (decodedLat >= 5.0 && decodedLat <= 10.0 && decodedLng >= 79.0 && decodedLng <= 82.0) {
+          points.push({
+            latitude: decodedLat,
+            longitude: decodedLng,
+          });
+        }
+      }
+
+      console.log(`✅ Successfully decoded ${points.length} accurate polyline coordinates`);
+      if (points.length > 0) {
+        console.log(`📍 Route bounds: Lat ${Math.min(...points.map(p => p.latitude))}-${Math.max(...points.map(p => p.latitude))}, Lng ${Math.min(...points.map(p => p.longitude))}-${Math.max(...points.map(p => p.longitude))}`);
+      }
+      
+      return points;
+    } catch (error) {
+      console.error('❌ Error decoding polyline:', error);
+      return [];
     }
-
-    console.log(`📍 Decoded ${points.length} polyline coordinates for iOS fallback`);
-    return points;
   };
 
   // Helper function to get route type name
@@ -1154,9 +1168,19 @@ function RouteDisplayScreen() {
                     { borderColor: selectedRouteType === option.id ? option.color : Colors.secondary200 }
                   ]}
                   onPress={() => {
+                    // Add debounce protection for iOS
+                    if (routeSelectionTimeoutRef.current) {
+                      console.log('⏸️ Debouncing route selection tap');
+                      return;
+                    }
+                    
+                    routeSelectionTimeoutRef.current = setTimeout(() => {
+                      routeSelectionTimeoutRef.current = null;
+                    }, 1000); // 1 second debounce
+                    
                     handleRouteSelect(option.id);
                   }}
-                  disabled={isLoadingRoute || isLoadingDirections || isModalProcessing}
+                  disabled={isLoadingRoute || isLoadingDirections || isModalProcessing || isModalVisible}
                 >
                   <View style={[styles.horizontalRouteIcon, { backgroundColor: option.color + '20' }]}>
                     {isLoadingRoute && selectedRouteType === option.id ? (
@@ -1347,7 +1371,8 @@ function RouteDisplayScreen() {
         />
       </View>
 
-      <RouteModal />
+      {/* Only render modal when data is ready to prevent iOS crashes */}
+      {startLocation && allPlaces.length > 0 && <RouteModal />}
     </SafeAreaView>
   );
 }
