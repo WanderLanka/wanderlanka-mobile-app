@@ -357,6 +357,7 @@ export default function GuideRegistrationScreen() {
                           maximumDate={new Date()}
                           minimumDate={new Date(1940, 0, 1)}
                           style={styles.iosDatePicker}
+                          textColor="#000000"
                         />
                       </View>
                     </View>

@@ -469,8 +469,6 @@ export default function PackagesScreen() {
   );
 
   const renderCreatePackageForm = () => {
-    // We'll need to handle the router.back() calls from CreatePackageComponent
-    // For now, let's use the component directly in the modal
     return (
       <Modal
         visible={showCreateForm}
@@ -478,29 +476,7 @@ export default function PackagesScreen() {
         presentationStyle="fullScreen"
         onRequestClose={() => setShowCreateForm(false)}
       >
-        <View style={{ flex: 1 }}>
-          <CreatePackageComponent />
-          {/* Add a custom header to handle close if needed */}
-          <TouchableOpacity 
-            style={{
-              position: 'absolute',
-              top: 50,
-              right: 20,
-              zIndex: 1000,
-              backgroundColor: Colors.white,
-              borderRadius: 20,
-              padding: 8,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.2,
-              shadowRadius: 4,
-              elevation: 5,
-            }}
-            onPress={() => setShowCreateForm(false)}
-          >
-            <Ionicons name="close" size={24} color={Colors.secondary700} />
-          </TouchableOpacity>
-        </View>
+        <CreatePackageComponent onClose={() => setShowCreateForm(false)} />
       </Modal>
     );
   };
