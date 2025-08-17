@@ -83,13 +83,29 @@ export class StorageService {
    */
   static async clearAuthData(): Promise<void> {
     try {
+      console.log('🧹 Clearing all authentication data...');
       await AsyncStorage.multiRemove([
         STORAGE_KEYS.ACCESS_TOKEN,
         STORAGE_KEYS.REFRESH_TOKEN,
         STORAGE_KEYS.USER_DATA,
       ]);
+      console.log('✅ Authentication data cleared successfully');
     } catch (error) {
       console.error('Error clearing auth data:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Force clear all app storage (for debugging)
+   */
+  static async clearAllStorage(): Promise<void> {
+    try {
+      console.log('🧹 Clearing ALL app storage...');
+      await AsyncStorage.clear();
+      console.log('✅ All app storage cleared successfully');
+    } catch (error) {
+      console.error('Error clearing all storage:', error);
       throw error;
     }
   }

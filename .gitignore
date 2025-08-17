@@ -36,6 +36,15 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# Temporary and development files
+devConfig.ts
+networkConfig.ts
+test-routes.sh
+services/config/microserviceEndpoints.ts
+services/core/
+services/domains/
+
+# Documentation and PDFs
 app-example
 WanderLanka-Final.pdf
 database structure.pdf
@@ -51,3 +60,7 @@ Group 07 - Action Plan .pdf
 itinerary.jpeg
 
 .env
+
+API_GATEWAY_IMPLEMENTATION.md
+MICROSERVICE_ARCHITECTURE_ANALYSIS.md
+MICROSERVICE_ARCHITECTURE_PROPOSAL.md

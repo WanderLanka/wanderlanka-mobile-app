@@ -20,36 +20,104 @@ export class AuthService {
    */
   static async signUp(userData: SignUpRequest): Promise<AuthResponse> {
     try {
-      const response = await ApiService.post<AuthResponse>(
-        `${this.AUTH_ENDPOINT}/signup`,
-        userData
-      );
+      // API Gateway URL: http://172.20.10.2:3000/auth/api/auth/signup
+      // Gateway routes to: http://localhost:3001/api/auth/signup
+      const signupUrl = `${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/signup`;
+      console.log('🔐 Attempting signup via API Gateway:', signupUrl);
+      console.log('📤 Signup data:', userData);
+      
+      // Use direct fetch for signup to handle all response types properly
+      const response = await fetch(signupUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      });
 
-      // Store tokens if signup successful and tokens are provided
-      if (response.success && response.data) {
-        // Only store tokens if they exist (active users get tokens, pending guides don't)
-        if (response.data.accessToken && response.data.refreshToken) {
-          await StorageService.setAccessToken(response.data.accessToken);
-          await StorageService.setRefreshToken(response.data.refreshToken);
-          await StorageService.setUserData(response.data.user);
+      console.log('📡 Signup response status:', response.status);
+      const data = await response.json();
+      console.log('📊 Signup response data:', data);
+
+      // Handle success responses
+      if (response.ok && data.success) {
+        // Store tokens if signup successful and tokens are provided
+        // Only active users get tokens immediately, pending guides don't
+        if (data.data?.accessToken && data.data?.refreshToken) {
+          await StorageService.setAccessToken(data.data.accessToken);
+          await StorageService.setRefreshToken(data.data.refreshToken);
+          await StorageService.setUserData(data.data.user);
         }
-        // For guides without tokens, we don't store anything locally
+        return data;
       }
 
-      return response;
+      // Handle error responses
+      if (!response.ok) {
+        return {
+          success: false,
+          message: data.message || `HTTP ${response.status}`,
+          error: data.error || data.message || `Signup failed with status ${response.status}`
+        };
+      }
+
+      return data;
     } catch (error) {
-      console.error('Sign up error:', error);
-      throw new Error(error instanceof Error ? error.message : 'Sign up failed');
+      console.error('Signup error:', error);
+      
+      // Handle different types of signup errors
+      if (error instanceof Error) {
+        const errorMessage = error.message.toLowerCase();
+        
+        // Network or timeout errors
+        if (errorMessage.includes('network') || errorMessage.includes('timeout') || errorMessage.includes('fetch')) {
+          return {
+            success: false,
+            message: 'Network error. Please check your internet connection and try again.',
+            error: 'NETWORK_ERROR'
+          };
+        }
+        
+        // Server errors (5xx)
+        if (errorMessage.includes('http 5') || errorMessage.includes('internal server error')) {
+          return {
+            success: false,
+            message: 'Server error. Please try again later.',
+            error: 'SERVER_ERROR'
+          };
+        }
+        
+        // Return structured error response
+        return {
+          success: false,
+          message: error.message,
+          error: 'SIGNUP_ERROR'
+        };
+      }
+      
+      // Fallback for unknown errors
+      return {
+        success: false,
+        message: 'Signup failed. Please try again.',
+        error: 'UNKNOWN_ERROR'
+      };
     }
   }
 
-  /**
+    /**
    * Login user
    */
   static async login(credentials: LoginRequest): Promise<AuthResponse> {
     try {
+      console.log(`
+🔐 ===== AUTHENTICATION FLOW =====`);
+      console.log(`👤 Attempting login for user:`, credentials.email);
+      
+      // API Gateway URL: http://172.20.10.2:3000/auth/api/auth/login
+      // Gateway routes to: http://localhost:3001/api/auth/login
       const loginUrl = `${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/login`;
-      console.log('🔐 Attempting login to:', loginUrl);
+      console.log(`🌐 Mobile App → API Gateway: ${loginUrl}`);
+      console.log(`🎯 Expected routing: API Gateway → User Service (port 3001)`);
+      console.log(`📋 Credentials being sent:`, { email: credentials.email, password: '***' });
       
       // Use direct fetch for login to handle 403 responses properly
       const response = await fetch(loginUrl, {
@@ -60,21 +128,27 @@ export class AuthService {
         body: JSON.stringify(credentials),
       });
 
+      console.log(`📡 Login response status: ${response.status}`);
       const data = await response.json();
+      console.log(`📊 Login response data:`, data);
 
       // Handle success responses
       if (response.ok && data.success) {
+        console.log(`✅ Authentication successful!`);
         // Store tokens if login successful
         if (data.data?.accessToken && data.data?.refreshToken) {
           await StorageService.setAccessToken(data.data.accessToken);
           await StorageService.setRefreshToken(data.data.refreshToken);
           await StorageService.setUserData(data.data.user);
+          console.log(`💾 Tokens stored successfully`);
+          console.log(`👤 User data saved:`, data.data.user);
         }
         return data;
       }
 
       // Handle 403 Forbidden (account status issues) as valid responses
       if (response.status === 403) {
+        console.log(`🚫 Account access restricted:`, data.message);
         return {
           success: false,
           message: data.message || 'Account status issue',
@@ -84,12 +158,13 @@ export class AuthService {
 
       // Handle other error responses
       if (!response.ok) {
+        console.log(`❌ Login failed:`, data.message || data.error);
         throw new Error(data.message || data.error || `HTTP ${response.status}`);
       }
 
       return data;
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('❌ Login error:', error);
       
       // Handle different types of login errors
       if (error instanceof Error) {
@@ -248,6 +323,18 @@ export class AuthService {
       return null;
     } catch (error) {
       console.error('Get profile error:', error);
+      
+      // If token is expired or invalid, clear auth data
+      if (error instanceof Error) {
+        const errorMessage = error.message.toLowerCase();
+        if (errorMessage.includes('invalid token') || 
+            errorMessage.includes('unauthorized') || 
+            errorMessage.includes('expired')) {
+          console.log('🧹 Token expired/invalid, clearing auth data');
+          await StorageService.clearAuthData();
+        }
+      }
+      
       return null;
     }
   }
@@ -296,6 +383,8 @@ export class AuthService {
       return profile !== null;
     } catch (error) {
       console.error('Authentication check error:', error);
+      // Clear potentially invalid auth data
+      await StorageService.clearAuthData();
       return false;
     }
   }

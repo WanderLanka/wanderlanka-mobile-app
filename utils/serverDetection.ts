@@ -1,55 +1,105 @@
 // Simple auto-IP detection for mobile development
-// Add this at the top of your App.tsx or root component
+// Updated to work with API Gateway
 
 import { API_CONFIG } from '../services/config';
 
-// Auto-detect server IP on app startup
-export const initializeServerConnection = async () => {
-  if (!__DEV__) return; // Only in development
-  
-  console.log('🔍 Detecting server IP...');
-  
-  const possibleIPs = [
-    '172.20.10.2',  // Current hotspot (confirmed working)
-    '10.21.83.2',   // Previous WiFi
-    '192.168.8.159', // Original IP
-    '192.168.1.100',
-    '10.0.2.2',     // Android emulator
-    'localhost',
-    '127.0.0.1', 
-    '192.168.0.100',
+export class ServerDetection {
+  private static readonly POTENTIAL_IPS = [
+    '192.168.8.159',      // Current IP - UPDATED
+    '10.21.136.103',      // Previous IP
+    '172.20.10.2',        // Previous IP
+    '192.168.8.142',      // Another previous IP
+    '192.168.1.100',      // Common router IP range
+    '10.0.0.100',         // Common corporate IP range
   ];
 
-  for (const ip of possibleIPs) {
+  private static readonly TIMEOUT = 3000; // 3 seconds
+
+  static async detectServer(): Promise<string> {
+    console.log('🔍 Detecting API Gateway server...');
+    
+    // First try the configured IP
+    const configuredIP = API_CONFIG.BASE_URL.replace('http://', '').split(':')[0];
+    if (await this.testServer(configuredIP)) {
+      console.log(`✅ API Gateway found at configured IP: ${configuredIP}`);
+      return `http://${configuredIP}:3000`;
+    }
+
+    // Try other potential IPs
+    for (const ip of this.POTENTIAL_IPS) {
+      if (ip === configuredIP) continue; // Skip already tested IP
+      
+      if (await this.testServer(ip)) {
+        console.log(`✅ API Gateway found at: ${ip}`);
+        // Update the config for future requests
+        (API_CONFIG as any).BASE_URL = `http://${ip}:3000`;
+        return `http://${ip}:3000`;
+      }
+    }
+
+    console.warn('⚠️ No API Gateway server found, using configured URL');
+    return API_CONFIG.BASE_URL;
+  }
+
+  private static async testServer(ip: string): Promise<boolean> {
     try {
-      const testURL = `http://${ip}:3001/api/ping`;
+      console.log(`🔍 Testing API Gateway at: ${ip}:3000`);
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
-      
-      const response = await fetch(testURL, {
+      const timeoutId = setTimeout(() => controller.abort(), this.TIMEOUT);
+
+      const response = await fetch(`http://${ip}:3000/health`, {
         method: 'GET',
         signal: controller.signal,
         headers: {
           'Accept': 'application/json',
-          'Content-Type': 'application/json',
         },
       });
-      
+
       clearTimeout(timeoutId);
       
       if (response.ok) {
-        console.log(`✅ Server found at: ${ip}`);
-        // Update the config with working IP
-        (API_CONFIG as any).BASE_URL = `http://${ip}:3001`;
-        console.log(`📱 Mobile app will use: http://${ip}:3001`);
-        return;
+        const data = await response.json();
+        console.log(`✅ API Gateway health check passed for ${ip}:`, data.status);
+        return true;
       }
+      return false;
     } catch (error) {
-      continue;
+      console.log(`❌ API Gateway test failed for ${ip}:3000`);
+      return false;
     }
   }
+}
+
+// Auto-detect API Gateway on app startup
+export const initializeServerConnection = async () => {
+  if (!__DEV__) return; // Only in development
   
-  console.warn('⚠️ No server found, using localhost fallback');
-  (API_CONFIG as any).BASE_URL = 'http://localhost:3001';
+  console.log('🔍 Auto-detecting API Gateway...');
+  
+  // Check for expired tokens and clear if needed
+  try {
+    const { StorageService } = await import('../services/storage');
+    const accessToken = await StorageService.getAccessToken();
+    
+    if (accessToken) {
+      // Check if token looks expired (basic check)
+      try {
+        const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]));
+        const currentTime = Math.floor(Date.now() / 1000);
+        
+        if (tokenPayload.exp && tokenPayload.exp < currentTime) {
+          console.log('🧹 Found expired token, clearing auth data...');
+          await StorageService.clearAuthData();
+        }
+      } catch (e) {
+        console.log('🧹 Invalid token format, clearing auth data...');
+        await StorageService.clearAuthData();
+      }
+    }
+  } catch (error) {
+    console.log('⚠️ Could not check token status:', error);
+  }
+  
+  await ServerDetection.detectServer();
 };
