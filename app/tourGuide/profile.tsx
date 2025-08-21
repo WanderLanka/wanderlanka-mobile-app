@@ -29,9 +29,9 @@ const formatNumber = (num: number): string => {
 // Hardcoded user data - easily replaceable with backend calls
 const MOCK_USER_DATA = {
   id: 'user123',
-  username: 'john_traveler',
-  email: 'john@example.com',
-  fullName: 'John Doe',
+  username: 'praneesh_traveler',
+  email: 'praneesh@example.com',
+  fullName: 'Praneesh',
   phone: '+94 77 123 4567',
   avatar: null, // placeholder for profile image
   memberSince: '2023-01-15',
