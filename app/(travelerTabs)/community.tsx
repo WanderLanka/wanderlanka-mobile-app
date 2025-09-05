@@ -345,7 +345,7 @@ export default function CommunityScreen() {
             p.id === postId ? { ...p, shares: p.shares + 1 } : p
           )
         );
-      } catch (error) {
+      } catch {
         Alert.alert('Error', 'Could not share the post');
       }
     }

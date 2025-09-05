@@ -1,21 +1,21 @@
 import * as React from 'react';
 
 import {
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import {
-  CustomButton,
-  CustomTextInput,
-  ThemedText,
-  ThemedView
+    CustomButton,
+    CustomTextInput,
+    ThemedText,
+    ThemedView
 } from '../../components';
 
 import { router } from 'expo-router';
@@ -203,8 +203,8 @@ export default function LoginScreen() {
 
             <CustomButton
               title="Log In"
-              onPress={handleLogin}
-              // onPress={() => router.replace('/(travelerTabs)/home')}
+              // onPress={handleLogin}
+              onPress={() => router.replace('/(travelerTabs)/home')}
               loading={isLoading}
               style={styles.loginButton}
             />
