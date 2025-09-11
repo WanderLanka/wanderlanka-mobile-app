@@ -1,9 +1,10 @@
 
+import { StatusBar } from 'expo-status-bar';
+import React, { useRef, useState } from 'react';
 import {
   Alert,
   Animated,
   FlatList,
-  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -13,15 +14,15 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
-import React, { useRef, useState } from 'react';
-import { formatTimeAgo, formatTimeShort, getTimestampAgo } from '../../utils/timeFormat';
+import { formatTimeShort, getTimestampAgo } from '../../utils/timeFormat';
 
-import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ThemedText, TopBar } from '../../components';
+import { Colors } from '../../constants/Colors';
 
 // Mock data - easily replaceable with backend API calls
 const MOCK_TRAVEL_POSTS = [
@@ -283,6 +284,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onShare, o
 };
 
 export default function CommunityScreen() {
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState('blog');
   const [posts, setPosts] = useState(MOCK_TRAVEL_POSTS);
   const [showPostOptions, setShowPostOptions] = useState(false);
@@ -343,7 +345,7 @@ export default function CommunityScreen() {
             p.id === postId ? { ...p, shares: p.shares + 1 } : p
           )
         );
-      } catch (error) {
+      } catch {
         Alert.alert('Error', 'Could not share the post');
       }
     }
@@ -691,12 +693,17 @@ export default function CommunityScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Community</Text>
-        <TouchableOpacity>
-          <Ionicons name="notifications-outline" size={24} color={Colors.black} />
-        </TouchableOpacity>
+      <View style={[styles.statusBarBackground, { height: insets.top }]} />
+      <StatusBar style="light" translucent />
+      <TopBar
+        onProfilePress={() => { /* handle profile/account */ }}
+        onNotificationsPress={() => { /* handle notifications */ }}
+      />
+
+      {/* Header Section */}
+      <View style={styles.greetingContainer}>
+        <ThemedText variant="title" style={styles.greeting}>Community</ThemedText>
+        <ThemedText variant="caption" style={styles.caption}>Connect with fellow travelers and share experiences.</ThemedText>
       </View>
 
       {/* Tabs */}
@@ -874,6 +881,33 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.secondary50,
+  },
+  statusBarBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: Colors.primary800,
+    zIndex: 10,
+  },
+
+  // Header Section
+  greetingContainer: {
+    backgroundColor: Colors.primary800,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  greeting: {
+    marginTop: 10,
+    marginBottom: 4,
+    fontSize: 24,
+    fontWeight: '400',
+    color: Colors.white,
+  },
+  caption: {
+    color: Colors.primary100,
+    marginBottom: 20,
   },
 
   header: {

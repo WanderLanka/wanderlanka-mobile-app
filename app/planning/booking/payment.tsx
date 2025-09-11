@@ -2,11 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CustomButton, CustomTextInput, ThemedText } from '../../../components';
@@ -14,15 +14,15 @@ import { Colors } from '../../../constants/Colors';
 import { useBooking } from '../../../context/BookingContext';
 
 export default function PaymentScreen() {
-  const { bookings, getTotalAmount, clearAllBookings } = useBooking();
+  const { bookings, getTotalAmount } = useBooking();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     cardNumber: '4242 4242 4242 4242',
     expiryDate: '12/28',
     cvv: '123', 
-    cardholderName: 'John Doe', 
-    email: 'john.doe@example.com', 
+    cardholderName: 'Praneesh Surendran', 
+    email: 'praneesh99@gmail.com', 
   });
 
   const formatCardNumber = (text: string) => {
@@ -90,20 +90,16 @@ export default function PaymentScreen() {
     
     setLoading(false);
     
-    // Simulate successful payment
-    Alert.alert(
-      'Payment Successful! 🎉',
-      `Your booking has been confirmed!\n\nTransaction ID: TXN${Date.now()}\nAmount Paid: $${getTotalAmount()}\n\nConfirmation details have been sent to ${paymentForm.email}`,
-      [
-        {
-          text: 'View Bookings',
-          onPress: () => {
-            clearAllBookings();
-            router.replace('/(travelerTabs)/myActivity');
-          }
-        }
-      ]
-    );
+    // Navigate to confirmation screen with booking details
+    router.push({
+      pathname: '/planning/booking/confirmation',
+      params: {
+        transactionId: `TXN${Date.now()}`,
+        totalAmount: getTotalAmount().toString(),
+        email: paymentForm.email,
+        paymentDate: new Date().toISOString(),
+      }
+    });
   };
 
   const totalAmount = getTotalAmount();
@@ -219,7 +215,7 @@ export default function PaymentScreen() {
           {/* Cardholder Name */}
           <CustomTextInput
             label="Cardholder Name"
-            placeholder="John Doe"
+            placeholder="Praneesh Surendran"
             value={paymentForm.cardholderName}
             onChangeText={(text) => handleInputChange('cardholderName', text)}
             autoCapitalize="words"
@@ -229,7 +225,7 @@ export default function PaymentScreen() {
           {/* Email */}
           <CustomTextInput
             label="Email Address"
-            placeholder="john@example.com"
+            placeholder="praneesh99@gmail.com"
             value={paymentForm.email}
             onChangeText={(text) => handleInputChange('email', text)}
             keyboardType="email-address"
@@ -239,15 +235,6 @@ export default function PaymentScreen() {
         </View>
       </View>
 
-      {/* Security Notice */}
-      <View style={styles.securityNotice}>
-        <Ionicons name="shield-checkmark" size={20} color={Colors.primary600} />
-        <ThemedText style={styles.securityText}>
-          Your payment information is encrypted and secure. We use industry-standard SSL encryption.
-        </ThemedText>
-      </View>
-
-      {/* Payment Button */}
       <View style={styles.paymentActions}>
         <CustomButton
           title={loading ? "Processing..." : `Pay $${totalAmount}`}

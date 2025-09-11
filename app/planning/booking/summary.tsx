@@ -158,26 +158,22 @@ export default function SummaryBookingScreen({ onNavigateToTab }: SummaryBooking
               {type === 'accommodation' && (
                 <>
                   <View style={styles.detailRow}>
-                    <Ionicons name="location-outline" size={16} color={Colors.secondary500} />
                     <ThemedText style={styles.detailText}>
                       {booking.destination || 'Unknown Location'}
                     </ThemedText>
                   </View>
                   <View style={styles.detailRow}>
-                    <Ionicons name="calendar-outline" size={16} color={Colors.secondary500} />
                     <ThemedText style={styles.detailText}>
                       {getStartDate()} → {getEndDate()}
                     </ThemedText>
                   </View>
                   <View style={styles.detailRow}>
-                    <Ionicons name="bed-outline" size={16} color={Colors.secondary500} />
                     <ThemedText style={styles.detailText}>
                       {booking.numberOfRooms || 1} {(booking.numberOfRooms || 1) === 1 ? 'room' : 'rooms'}
                     </ThemedText>
                   </View>
                   {(booking.numberOfGuests && booking.numberOfGuests > 1) && (
                     <View style={styles.detailRow}>
-                      <Ionicons name="people-outline" size={16} color={Colors.secondary500} />
                       <ThemedText style={styles.detailText}>
                         {booking.numberOfGuests} guests
                       </ThemedText>
@@ -185,7 +181,6 @@ export default function SummaryBookingScreen({ onNavigateToTab }: SummaryBooking
                   )}
                   {booking.pricePerNight && (
                     <View style={styles.detailRow}>
-                      <Ionicons name="cash-outline" size={16} color={Colors.secondary500} />
                       <ThemedText style={styles.detailText}>
                         ${booking.pricePerNight}/night × {booking.numberOfNights || 1} nights
                       </ThemedText>
@@ -197,26 +192,22 @@ export default function SummaryBookingScreen({ onNavigateToTab }: SummaryBooking
               {type === 'transport' && (
                 <>
                   <View style={styles.detailRow}>
-                    <Ionicons name="location-outline" size={16} color={Colors.secondary500} />
                     <ThemedText style={styles.detailText}>
                       {booking.destination || 'Unknown Location'}
                     </ThemedText>
                   </View>
                   <View style={styles.detailRow}>
-                    <Ionicons name="calendar-outline" size={16} color={Colors.secondary500} />
                     <ThemedText style={styles.detailText}>
                       {getStartDate()} → {getEndDate()}
                     </ThemedText>
                   </View>
                   <View style={styles.detailRow}>
-                    <Ionicons name="car-outline" size={16} color={Colors.secondary500} />
                     <ThemedText style={styles.detailText}>
                       {booking.provider || 'Transport Service'} - {booking.transportInfo?.type || 'Vehicle'}
                     </ThemedText>
                   </View>
                   {booking.pickupLocation && (
                     <View style={styles.detailRow}>
-                      <Ionicons name="navigate-outline" size={16} color={Colors.secondary500} />
                       <ThemedText style={styles.detailText}>
                         Pickup: {booking.pickupLocation}
                       </ThemedText>
@@ -224,7 +215,6 @@ export default function SummaryBookingScreen({ onNavigateToTab }: SummaryBooking
                   )}
                   {booking.dropoffLocation && (
                     <View style={styles.detailRow}>
-                      <Ionicons name="location" size={16} color={Colors.secondary500} />
                       <ThemedText style={styles.detailText}>
                         Drop-off: {booking.dropoffLocation}
                       </ThemedText>
@@ -232,7 +222,6 @@ export default function SummaryBookingScreen({ onNavigateToTab }: SummaryBooking
                   )}
                   {booking.pricePerDay && (
                     <View style={styles.detailRow}>
-                      <Ionicons name="cash-outline" size={16} color={Colors.secondary500} />
                       <ThemedText style={styles.detailText}>
                         ${booking.pricePerDay}/day × {booking.days || 1} days
                       </ThemedText>
@@ -244,26 +233,22 @@ export default function SummaryBookingScreen({ onNavigateToTab }: SummaryBooking
               {type === 'guides' && (
                 <>
                   <View style={styles.detailRow}>
-                    <Ionicons name="location-outline" size={16} color={Colors.secondary500} />
                     <ThemedText style={styles.detailText}>
                       {booking.destination || 'Unknown Location'}
                     </ThemedText>
                   </View>
                   <View style={styles.detailRow}>
-                    <Ionicons name="calendar-outline" size={16} color={Colors.secondary500} />
                     <ThemedText style={styles.detailText}>
                       {getStartDate()} → {getEndDate()}
                     </ThemedText>
                   </View>
                   <View style={styles.detailRow}>
-                    <Ionicons name="person-outline" size={16} color={Colors.secondary500} />
                     <ThemedText style={styles.detailText}>
                       {booking.tourType || 'Custom Tour'}
                     </ThemedText>
                   </View>
                   {booking.meetingPoint && (
                     <View style={styles.detailRow}>
-                      <Ionicons name="navigate-outline" size={16} color={Colors.secondary500} />
                       <ThemedText style={styles.detailText}>
                         Meet at: {booking.meetingPoint}
                       </ThemedText>
@@ -271,7 +256,6 @@ export default function SummaryBookingScreen({ onNavigateToTab }: SummaryBooking
                   )}
                   {booking.guideInfo?.experience && (
                     <View style={styles.detailRow}>
-                      <Ionicons name="time-outline" size={16} color={Colors.secondary500} />
                       <ThemedText style={styles.detailText}>
                         Experience: {booking.guideInfo.experience}
                       </ThemedText>
@@ -279,7 +263,6 @@ export default function SummaryBookingScreen({ onNavigateToTab }: SummaryBooking
                   )}
                   {booking.pricePerDay && (
                     <View style={styles.detailRow}>
-                      <Ionicons name="cash-outline" size={16} color={Colors.secondary500} />
                       <ThemedText style={styles.detailText}>
                         ${booking.pricePerDay}/day × {booking.days || 1} days
                       </ThemedText>
@@ -532,9 +515,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    paddingVertical: 4,
   },
   detailText: {
     fontSize: 14,
