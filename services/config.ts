@@ -4,12 +4,12 @@
  */
 export const API_CONFIG = {
   // API Gateway endpoint - Updated to use current IP address
-  BASE_URL: 'http://192.168.8.159:3000',
+  BASE_URL: 'http://10.22.160.179:3000',
   TIMEOUT: 10000,
   
   ENDPOINTS: {
     // Auth endpoints through API Gateway
-    AUTH: '/auth/api/auth',
+    AUTH: '/api/auth',
   }
 };
 
