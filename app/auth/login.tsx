@@ -203,8 +203,7 @@ export default function LoginScreen() {
 
             <CustomButton
               title="Log In"
-              // onPress={handleLogin}
-              onPress={() => router.replace('/(travelerTabs)/home')}
+              onPress={handleLogin}
               loading={isLoading}
               style={styles.loginButton}
             />
