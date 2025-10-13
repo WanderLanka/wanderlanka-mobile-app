@@ -138,40 +138,64 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         password,
       });
 
-      if (response.success && response.data) {
-        // Check if user has pending status
-        if (response.data.user.status === 'pending') {
-          // Don't set as authenticated for pending users
-          setUser(null);
-          setIsAuthenticated(false);
-          // Return status info instead of throwing error
-          return { 
-            success: false, 
-            status: 'pending',
-            message: 'Account pending approval. Your guide account is still under review. Please wait for admin approval.'
-          };
-        }
+      console.log('📍 AuthContext login response:', JSON.stringify(response, null, 2));
+
+      // Debug the conditions
+      const hasSuccess = !!response.success;
+      const hasDataUser = !!(response.data && response.data.user);
+      const hasRootUser = !!((response as any).user && (response as any).accessToken);
+      console.log('🔍 Condition check:', { hasSuccess, hasDataUser, hasRootUser });
+
+      // Check for successful login - either explicit success flag or presence of user data with tokens
+      if (hasSuccess || hasDataUser || hasRootUser) {
+        // Handle successful login - check both possible response formats
+        const userData = response.data?.user || (response as any).user;
         
-        // Check if user has suspended or rejected status
-        if (response.data.user.status === 'suspended') {
-          setUser(null);
-          setIsAuthenticated(false);
-          throw new Error('Account suspended. Your account has been suspended. Please contact support.');
+        if (userData) {
+          // Check if user has pending status
+          if (userData.status === 'pending') {
+            // Don't set as authenticated for pending users
+            setUser(null);
+            setIsAuthenticated(false);
+            // Return status info instead of throwing error
+            return { 
+              success: false, 
+              status: 'pending',
+              message: 'Account pending approval. Your guide account is still under review. Please wait for admin approval.'
+            };
+          }
+          
+          // Check if user has suspended or rejected status
+          if (userData.status === 'suspended') {
+            setUser(null);
+            setIsAuthenticated(false);
+            throw new Error('Account suspended. Your account has been suspended. Please contact support.');
+          }
+          
+          if (userData.status === 'rejected') {
+            setUser(null);
+            setIsAuthenticated(false);
+            throw new Error('Account rejected. Your guide application has been rejected. Please contact support for more information.');
+          }
+          
+          // User is active, proceed with login
+          setUser(userData);
+          setIsAuthenticated(true);
+          console.log('✅ Login successful, user authenticated:', userData.username);
+          return { success: true };
+        } else {
+          // Success but no user data - should not happen, but handle gracefully
+          console.warn('Login successful but no user data received');
+          return { success: true };
         }
-        
-        if (response.data.user.status === 'rejected') {
-          setUser(null);
-          setIsAuthenticated(false);
-          throw new Error('Account rejected. Your guide application has been rejected. Please contact support for more information.');
-        }
-        
-        // User is active, proceed with login
-        setUser(response.data.user);
-        setIsAuthenticated(true);
-        return { success: true };
       } else {
         // Handle different types of login failures
         const errorMessage = response.message || response.error || 'Login failed';
+        console.log('🔍 AuthContext handling login failure:', { 
+          success: response.success, 
+          errorMessage, 
+          fullResponse: response 
+        });
         
         // Check for account status issues (these come from AuthService as non-success responses)
         if (errorMessage.toLowerCase().includes('pending approval') || 
@@ -207,6 +231,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             errorMessage.toLowerCase().includes('invalid password') ||
             errorMessage.toLowerCase().includes('user not found')) {
           throw new Error('Invalid username/email or password. Please check your credentials and try again.');
+        }
+        
+        // Check if this is actually a success message being treated as error (should not happen)
+        if (errorMessage.toLowerCase().includes('login successful') || 
+            errorMessage.toLowerCase().includes('success')) {
+          console.warn('🚨 Success message treated as error - checking for user data in response');
+          
+          // Check if we have user data despite the error path
+          const userData = (response as any).user;
+          if (userData) {
+            console.log('✅ Found user data in error path, proceeding with login');
+            setUser(userData);
+            setIsAuthenticated(true);
+            return { success: true };
+          }
+          
+          return { success: true };
         }
         
         // For other errors, use the original message

@@ -1,17 +1,16 @@
 /**
- * API Configuration with API Gateway support
- * Updated to use API Gateway following microservice architecture
+ * API Configuration with dynamic IP support
  */
 export const API_CONFIG = {
-  // API Gateway endpoint - Updated to use current IP address
-  BASE_URL: 'http://10.22.160.179:3000',
-  TIMEOUT: 10000,
-  
+  // This will be updated dynamically by serverDetection.ts
+  BASE_URL: __DEV__ ? 'http://192.168.8.142:3001' : 'https://your-production-api.com',
   ENDPOINTS: {
-    // Auth endpoints through API Gateway
-    AUTH: '/api/auth',
-  }
-};
+    AUTH: '', // Root level auth endpoints (/register, /login)
+    HEALTH: '/health',
+    PING: '/health', // Use health endpoint for ping
+  },
+  TIMEOUT: 30000, // 30 seconds - increased for mobile networks
+} as const;
 
 /**
  * HTTP Status codes

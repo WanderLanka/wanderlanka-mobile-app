@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "wanderlanka-web-app",
-    "slug": "wanderlanka-web-app",
+    "name": "wanderlanka-mobile-app",
+    "slug": "wanderlanka-mobile-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/wander_logo.png",
