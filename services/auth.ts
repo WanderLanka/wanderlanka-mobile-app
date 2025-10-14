@@ -20,29 +20,38 @@ export class AuthService {
    */
   static async signUp(userData: SignUpRequest): Promise<AuthResponse> {
     try {
-      // API Gateway URL: http://172.20.10.2:3000/auth/api/auth/signup
-      // Gateway routes to: http://localhost:3001/api/auth/signup
-      const signupUrl = `${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/signup`;
-      console.log('🔐 Attempting signup via API Gateway:', signupUrl);
-      console.log('📤 Signup data:', userData);
+      console.log('🔗 Signup request:', { ...userData, password: '[HIDDEN]' });
       
-      // Use direct fetch for signup to handle all response types properly
-      const response = await fetch(signupUrl, {
+      // Use direct fetch for signup to match login implementation
+      const response = await fetch(`${API_CONFIG.BASE_URL}/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-platform': 'mobile',
         },
         body: JSON.stringify(userData),
       });
 
       console.log('📡 Signup response status:', response.status);
-      const data = await response.json();
-      console.log('📊 Signup response data:', data);
+
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      let data;
+      
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        // Handle non-JSON responses
+        const text = await response.text();
+        console.error('❌ Non-JSON signup response:', text);
+        throw new Error('Server returned invalid response format');
+      }
+
+      console.log('📡 Signup response data:', data);
 
       // Handle success responses
       if (response.ok && data.success) {
         // Store tokens if signup successful and tokens are provided
-        // Only active users get tokens immediately, pending guides don't
         if (data.data?.accessToken && data.data?.refreshToken) {
           await StorageService.setAccessToken(data.data.accessToken);
           await StorageService.setRefreshToken(data.data.refreshToken);
@@ -53,16 +62,14 @@ export class AuthService {
 
       // Handle error responses
       if (!response.ok) {
-        return {
-          success: false,
-          message: data.message || `HTTP ${response.status}`,
-          error: data.error || data.message || `Signup failed with status ${response.status}`
-        };
+        const errorMessage = data.message || data.error || `HTTP ${response.status}`;
+        console.error('❌ Signup error:', errorMessage);
+        throw new Error(errorMessage);
       }
 
       return data;
     } catch (error) {
-      console.error('Signup error:', error);
+      console.error('Sign up error:', error);
       
       // Handle different types of signup errors
       if (error instanceof Error) {
@@ -70,85 +77,80 @@ export class AuthService {
         
         // Network or timeout errors
         if (errorMessage.includes('network') || errorMessage.includes('timeout') || errorMessage.includes('fetch')) {
-          return {
-            success: false,
-            message: 'Network error. Please check your internet connection and try again.',
-            error: 'NETWORK_ERROR'
-          };
+          throw new Error('Network error. Please check your internet connection and try again.');
         }
         
         // Server errors (5xx)
         if (errorMessage.includes('http 5') || errorMessage.includes('internal server error')) {
-          return {
-            success: false,
-            message: 'Server error. Please try again later.',
-            error: 'SERVER_ERROR'
-          };
+          throw new Error('Server error. Please try again later.');
         }
         
-        // Return structured error response
-        return {
-          success: false,
-          message: error.message,
-          error: 'SIGNUP_ERROR'
-        };
+        // Validation errors (400)
+        if (errorMessage.includes('http 400') || errorMessage.includes('validation')) {
+          throw new Error(error.message);
+        }
+        
+        // User already exists (400)
+        if (errorMessage.includes('already exists')) {
+          throw new Error(error.message);
+        }
+        
+        // Use original message for other errors
+        throw error;
       }
       
       // Fallback for unknown errors
-      return {
-        success: false,
-        message: 'Signup failed. Please try again.',
-        error: 'UNKNOWN_ERROR'
-      };
+      throw new Error('Sign up failed. Please try again.');
     }
   }
 
-    /**
+  /**
    * Login user
    */
   static async login(credentials: LoginRequest): Promise<AuthResponse> {
     try {
-      console.log(`
-🔐 ===== AUTHENTICATION FLOW =====`);
-      console.log(`👤 Attempting login for user:`, credentials.email);
-      
-      // API Gateway URL: http://172.20.10.2:3000/auth/api/auth/login
-      // Gateway routes to: http://localhost:3001/api/auth/login
-      const loginUrl = `${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/login`;
-      console.log(`🌐 Mobile App → API Gateway: ${loginUrl}`);
-      console.log(`🎯 Expected routing: API Gateway → User Service (port 3001)`);
-      console.log(`📋 Credentials being sent:`, { email: credentials.email, password: '***' });
-      
       // Use direct fetch for login to handle 403 responses properly
-      const response = await fetch(loginUrl, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-platform': 'mobile',
         },
         body: JSON.stringify(credentials),
       });
 
-      console.log(`📡 Login response status: ${response.status}`);
       const data = await response.json();
-      console.log(`📊 Login response data:`, data);
+      
+      console.log('📡 Login response status:', response.status);
+      console.log('📡 Login response data:', JSON.stringify(data, null, 2));
+
+      // Treat account status messages as non-exceptional flow regardless of status code
+      const combinedMsg = `${data?.error || ''} ${data?.message || ''}`.toLowerCase();
+      if (
+        combinedMsg.includes('under review') ||
+        combinedMsg.includes('pending approval') ||
+        combinedMsg.includes('account pending')
+      ) {
+        return {
+          success: false,
+          message: data.message || 'Account pending approval',
+          error: data.error || 'Account pending approval'
+        } as unknown as AuthResponse;
+      }
 
       // Handle success responses
       if (response.ok && data.success) {
-        console.log(`✅ Authentication successful!`);
         // Store tokens if login successful
         if (data.data?.accessToken && data.data?.refreshToken) {
           await StorageService.setAccessToken(data.data.accessToken);
           await StorageService.setRefreshToken(data.data.refreshToken);
           await StorageService.setUserData(data.data.user);
-          console.log(`💾 Tokens stored successfully`);
-          console.log(`👤 User data saved:`, data.data.user);
         }
         return data;
       }
 
       // Handle 403 Forbidden (account status issues) as valid responses
       if (response.status === 403) {
-        console.log(`🚫 Account access restricted:`, data.message);
         return {
           success: false,
           message: data.message || 'Account status issue',
@@ -158,13 +160,12 @@ export class AuthService {
 
       // Handle other error responses
       if (!response.ok) {
-        console.log(`❌ Login failed:`, data.message || data.error);
-        throw new Error(data.message || data.error || `HTTP ${response.status}`);
+        throw new Error(data.error || data.message || `HTTP ${response.status}`);
       }
 
       return data;
     } catch (error) {
-      console.error('❌ Login error:', error);
+      console.error('Login error:', error);
       
       // Handle different types of login errors
       if (error instanceof Error) {
@@ -217,32 +218,34 @@ export class AuthService {
     };
   }): Promise<void> {
     try {
-      // For now, send as JSON instead of FormData to simplify debugging
-      const requestData = {
+      // Backend expects unified /register endpoint (with platform-aware handling)
+      // For mobile guide registration, we must send role: 'guide' and guideDetails block
+      const payload = {
         username: data.username,
         email: data.email,
         password: data.password,
-        role: data.role,
-        firstName: data.guideDetails.firstName,
-        lastName: data.guideDetails.lastName,
-        nicNumber: data.guideDetails.nicNumber,
-        dateOfBirth: data.guideDetails.dateOfBirth,
-        // Skip file upload for now - just indicate document was provided
-        proofDocumentProvided: true
+        role: data.role, // 'guide'
+        guideDetails: {
+          firstName: data.guideDetails.firstName,
+          lastName: data.guideDetails.lastName,
+          nicNumber: data.guideDetails.nicNumber,
+          dateOfBirth: data.guideDetails.dateOfBirth,
+        },
       };
 
-      // Construct the API URL
-      const apiUrl = `${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/guide-registration`;
-      console.log('🔗 Guide registration API URL:', apiUrl);
-      console.log('📤 Guide registration data:', requestData);
+      // Primary endpoint: unified register
+      const primaryUrl = `${API_CONFIG.BASE_URL}/register`;
+      console.log('🔗 Guide registration primary URL:', primaryUrl);
+      console.log('📤 Guide registration payload:', payload);
       
-      // Make API call with JSON data
-      const response = await fetch(apiUrl, {
+      // Make API call with JSON data; include platform header for backend logic
+      let response = await fetch(primaryUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-platform': 'mobile',
         },
-        body: JSON.stringify(requestData),
+        body: JSON.stringify(payload),
       });
 
       console.log('📡 Guide registration response status:', response.status);
@@ -252,12 +255,39 @@ export class AuthService {
       const contentType = response.headers.get('content-type');
       console.log('📄 Response content-type:', contentType);
       
+      // If route not found on primary URL, try legacy mobile-compatible route
+      if (response.status === 404) {
+        console.warn('⚠️ /register returned 404. Retrying with legacy /api/auth/guide-registration');
+        const legacyUrl = `${API_CONFIG.BASE_URL}/api/auth/guide-registration`;
+        console.log('🔗 Guide registration legacy URL:', legacyUrl);
+        response = await fetch(legacyUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-platform': 'mobile',
+          },
+          // Legacy endpoint maps fields to guideDetails server-side
+          body: JSON.stringify({
+            username: data.username,
+            email: data.email,
+            password: data.password,
+            role: data.role,
+            firstName: data.guideDetails.firstName,
+            lastName: data.guideDetails.lastName,
+            nicNumber: data.guideDetails.nicNumber,
+            dateOfBirth: data.guideDetails.dateOfBirth,
+          }),
+        });
+
+        console.log('📡 Legacy guide registration status:', response.status);
+      }
+
+      // After potential retry, handle non-OK statuses
       if (!response.ok) {
-        // Handle non-JSON error responses (like HTML error pages)
         if (contentType && contentType.includes('application/json')) {
           const errorResult = await response.json();
           console.error('❌ JSON error response:', errorResult);
-          throw new Error(errorResult.message || `Server error: ${response.status}`);
+          throw new Error(errorResult.message || errorResult.error || `Server error: ${response.status}`);
         } else {
           const errorText = await response.text();
           console.error('❌ Non-JSON error response:', errorText);
@@ -269,8 +299,9 @@ export class AuthService {
       if (contentType && contentType.includes('application/json')) {
         const result = await response.json();
         console.log('✅ Guide registration success response:', result);
-        if (!result.success) {
-          throw new Error(result.message || 'Guide registration failed');
+        // Expect result.success=true or data.user present for success
+        if (!(result && (result.success === true || result.data || result.user))) {
+          throw new Error(result?.message || 'Guide registration failed');
         }
       } else {
         // If server doesn't return JSON, assume success if status is OK
@@ -281,7 +312,18 @@ export class AuthService {
       // Registration successful - the user will need to wait for approval
     } catch (error) {
       console.error('Guide registration error:', error);
-      throw new Error(error instanceof Error ? error.message : 'Guide registration failed');
+      // Normalize common errors for better UX
+      if (error instanceof Error) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes('route not found') || msg.includes('404')) {
+          throw new Error('Registration endpoint not available. Please ensure the user-service is running and accessible on your network.');
+        }
+        if (msg.includes('network') || msg.includes('timeout') || msg.includes('fetch')) {
+          throw new Error('Network error during registration. Please check your connection and try again.');
+        }
+        throw error;
+      }
+      throw new Error('Guide registration failed');
     }
   }
 
@@ -323,18 +365,6 @@ export class AuthService {
       return null;
     } catch (error) {
       console.error('Get profile error:', error);
-      
-      // If token is expired or invalid, clear auth data
-      if (error instanceof Error) {
-        const errorMessage = error.message.toLowerCase();
-        if (errorMessage.includes('invalid token') || 
-            errorMessage.includes('unauthorized') || 
-            errorMessage.includes('expired')) {
-          console.log('🧹 Token expired/invalid, clearing auth data');
-          await StorageService.clearAuthData();
-        }
-      }
-      
       return null;
     }
   }
@@ -354,7 +384,7 @@ export class AuthService {
         { refreshToken }
       );
 
-      if (response.success && response.data && response.data.accessToken && response.data.refreshToken) {
+      if (response.success && response.data?.accessToken && response.data?.refreshToken) {
         await StorageService.setAccessToken(response.data.accessToken);
         await StorageService.setRefreshToken(response.data.refreshToken);
         await StorageService.setUserData(response.data.user);
@@ -383,8 +413,6 @@ export class AuthService {
       return profile !== null;
     } catch (error) {
       console.error('Authentication check error:', error);
-      // Clear potentially invalid auth data
-      await StorageService.clearAuthData();
       return false;
     }
   }

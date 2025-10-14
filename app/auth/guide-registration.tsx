@@ -211,7 +211,7 @@ export default function GuideRegistrationScreen() {
       Alert.alert(
         'Application Submitted!',
         'Your tour guide application has been submitted for admin review. You will receive an email notification once your account is approved.',
-        [{ text: 'OK', onPress: () => router.push('./login') }]
+        [{ text: 'OK', onPress: () => router.push('./pending-approval') }]
       );
     } catch (error) {
       Alert.alert(
