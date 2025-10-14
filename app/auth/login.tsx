@@ -11,9 +11,11 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import {
     CustomButton,
     CustomTextInput,
+    NetworkStatus,
     ThemedText,
     ThemedView
 } from '../../components';
@@ -26,7 +28,7 @@ import { Colors } from '../../constants/Colors';
 import { useAuth } from '../../context/AuthContext';
 
 export default function LoginScreen() {
-  const { login, isLoading } = useAuth();
+  const { login, isLoading, refreshNetwork } = useAuth();
   const [formData, setFormData] = useState({
     identifier: '', // Can be username or email
     password: '',
@@ -71,9 +73,16 @@ export default function LoginScreen() {
        
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed. Please try again.';
+      const lower = errorMessage.toLowerCase();
+
+      // If the backend responded with pending/under review, navigate to pending approval
+      if (lower.includes('pending approval') || lower.includes('under review') || lower.includes('account pending')) {
+        router.push('./pending-approval');
+        return;
+      }
       
       // Check if account is suspended or rejected
-      if (errorMessage.toLowerCase().includes('suspended')) {
+      if (lower.includes('suspended')) {
         Alert.alert(
           'Account Suspended',
           'Your account has been suspended. Please contact support for assistance.',
@@ -82,7 +91,7 @@ export default function LoginScreen() {
         return;
       }
       
-      if (errorMessage.toLowerCase().includes('rejected')) {
+      if (lower.includes('rejected')) {
         Alert.alert(
           'Application Rejected',
           'Your guide application has been rejected. Please contact support for more information.',
@@ -92,10 +101,10 @@ export default function LoginScreen() {
       }
       
       // Check for invalid credentials
-      if (errorMessage.toLowerCase().includes('invalid username') || 
-          errorMessage.toLowerCase().includes('invalid password') ||
-          errorMessage.toLowerCase().includes('invalid credentials') ||
-          errorMessage.toLowerCase().includes('check your credentials')) {
+      if (lower.includes('invalid username') || 
+          lower.includes('invalid password') ||
+          lower.includes('invalid credentials') ||
+          lower.includes('check your credentials')) {
         
         // Set field-level errors for invalid credentials
         setErrors({
@@ -115,8 +124,8 @@ export default function LoginScreen() {
       }
       
       // Check for network errors
-      if (errorMessage.toLowerCase().includes('network') || 
-          errorMessage.toLowerCase().includes('internet connection')) {
+    if (lower.includes('network') || 
+      lower.includes('internet connection')) {
         Alert.alert(
           'Connection Error',
           'Please check your internet connection and try again.',
@@ -126,8 +135,8 @@ export default function LoginScreen() {
       }
       
       // Check for server errors
-      if (errorMessage.toLowerCase().includes('server error') || 
-          errorMessage.toLowerCase().includes('try again later')) {
+    if (lower.includes('server error') || 
+      lower.includes('try again later')) {
         Alert.alert(
           'Server Error',
           'Our servers are experiencing issues. Please try again in a few minutes.',
@@ -214,6 +223,22 @@ export default function LoginScreen() {
               </Text>
             </TouchableOpacity>
 
+            {/* Network refresh button for WiFi changes */}
+            {__DEV__ && (
+              <TouchableOpacity 
+                style={styles.networkRefresh} 
+                onPress={refreshNetwork}
+                disabled={isLoading}
+              >
+                <View style={styles.networkRefreshContent}>
+                  <Ionicons name="wifi-outline" size={16} color={Colors.secondary400} />
+                  <Text style={styles.networkRefreshText}>
+                    Refresh Network Connection
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
             <View style={styles.signUpPrompt}>
               <Text style={styles.signUpPromptText}>
                 Don&#39;t have an account?{' '}
@@ -279,12 +304,27 @@ const styles = StyleSheet.create({
   },
   forgotPassword: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 20,
   },
   forgotPasswordText: {
     fontSize: 14,
     color: Colors.primary600,
     fontWeight: '600',
+    fontFamily: 'Inter',
+  },
+  networkRefresh: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  networkRefreshContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  networkRefreshText: {
+    fontSize: 12,
+    color: Colors.secondary400,
+    fontWeight: '500',
     fontFamily: 'Inter',
   },
   signUpPrompt: {

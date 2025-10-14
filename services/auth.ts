@@ -124,6 +124,20 @@ export class AuthService {
       console.log('📡 Login response status:', response.status);
       console.log('📡 Login response data:', JSON.stringify(data, null, 2));
 
+      // Treat account status messages as non-exceptional flow regardless of status code
+      const combinedMsg = `${data?.error || ''} ${data?.message || ''}`.toLowerCase();
+      if (
+        combinedMsg.includes('under review') ||
+        combinedMsg.includes('pending approval') ||
+        combinedMsg.includes('account pending')
+      ) {
+        return {
+          success: false,
+          message: data.message || 'Account pending approval',
+          error: data.error || 'Account pending approval'
+        } as unknown as AuthResponse;
+      }
+
       // Handle success responses
       if (response.ok && data.success) {
         // Store tokens if login successful
@@ -146,7 +160,7 @@ export class AuthService {
 
       // Handle other error responses
       if (!response.ok) {
-        throw new Error(data.message || data.error || `HTTP ${response.status}`);
+        throw new Error(data.error || data.message || `HTTP ${response.status}`);
       }
 
       return data;
@@ -204,32 +218,34 @@ export class AuthService {
     };
   }): Promise<void> {
     try {
-      // For now, send as JSON instead of FormData to simplify debugging
-      const requestData = {
+      // Backend expects unified /register endpoint (with platform-aware handling)
+      // For mobile guide registration, we must send role: 'guide' and guideDetails block
+      const payload = {
         username: data.username,
         email: data.email,
         password: data.password,
-        role: data.role,
-        firstName: data.guideDetails.firstName,
-        lastName: data.guideDetails.lastName,
-        nicNumber: data.guideDetails.nicNumber,
-        dateOfBirth: data.guideDetails.dateOfBirth,
-        // Skip file upload for now - just indicate document was provided
-        proofDocumentProvided: true
+        role: data.role, // 'guide'
+        guideDetails: {
+          firstName: data.guideDetails.firstName,
+          lastName: data.guideDetails.lastName,
+          nicNumber: data.guideDetails.nicNumber,
+          dateOfBirth: data.guideDetails.dateOfBirth,
+        },
       };
 
-      // Construct the API URL
-      const apiUrl = `${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/guide-registration`;
-      console.log('🔗 Guide registration API URL:', apiUrl);
-      console.log('📤 Guide registration data:', requestData);
+      // Primary endpoint: unified register
+      const primaryUrl = `${API_CONFIG.BASE_URL}/register`;
+      console.log('🔗 Guide registration primary URL:', primaryUrl);
+      console.log('📤 Guide registration payload:', payload);
       
-      // Make API call with JSON data
-      const response = await fetch(apiUrl, {
+      // Make API call with JSON data; include platform header for backend logic
+      let response = await fetch(primaryUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-platform': 'mobile',
         },
-        body: JSON.stringify(requestData),
+        body: JSON.stringify(payload),
       });
 
       console.log('📡 Guide registration response status:', response.status);
@@ -239,12 +255,39 @@ export class AuthService {
       const contentType = response.headers.get('content-type');
       console.log('📄 Response content-type:', contentType);
       
+      // If route not found on primary URL, try legacy mobile-compatible route
+      if (response.status === 404) {
+        console.warn('⚠️ /register returned 404. Retrying with legacy /api/auth/guide-registration');
+        const legacyUrl = `${API_CONFIG.BASE_URL}/api/auth/guide-registration`;
+        console.log('🔗 Guide registration legacy URL:', legacyUrl);
+        response = await fetch(legacyUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-platform': 'mobile',
+          },
+          // Legacy endpoint maps fields to guideDetails server-side
+          body: JSON.stringify({
+            username: data.username,
+            email: data.email,
+            password: data.password,
+            role: data.role,
+            firstName: data.guideDetails.firstName,
+            lastName: data.guideDetails.lastName,
+            nicNumber: data.guideDetails.nicNumber,
+            dateOfBirth: data.guideDetails.dateOfBirth,
+          }),
+        });
+
+        console.log('📡 Legacy guide registration status:', response.status);
+      }
+
+      // After potential retry, handle non-OK statuses
       if (!response.ok) {
-        // Handle non-JSON error responses (like HTML error pages)
         if (contentType && contentType.includes('application/json')) {
           const errorResult = await response.json();
           console.error('❌ JSON error response:', errorResult);
-          throw new Error(errorResult.message || `Server error: ${response.status}`);
+          throw new Error(errorResult.message || errorResult.error || `Server error: ${response.status}`);
         } else {
           const errorText = await response.text();
           console.error('❌ Non-JSON error response:', errorText);
@@ -256,8 +299,9 @@ export class AuthService {
       if (contentType && contentType.includes('application/json')) {
         const result = await response.json();
         console.log('✅ Guide registration success response:', result);
-        if (!result.success) {
-          throw new Error(result.message || 'Guide registration failed');
+        // Expect result.success=true or data.user present for success
+        if (!(result && (result.success === true || result.data || result.user))) {
+          throw new Error(result?.message || 'Guide registration failed');
         }
       } else {
         // If server doesn't return JSON, assume success if status is OK
@@ -268,7 +312,18 @@ export class AuthService {
       // Registration successful - the user will need to wait for approval
     } catch (error) {
       console.error('Guide registration error:', error);
-      throw new Error(error instanceof Error ? error.message : 'Guide registration failed');
+      // Normalize common errors for better UX
+      if (error instanceof Error) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes('route not found') || msg.includes('404')) {
+          throw new Error('Registration endpoint not available. Please ensure the user-service is running and accessible on your network.');
+        }
+        if (msg.includes('network') || msg.includes('timeout') || msg.includes('fetch')) {
+          throw new Error('Network error during registration. Please check your connection and try again.');
+        }
+        throw error;
+      }
+      throw new Error('Guide registration failed');
     }
   }
 

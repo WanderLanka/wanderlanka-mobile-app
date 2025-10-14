@@ -12,6 +12,7 @@ import { AuthProvider } from '../context/AuthContext';
 import { BookingProvider } from '../context/BookingContext';
 import useFontLoader from '../hooks/useFontLoader';
 import { initializeServerConnection } from '../utils/serverDetection';
+import { initializeNetworkMonitoring } from '../utils/networkMonitor';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -23,8 +24,11 @@ export default function RootLayout() {
   useEffect(() => {
     const initializeApp = async () => {
       if (fontsLoaded) {
-        // Initialize server connection before anything else
+        // Initialize server connection and network monitoring
         await initializeServerConnection();
+        initializeNetworkMonitoring();
+        
+        console.log('🚀 WanderLanka app initialized with smart WiFi-adaptive networking');
         setServerReady(true);
         SplashScreen.hideAsync();
       }

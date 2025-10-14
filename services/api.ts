@@ -10,12 +10,16 @@ import {
   classifyNetworkError, 
   retryWithBackoff 
 } from '../utils/networkUtils';
+import { NetworkDetection } from '../utils/serverDetection';
 
 /**
  * API Service for making HTTP requests
  */
 export class ApiService {
-  private static baseURL = API_CONFIG.BASE_URL;
+  // Always resolve BASE_URL at call time to pick up dynamic changes
+  private static get baseURL() {
+    return API_CONFIG.BASE_URL;
+  }
 
   /**
    * Make HTTP request with automatic token handling and timeout
@@ -27,7 +31,8 @@ export class ApiService {
     // Check internet connection first
     const networkState = await checkInternetConnection();
     if (!networkState.isConnected) {
-      throw new Error('No internet connection. Please check your network settings and try again.');
+      // Don't hard-fail in dev; local server might still be reachable on LAN
+      console.warn('⚠️ Network check reported offline; attempting request anyway (LAN server may be reachable).');
     }
 
     const makeRequest = async (): Promise<T> => {
@@ -117,9 +122,20 @@ export class ApiService {
       return await retryWithBackoff(makeRequest, 2, 1000); // 2 retries, 1 second base delay
     } catch (error) {
       console.error('API request failed:', error);
-      
-      // Classify error and provide user-friendly message
+
+      // On network-related failures, try to re-detect the server and retry once
       const errorInfo = classifyNetworkError(error as Error);
+      if (errorInfo.type === 'NO_INTERNET' || errorInfo.type === 'TIMEOUT' || errorInfo.type === 'SERVER_ERROR') {
+        try {
+          console.warn('🔄 Network error detected. Re-discovering server and retrying request once...');
+          await NetworkDetection.detectServer();
+          return await makeRequest();
+        } catch (retryErr) {
+          console.error('Retry after server re-detection failed:', retryErr);
+        }
+      }
+
+      // Classify error and provide user-friendly message
       throw new Error(errorInfo.message);
     }
   }
