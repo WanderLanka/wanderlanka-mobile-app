@@ -53,6 +53,9 @@ export class ApiService {
         };
       }
 
+      if (__DEV__) {
+        console.log('📍 Base URL in use:', this.baseURL);
+      }
       console.log('🔗 Making API request:', `${this.baseURL}${url}`);
       
       // Create timeout promise

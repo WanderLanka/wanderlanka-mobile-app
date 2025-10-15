@@ -1,49 +1,48 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { CustomButton } from '../../components/CustomButton';
 import { ThemedText } from '../../components/ThemedText';
 import { UserReview } from '../../components/UserReview';
 import { Colors } from '../../constants/Colors';
+import { ListingService } from '../../services';
 
-const mockGuides = [
-	{
-		title: 'Samantha Perera',
-		city: 'Colombo',
-		rating: 4.9,
-		price: '$25/hr',
-		languages: ['English', 'Sinhala'],
-		expertise: ['History', 'Culture'],
-		bio: 'Expert in Sri Lankan history and culture. Passionate about sharing local stories and hidden gems with travelers.',
-		reviews: [
-			{ name: 'John D.', rating: 5, review: 'Samantha was an incredible guide! She made history come alive and showed us hidden gems in Colombo.', profileImage: 'https://randomuser.me/api/portraits/men/1.jpg' },
-			{ name: 'Priya S.', rating: 4.8, review: 'Very knowledgeable and friendly. We learned so much about Sri Lankan culture.', profileImage: 'https://randomuser.me/api/portraits/women/2.jpg' },
-			{ name: 'Michael T.', rating: 4.7, review: 'Samantha tailored the tour to our interests and was a great storyteller.', profileImage: 'https://randomuser.me/api/portraits/men/4.jpg' },
-		],
-		availability: ['2025-07-15', '2025-07-16', '2025-07-18'],
-	},
-	{
-		title: 'Ravi Fernando',
-		city: 'Kandy',
-		rating: 4.8,
-		price: '$30/hr',
-		languages: ['English', 'Tamil'],
-		expertise: ['Nature', 'Wildlife'],
-		bio: 'Nature and wildlife specialist. Loves showing travelers the best of Sri Lanka’s outdoors.',
-		reviews: [
-			{ name: 'Alex T.', rating: 4.7, review: 'Ravi showed us amazing wildlife and nature spots. Highly recommended for outdoor lovers!', profileImage: 'https://randomuser.me/api/portraits/men/2.jpg' },
-		],
-		availability: ['2025-07-17', '2025-07-19'],
-	},
+// Placeholder values if server does not have these fields yet
+const defaultReviews = [
+  { name: 'John D.', rating: 5, review: 'Great experience!', profileImage: 'https://randomuser.me/api/portraits/men/1.jpg' },
+  { name: 'Priya S.', rating: 5, review: 'Very knowledgeable and friendly.', profileImage: 'https://randomuser.me/api/portraits/women/2.jpg' },
 ];
 
 export default function GuideDetailScreen() {
-	const { title } = useLocalSearchParams();
-	const details = mockGuides.find(item => item.title === title) || mockGuides[0];
-	const [selectedDate, setSelectedDate] = useState('');
-	const [calendarVisible, setCalendarVisible] = useState(false);
+		const { title } = useLocalSearchParams();
+		const [details, setDetails] = useState<any | null>(null);
+		const [loading, setLoading] = useState<boolean>(true);
+		const [error, setError] = useState<string | null>(null);
+		const [selectedDate, setSelectedDate] = useState('');
+		const [calendarVisible, setCalendarVisible] = useState(false);
+
+		useEffect(() => {
+			let isMounted = true;
+			const load = async () => {
+				try {
+					setLoading(true);
+					setError(null);
+					const username = decodeURIComponent(String(title || '')).trim();
+					if (!username) throw new Error('Invalid guide identifier');
+					const res = await ListingService.getGuideByUsername(username, 'active');
+					if (isMounted) setDetails(res.data);
+				} catch (e: any) {
+					console.error('Guide details load failed:', e);
+					if (isMounted) setError(e?.message || 'Failed to load guide');
+				} finally {
+					if (isMounted) setLoading(false);
+				}
+			};
+			load();
+			return () => { isMounted = false; };
+		}, [title]);
 
 	function getNext14Days() {
 		const days = [];
@@ -60,7 +59,29 @@ export default function GuideDetailScreen() {
 		return days;
 	}
 
-	const availableDates = details.availability;
+		if (loading) {
+			return (
+				<SafeAreaView style={styles.container}>
+					<View style={styles.centerPhotoSection}><ThemedText>Loading...</ThemedText></View>
+				</SafeAreaView>
+			);
+		}
+
+		if (error || !details) {
+			return (
+				<SafeAreaView style={styles.container}>
+					<View style={styles.centerPhotoSection}><ThemedText>{error || 'Guide not found'}</ThemedText></View>
+				</SafeAreaView>
+			);
+		}
+
+		const fullName = `${details?.guideDetails?.firstName || ''} ${details?.guideDetails?.lastName || ''}`.trim() || details?.username;
+		const avatar = details?.avatar || details?.reviews?.[0]?.profileImage || 'https://images.unsplash.com/photo-1517841905240-472988babdf9';
+		const languages: string[] = details?.guideDetails?.languages || [];
+		const expertise: string[] = details?.guideDetails?.expertise || [];
+		const bio: string = details?.guideDetails?.bio || 'Local tour guide.';
+
+		const availableDates: string[] = details?.availability || [];
 	const next14Days = getNext14Days();
 	const bookedDates = next14Days.map(d => d.date).filter(date => !availableDates.includes(date));
 
@@ -72,13 +93,13 @@ export default function GuideDetailScreen() {
 			<ScrollView contentContainerStyle={styles.scrollContent}>
 				<View style={styles.centerPhotoSection}>
 					<Image
-						source={{ uri: details.reviews[0]?.profileImage }}
+						source={{ uri: avatar }}
 						style={styles.guidePhoto}
 					/>
 				</View>
 				<View style={styles.infoRow}>
 					<View style={styles.nameAddressCol}>
-						<ThemedText variant="title" style={styles.title}>{details.title}</ThemedText>
+						<ThemedText variant="title" style={styles.title}>{fullName}</ThemedText>
 						<View style={styles.locationRow}>
 							<Ionicons name="location-outline" size={16} color={Colors.primary600} />
 							<Text style={styles.city}>{details.city}</Text>
@@ -89,21 +110,21 @@ export default function GuideDetailScreen() {
 						<Text style={styles.rating}>{details.rating}</Text>
 					</View>
 				</View>
-				<Text style={styles.price}>{details.price}</Text>
+				{/* Price not yet available from listing-service */}
 				<ThemedText variant="subtitle" style={styles.sectionHeading}>Languages</ThemedText>
 				<View style={styles.chipRow}>
-					{details.languages.map((lang, i) => (
+					{languages.map((lang, i) => (
 						<View key={i} style={styles.chip}><Text style={styles.chipText}>{lang}</Text></View>
 					))}
 				</View>
 				<ThemedText variant="subtitle" style={styles.sectionHeading}>Expertise</ThemedText>
 				<View style={styles.chipRow}>
-					{details.expertise.map((exp, i) => (
+					{expertise.map((exp, i) => (
 						<View key={i} style={styles.chip}><Text style={styles.chipText}>{exp}</Text></View>
 					))}
 				</View>
 				<ThemedText variant="subtitle" style={styles.sectionHeading}>About</ThemedText>
-				<Text style={styles.description}>{details.bio}</Text>
+				<Text style={styles.description}>{bio}</Text>
 				<ThemedText variant="subtitle" style={styles.sectionHeading}>Availability</ThemedText>
 				<Text style={styles.availCaption}>Next 14 days</Text>
 				<View style={styles.availList}>
@@ -183,7 +204,7 @@ export default function GuideDetailScreen() {
                     )}
 				<ThemedText variant="subtitle" style={styles.sectionHeading}>Reviews</ThemedText>
 				<View style={styles.reviewsList}>
-					{details.reviews.slice(0, 3).map((r, i) => (
+					{(details.reviews || defaultReviews).slice(0, 3).map((r: any, i: number) => (
 						<UserReview
 							key={i}
 							name={r.name}
@@ -192,7 +213,7 @@ export default function GuideDetailScreen() {
 							profileImage={r.profileImage}
 						/>
 					))}
-					{details.reviews.length > 2 && (
+					{(details.reviews || defaultReviews).length > 2 && (
 						<TouchableOpacity style={{ alignSelf: 'flex-end', marginTop: 8 }} onPress={() => router.push({ pathname: '/tour_guides/reviews', params: { title: details.title } })}>
 							<Text style={{ color: Colors.primary600, fontWeight: '600', fontSize: 15 }}>See more reviews</Text>
 						</TouchableOpacity>

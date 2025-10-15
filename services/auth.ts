@@ -23,7 +23,7 @@ export class AuthService {
       console.log('🔗 Signup request:', { ...userData, password: '[HIDDEN]' });
       
       // Use direct fetch for signup to match login implementation
-      const response = await fetch(`${API_CONFIG.BASE_URL}/register`, {
+  const response = await fetch(`${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -110,7 +110,7 @@ export class AuthService {
   static async login(credentials: LoginRequest): Promise<AuthResponse> {
     try {
       // Use direct fetch for login to handle 403 responses properly
-      const response = await fetch(`${API_CONFIG.BASE_URL}/login`, {
+  const response = await fetch(`${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -234,7 +234,7 @@ export class AuthService {
       };
 
       // Primary endpoint: unified register
-      const primaryUrl = `${API_CONFIG.BASE_URL}/register`;
+  const primaryUrl = `${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/register`;
       console.log('🔗 Guide registration primary URL:', primaryUrl);
       console.log('📤 Guide registration payload:', payload);
       
@@ -258,7 +258,7 @@ export class AuthService {
       // If route not found on primary URL, try legacy mobile-compatible route
       if (response.status === 404) {
         console.warn('⚠️ /register returned 404. Retrying with legacy /api/auth/guide-registration');
-        const legacyUrl = `${API_CONFIG.BASE_URL}/api/auth/guide-registration`;
+  const legacyUrl = `${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/guide-registration`;
         console.log('🔗 Guide registration legacy URL:', legacyUrl);
         response = await fetch(legacyUrl, {
           method: 'POST',
@@ -335,7 +335,7 @@ export class AuthService {
       const refreshToken = await StorageService.getRefreshToken();
       
       // Call logout endpoint
-      await ApiService.post<AuthResponse>(`${this.AUTH_ENDPOINT}/logout`, {
+  await ApiService.post<AuthResponse>(`${API_CONFIG.ENDPOINTS.AUTH}/logout`, {
         refreshToken,
       });
     } catch (error) {
@@ -353,7 +353,7 @@ export class AuthService {
   static async getProfile(): Promise<User | null> {
     try {
       const response = await ApiService.get<AuthResponse>(
-        `${this.AUTH_ENDPOINT}/profile`
+        `${API_CONFIG.ENDPOINTS.AUTH}/profile`
       );
 
       if (response.success && response.data) {
@@ -380,7 +380,7 @@ export class AuthService {
       }
 
       const response = await ApiService.post<AuthResponse>(
-        `${this.AUTH_ENDPOINT}/refresh`,
+        `${API_CONFIG.ENDPOINTS.AUTH}/refresh`,
         { refreshToken }
       );
 
