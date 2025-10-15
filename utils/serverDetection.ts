@@ -122,7 +122,8 @@ export class NetworkDetection {
    */
   private static async testServer(ip: string): Promise<boolean> {
     try {
-      const testURL = `http://${ip}:3001/health`;
+      // Test API Gateway health at port 3000
+      const testURL = `http://${ip}:3000/health`;
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), this.TIMEOUT);
@@ -214,7 +215,7 @@ export class NetworkDetection {
     if (expoHost) {
       const ok = await this.testServer(expoHost);
       if (ok) {
-        const baseURL = `http://${expoHost}:3001`;
+  const baseURL = `http://${expoHost}:3000`;
         await this.cacheServer(expoHost);
         (API_CONFIG as any).BASE_URL = baseURL;
         console.log(`📱 Using Expo host server: ${baseURL}`);
@@ -225,7 +226,7 @@ export class NetworkDetection {
     // Step 1: Try cached server first
     const cachedIP = await this.getCachedServer();
     if (cachedIP) {
-      const baseURL = `http://${cachedIP}:3001`;
+  const baseURL = `http://${cachedIP}:3000`;
       (API_CONFIG as any).BASE_URL = baseURL;
       console.log(`📱 Using cached server: ${baseURL}`);
       return baseURL;
@@ -253,7 +254,7 @@ export class NetworkDetection {
       if (workingIP) {
         console.log(`✅ 🎯 Server discovered at: ${workingIP}`);
         await this.cacheServer(workingIP);
-        const baseURL = `http://${workingIP}:3001`;
+  const baseURL = `http://${workingIP}:3000`;
         (API_CONFIG as any).BASE_URL = baseURL;
         console.log(`📱 Mobile app configured for: ${baseURL}`);
         return baseURL;
@@ -280,7 +281,7 @@ export const initializeServerConnection = async () => {
     // Fallback: try Expo host IP if available
     const expoHost = NetworkDetection['getExpoHostIp']?.call(NetworkDetection) as string | null;
     if (expoHost) {
-      const fallbackURL = `http://${expoHost}:3001`;
+      const fallbackURL = `http://${expoHost}:3000`;
       (API_CONFIG as any).BASE_URL = fallbackURL;
       console.warn(`⚠️ Falling back to Expo host base URL: ${fallbackURL}`);
     }

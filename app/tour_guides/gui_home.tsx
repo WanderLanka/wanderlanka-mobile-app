@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CustomButton, CustomTextInput, ServicesTopBar, ThemedText } from '../../components';
 import { ItemCard } from '../../components/ItemCard';
+import { ListingService } from '../../services';
 import { Colors } from '../../constants/Colors';
 
 const featuredGuides = [
@@ -30,19 +31,7 @@ const featuredGuides = [
   },
 ];
 
-const allGuides = [
-  ...featuredGuides,
-  {
-    image: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde',
-    title: 'Nadeesha Silva',
-    city: 'Galle',
-    price: '$28/hr',
-    rating: 4.7,
-    languages: ['English', 'French'],
-    bio: 'Food and culinary tours expert.',
-    type: 'guide',
-  },
-];
+// Data from API will be rendered in place of this
 
 const languageOptions = ['English', 'Sinhala', 'Tamil', 'French', 'German', 'Spanish'];
 const expertiseOptions = ['History', 'Nature', 'Food', 'Adventure', 'Culture'];
@@ -57,6 +46,9 @@ export default function TourGuidesHomeScreen() {
   const [minRating, setMinRating] = useState(0);
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
+  const [guides, setGuides] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   // Availability and other filters can be added as needed
 
   const toggleLanguage = (lang: string) => {
@@ -74,28 +66,53 @@ export default function TourGuidesHomeScreen() {
     setFilterVisible(false);
   };
 
-  const filteredGuides = allGuides.filter(g =>
-    (!search || g.title.toLowerCase().includes(search.toLowerCase()) || g.bio.toLowerCase().includes(search.toLowerCase())) &&
-    (!location || g.bio.toLowerCase().includes(location.toLowerCase())) &&
-    (!selectedLanguages.length || selectedLanguages.some(l => g.languages.includes(l))) &&
-    (!selectedExpertise.length || selectedExpertise.some(e => g.bio.toLowerCase().includes(e.toLowerCase()))) &&
-    (!minRating || g.rating >= minRating) &&
-    (!minPrice || parseInt(g.price.replace(/\D/g, '')) >= parseInt(minPrice)) &&
-    (!maxPrice || parseInt(g.price.replace(/\D/g, '')) <= parseInt(maxPrice))
-  );
+  // For now, show the list as-is without applying filters
+  const filteredGuides = guides;
 
   const renderItemCard = (item: any, prefix: string, index: number) => (
     <ItemCard
       key={`${prefix}-${index}`}
-      image={item.image}
-      title={item.title}
+      image={item.image || item.avatar || 'https://images.unsplash.com/photo-1517841905240-472988babdf9'}
+      title={item.title || `${item.guideDetails?.firstName || ''} ${item.guideDetails?.lastName || ''}`.trim() || item.username}
       city={item.city}
-      price={item.price}
-      rating={item.rating}
+      price={item.price || undefined}
+      rating={item.rating || undefined}
       type="guide"
       style={styles.carouselCard}
     />
   );
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchGuides = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+  const res = await ListingService.listGuides({ limit: 100, page: 1, status: 'active' });
+        // Map API data to UI-friendly items minimally
+        const items = (res.data || []).map((u: any) => ({
+          avatar: u.avatar,
+          username: u.username,
+          guideDetails: u.guideDetails,
+          title: `${u.guideDetails?.firstName || ''} ${u.guideDetails?.lastName || ''}`.trim() || u.username,
+          // Placeholder values until pricing/ratings available via listing
+          languages: [],
+          bio: '',
+          price: undefined,
+          rating: undefined,
+          city: undefined,
+        }));
+        if (isMounted) setGuides(items);
+      } catch (e: any) {
+        console.error('Failed to load guides:', e);
+        if (isMounted) setError(e?.message || 'Failed to load guides');
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+    fetchGuides();
+    return () => { isMounted = false; };
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -136,7 +153,11 @@ export default function TourGuidesHomeScreen() {
           <ThemedText style={styles.sectionTitle}>All Guides</ThemedText>
           <ThemedText style={styles.seeMore}>See more →</ThemedText>
         </View>
-        {filteredGuides.length === 0 ? (
+        {loading ? (
+          <View style={styles.emptyState}><ThemedText style={styles.emptyText}>Loading guides...</ThemedText></View>
+        ) : error ? (
+          <View style={styles.emptyState}><ThemedText style={styles.emptyText}>{error}</ThemedText></View>
+        ) : filteredGuides.length === 0 ? (
           <View style={styles.emptyState}>
             <ThemedText variant="caption" style={styles.emptyText}>
               No guides found for your criteria. Try adjusting your filters.

@@ -110,3 +110,16 @@ export interface PaginatedResponse<T> {
   limit: number;
   totalPages: number;
 }
+
+// Listing-service projections
+export interface GuideListItem {
+  username: string;
+  avatar?: string;
+  role: 'guide';
+  status?: 'active' | 'pending' | 'suspended' | 'rejected' | string;
+  guideDetails?: {
+    firstName?: string;
+    lastName?: string;
+    approvedAt?: string | null;
+  };
+}
