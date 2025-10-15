@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   View, 
   Text, 
@@ -7,39 +7,18 @@ import {
   TouchableOpacity, 
   SafeAreaView,
   Alert,
-  Modal
+  Modal,
+  RefreshControl,
+  ActivityIndicator
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 import { ThemedText, CustomTextInput } from '../../components';
 import CreatePackageComponent from '../../components/create-package';
+import { GuideService, PackageListItem } from '../../services/guide';
 
-interface TourPackage {
-  id: string;
-  name: string;
-  description: string;
-  duration: string;
-  price: number;
-  maxGroupSize: number;
-  difficulty: 'Easy' | 'Moderate' | 'Challenging' | 'Expert';
-  category: 'Cultural' | 'Adventure' | 'Nature' | 'Historical' | 'Beach' | 'City Tour' | 'Wildlife';
-  highlights: string[];
-  included: string[];
-  excluded: string[];
-  itinerary: { time: string; activity: string; location: string }[];
-  images: string[];
-  bookingsCount: number;
-  rating: number;
-  reviewsCount: number;
-  isActive: boolean;
-  seasonalPricing?: { season: string; price: number }[];
-  availableDates: string[];
-  cancellationPolicy: string;
-  meetingPoint: string;
-  languages: string[];
-  requirements: string[];
-}
+// Removed local TourPackage interface; using PackageListItem from service
 
 export default function PackagesScreen() {
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'draft'>('all');
@@ -48,173 +27,61 @@ export default function PackagesScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [sortBy] = useState<'popular' | 'newest' | 'price_low' | 'price_high'>('popular');
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [packages, setPackages] = useState<PackageListItem[]>([]);
+  const [editingPackage, setEditingPackage] = useState<PackageListItem | null>(null);
 
   const categories = ['All', 'Cultural', 'Adventure', 'Nature', 'Historical', 'Beach', 'City Tour', 'Wildlife'];
 
-  const packages: TourPackage[] = [
-    {
-      id: '1',
-      name: 'Sacred Kandy Cultural Experience',
-      description: 'Explore the spiritual heart of Sri Lanka with visits to Temple of the Tooth, cultural performances, and traditional crafts workshops.',
-      duration: '6 hours',
-      price: 15000,
-      maxGroupSize: 8,
-      difficulty: 'Easy',
-      category: 'Cultural',
-      highlights: [
-        'Temple of the Tooth Relic visit',
-        'Traditional Kandyan dance performance',
-        'Local artisan workshops',
-        'Royal Botanical Gardens'
-      ],
-      included: [
-        'Professional guide',
-        'Temple entrance fees',
-        'Traditional lunch',
-        'Transportation',
-        'Cultural show tickets'
-      ],
-      excluded: [
-        'Personal expenses',
-        'Tips',
-        'Additional snacks',
-        'Souvenir purchases'
-      ],
-      itinerary: [
-        { time: '9:00 AM', activity: 'Pick up from hotel', location: 'Kandy' },
-        { time: '9:30 AM', activity: 'Temple of the Tooth visit', location: 'Temple Complex' },
-        { time: '11:00 AM', activity: 'Royal Botanical Gardens', location: 'Peradeniya' },
-        { time: '1:00 PM', activity: 'Traditional lunch', location: 'Local restaurant' },
-        { time: '2:30 PM', activity: 'Artisan workshops', location: 'Craft village' },
-        { time: '4:00 PM', activity: 'Cultural dance performance', location: 'Cultural center' }
-      ],
-      images: ['kandy1.jpg', 'kandy2.jpg', 'kandy3.jpg'],
-      bookingsCount: 45,
-      rating: 4.8,
-      reviewsCount: 23,
-      isActive: true,
-      availableDates: ['2024-12-20', '2024-12-22', '2024-12-25'],
-      cancellationPolicy: 'Free cancellation up to 24 hours before the tour',
-      meetingPoint: 'Kandy City Center',
-      languages: ['English', 'Sinhala', 'Tamil'],
-      requirements: ['Comfortable walking shoes', 'Modest clothing for temple visits']
-    },
-    {
-      id: '2',
-      name: 'Ella Rock Sunrise Adventure',
-      description: 'Early morning hike to witness breathtaking sunrise views from Ella Rock, one of Sri Lanka\'s most iconic viewpoints.',
-      duration: '8 hours',
-      price: 22000,
-      maxGroupSize: 6,
-      difficulty: 'Challenging',
-      category: 'Adventure',
-      highlights: [
-        'Spectacular sunrise views',
-        'Ella Rock summit hike',
-        'Nine Arch Bridge visit',
-        'Local tea plantation tour'
-      ],
-      included: [
-        'Professional hiking guide',
-        'Safety equipment',
-        'Breakfast on the mountain',
-        'Transportation',
-        'Tea plantation visit'
-      ],
-      excluded: [
-        'Hiking boots (can be rented)',
-        'Personal hiking gear',
-        'Lunch',
-        'Additional refreshments'
-      ],
-      itinerary: [
-        { time: '4:30 AM', activity: 'Pick up and drive to starting point', location: 'Ella' },
-        { time: '5:00 AM', activity: 'Begin hiking to Ella Rock', location: 'Trailhead' },
-        { time: '6:30 AM', activity: 'Sunrise viewing', location: 'Ella Rock Summit' },
-        { time: '8:00 AM', activity: 'Mountain breakfast', location: 'Summit' },
-        { time: '9:30 AM', activity: 'Descent and Nine Arch Bridge', location: 'Bridge area' },
-        { time: '11:00 AM', activity: 'Tea plantation visit', location: 'Local plantation' }
-      ],
-      images: ['ella1.jpg', 'ella2.jpg', 'ella3.jpg'],
-      bookingsCount: 32,
-      rating: 4.9,
-      reviewsCount: 18,
-      isActive: true,
-      availableDates: ['2024-12-19', '2024-12-21', '2024-12-24'],
-      cancellationPolicy: 'Free cancellation up to 48 hours before the tour',
-      meetingPoint: 'Ella Train Station',
-      languages: ['English', 'Sinhala'],
-      requirements: ['Good physical fitness', 'Hiking experience recommended', 'Warm clothing for early morning']
-    },
-    {
-      id: '3',
-      name: 'Galle Fort Heritage Walk',
-      description: 'Discover the colonial charm of Galle Fort with its Dutch architecture, narrow streets, and stunning ocean views.',
-      duration: '4 hours',
-      price: 12000,
-      maxGroupSize: 10,
-      difficulty: 'Easy',
-      category: 'Historical',
-      highlights: [
-        'UNESCO World Heritage site',
-        'Dutch colonial architecture',
-        'Lighthouse and ramparts',
-        'Local artisan galleries'
-      ],
-      included: [
-        'Professional guide',
-        'Fort entrance',
-        'Historical documentation',
-        'Gallery visits',
-        'Refreshments'
-      ],
-      excluded: [
-        'Meals',
-        'Shopping',
-        'Museum entrance fees',
-        'Personal expenses'
-      ],
-      itinerary: [
-        { time: '2:00 PM', activity: 'Meet at fort entrance', location: 'Galle Fort' },
-        { time: '2:15 PM', activity: 'Historical overview', location: 'Main gate' },
-        { time: '3:00 PM', activity: 'Ramparts walk', location: 'Fort walls' },
-        { time: '4:00 PM', activity: 'Lighthouse visit', location: 'Lighthouse area' },
-        { time: '4:30 PM', activity: 'Artisan galleries', location: 'Pedlar Street' },
-        { time: '5:30 PM', activity: 'Sunset viewing', location: 'Flag Rock' }
-      ],
-      images: ['galle1.jpg', 'galle2.jpg', 'galle3.jpg'],
-      bookingsCount: 67,
-      rating: 4.7,
-      reviewsCount: 34,
-      isActive: false,
-      availableDates: ['2024-12-23', '2024-12-26', '2024-12-29'],
-      cancellationPolicy: 'Free cancellation up to 12 hours before the tour',
-      meetingPoint: 'Galle Fort Main Gate',
-      languages: ['English', 'German', 'French'],
-      requirements: ['Comfortable walking shoes', 'Sun protection']
+  // Data load
+  const fetchPackages = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const isActive = activeTab === 'all' ? undefined : activeTab === 'active';
+      const guideId = await GuideService.getCurrentGuideId();
+      const res = await GuideService.listPackages({ limit: 50, isActive, guideId: guideId || undefined });
+      setPackages(res.data || []);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load packages');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const filteredPackages = packages.filter(pkg => {
+  useEffect(() => {
+    fetchPackages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchPackages();
+    setRefreshing(false);
+  };
+
+  const filteredPackages = packages.filter((pkg: any) => {
     const matchesTab = activeTab === 'all' || 
                      (activeTab === 'active' && pkg.isActive) || 
                      (activeTab === 'draft' && !pkg.isActive);
-    const matchesCategory = selectedCategory === 'All' || pkg.category === selectedCategory;
-    const matchesSearch = pkg.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         pkg.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'All' || (pkg.tags || []).includes(selectedCategory);
+    const matchesSearch = (pkg.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         (pkg.description || '').toLowerCase().includes(searchQuery.toLowerCase());
     return matchesTab && matchesCategory && matchesSearch;
   });
 
-  const sortedPackages = [...filteredPackages].sort((a, b) => {
+  const sortedPackages = [...filteredPackages].sort((a: any, b: any) => {
     switch (sortBy) {
       case 'popular':
-        return b.bookingsCount - a.bookingsCount;
+        return ((b as any).bookingsCount || 0) - ((a as any).bookingsCount || 0);
       case 'newest':
-        return b.id.localeCompare(a.id);
+        return (b._id || b.slug || '').localeCompare(a._id || a.slug || '');
       case 'price_low':
-        return a.price - b.price;
+        return (a.pricing?.amount || 0) - (b.pricing?.amount || 0);
       case 'price_high':
-        return b.price - a.price;
+        return (b.pricing?.amount || 0) - (a.pricing?.amount || 0);
       default:
         return 0;
     }
@@ -247,10 +114,37 @@ export default function PackagesScreen() {
     switch (action) {
       case 'edit':
         // Show create form for editing
-        setShowCreateForm(true);
+        {
+          const pkg = packages.find(p => String(p._id || p.slug) === packageId) || null;
+          setEditingPackage(pkg);
+          setShowCreateForm(true);
+        }
         break;
       case 'duplicate':
-        Alert.alert('Duplicate Package', 'Create a copy of this package?');
+        Alert.alert('Duplicate Package', 'Create a copy of this package?', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Duplicate', onPress: async () => {
+            const pkg = packages.find(p => String(p._id || p.slug) === packageId);
+            if (!pkg) return;
+            try {
+              await GuideService.insertPackage({
+                title: `${pkg.title} (Copy)`,
+                description: pkg.description,
+                durationDays: pkg.durationDays,
+                tags: pkg.tags,
+                images: pkg.images,
+                includes: (pkg as any).includes,
+                excludes: (pkg as any).excludes,
+                pricing: pkg.pricing,
+                itinerary: (pkg as any).itinerary,
+                isActive: pkg.isActive,
+              });
+              fetchPackages();
+            } catch (e: any) {
+              Alert.alert('Error', e?.message || 'Failed to duplicate');
+            }
+          }}
+        ]);
         break;
       case 'delete':
         Alert.alert(
@@ -258,13 +152,24 @@ export default function PackagesScreen() {
           'Are you sure you want to delete this package? This action cannot be undone.',
           [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Delete', style: 'destructive', onPress: () => console.log('Delete:', packageId) }
+            { text: 'Delete', style: 'destructive', onPress: async () => {
+              try {
+                await GuideService.deletePackage(packageId);
+                fetchPackages();
+              } catch (e: any) {
+                Alert.alert('Error', e?.message || 'Failed to delete');
+              }
+            } }
           ]
         );
         break;
       case 'toggle':
         // Toggle active/inactive status
-        console.log('Toggle package status:', packageId);
+        const pkg = packages.find(p => String(p._id || p.slug) === packageId);
+        if (!pkg) return;
+        GuideService.updatePackage(packageId, { isActive: !pkg.isActive })
+          .then(fetchPackages)
+          .catch((e) => Alert.alert('Error', e?.message || 'Failed to update status'));
         break;
     }
   };
@@ -279,8 +184,8 @@ export default function PackagesScreen() {
     setShowCreateForm(true);
   };
 
-  const renderPackageCard = (pkg: TourPackage) => (
-    <View key={pkg.id} style={styles.packageCard}>
+  const renderPackageCard = (pkg: any) => (
+    <View key={String(pkg._id || pkg.slug)} style={styles.packageCard}>
       {/* Package Header */}
       <View style={styles.packageHeader}>
         <View style={styles.packageImageContainer}>
@@ -300,33 +205,33 @@ export default function PackagesScreen() {
         </View>
         
         <View style={styles.packageInfo}>
-          <Text style={styles.packageName} numberOfLines={2}>{pkg.name}</Text>
+          <Text style={styles.packageName} numberOfLines={2}>{pkg.title}</Text>
           <View style={styles.packageMeta}>
             <View style={styles.metaItem}>
-              <Ionicons name={getCategoryIcon(pkg.category)} size={14} color={Colors.primary600} />
-              <Text style={styles.metaText}>{pkg.category}</Text>
+              <Ionicons name={getCategoryIcon((pkg.tags && pkg.tags[0]) || 'Package') as any} size={14} color={Colors.primary600} />
+              <Text style={styles.metaText}>{(pkg.tags && pkg.tags[0]) || 'Package'}</Text>
             </View>
             <View style={styles.metaItem}>
               <Ionicons name="time" size={14} color={Colors.secondary500} />
-              <Text style={styles.metaText}>{pkg.duration}</Text>
+              <Text style={styles.metaText}>{pkg.durationDays} days</Text>
             </View>
           </View>
           <View style={styles.packageStats}>
             <View style={styles.statItem}>
               <Ionicons name="star" size={14} color={Colors.warning} />
-              <Text style={styles.statText}>{pkg.rating}</Text>
-              <Text style={styles.statSubText}>({pkg.reviewsCount})</Text>
+              <Text style={styles.statText}>{pkg.rating || 0}</Text>
+              <Text style={styles.statSubText}>({pkg.reviewsCount || 0})</Text>
             </View>
             <View style={styles.statItem}>
               <Ionicons name="calendar" size={14} color={Colors.success} />
-              <Text style={styles.statText}>{pkg.bookingsCount}</Text>
+              <Text style={styles.statText}>{pkg.bookingsCount || 0}</Text>
               <Text style={styles.statSubText}>bookings</Text>
             </View>
           </View>
         </View>
         
         <View style={styles.packagePrice}>
-          <Text style={styles.priceAmount}>Rs. {pkg.price.toLocaleString()}</Text>
+          <Text style={styles.priceAmount}>LKR {(pkg.pricing?.amount || 0).toLocaleString()}</Text>
           <Text style={styles.priceUnit}>per group</Text>
         </View>
       </View>
@@ -340,14 +245,14 @@ export default function PackagesScreen() {
       <View style={styles.highlightsSection}>
         <Text style={styles.sectionTitle}>Highlights</Text>
         <View style={styles.highlightsList}>
-          {pkg.highlights.slice(0, 3).map((highlight, index) => (
-            <View key={index} style={styles.highlightItem}>
+          {(pkg.highlights || []).slice(0, 3).map((highlight: string, index: number) => (
+            <View key={`${highlight}-${index}`} style={styles.highlightItem}>
               <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
               <Text style={styles.highlightText}>{highlight}</Text>
             </View>
           ))}
-          {pkg.highlights.length > 3 && (
-            <Text style={styles.moreHighlights}>+{pkg.highlights.length - 3} more</Text>
+          {Array.isArray(pkg.highlights) && pkg.highlights.length > 3 && (
+            <Text style={styles.moreHighlights}>+{(pkg.highlights.length - 3)} more</Text>
           )}
         </View>
       </View>
@@ -356,7 +261,7 @@ export default function PackagesScreen() {
       <View style={styles.packageActions}>
         <TouchableOpacity 
           style={styles.actionButton}
-          onPress={() => handlePackageAction(pkg.id, 'edit')}
+          onPress={() => handlePackageAction(String(pkg._id || pkg.slug), 'edit')}
         >
           <Ionicons name="create" size={18} color={Colors.primary600} />
           <Text style={styles.actionButtonText}>Edit</Text>
@@ -364,7 +269,7 @@ export default function PackagesScreen() {
         
         <TouchableOpacity 
           style={styles.actionButton}
-          onPress={() => handlePackageAction(pkg.id, 'duplicate')}
+          onPress={() => handlePackageAction(String(pkg._id || pkg.slug), 'duplicate')}
         >
           <Ionicons name="copy" size={18} color={Colors.secondary600} />
           <Text style={styles.actionButtonText}>Duplicate</Text>
@@ -372,7 +277,7 @@ export default function PackagesScreen() {
         
         <TouchableOpacity 
           style={[styles.actionButton, styles.toggleButton]}
-          onPress={() => handlePackageAction(pkg.id, 'toggle')}
+          onPress={() => handlePackageAction(String(pkg._id || pkg.slug), 'toggle')}
         >
           <Ionicons 
             name={pkg.isActive ? 'pause' : 'play'} 
@@ -388,7 +293,7 @@ export default function PackagesScreen() {
         
         <TouchableOpacity 
           style={[styles.actionButton, styles.deleteButton]}
-          onPress={() => handlePackageAction(pkg.id, 'delete')}
+          onPress={() => handlePackageAction(String(pkg._id || pkg.slug), 'delete')}
         >
           <Ionicons name="trash" size={18} color={Colors.error} />
         </TouchableOpacity>
@@ -476,7 +381,22 @@ export default function PackagesScreen() {
         presentationStyle="fullScreen"
         onRequestClose={() => setShowCreateForm(false)}
       >
-        <CreatePackageComponent onClose={() => setShowCreateForm(false)} />
+        <CreatePackageComponent 
+          onClose={() => { setShowCreateForm(false); fetchPackages(); setEditingPackage(null); }}
+          defaultValues={editingPackage ? {
+            name: editingPackage.title,
+            description: editingPackage.description || '',
+            duration: `${editingPackage.durationDays || 1} days`,
+            price: String(editingPackage.pricing?.amount || ''),
+            category: (editingPackage.tags && editingPackage.tags[0]) as any,
+            included: (editingPackage as any).includes || [],
+            excluded: (editingPackage as any).excludes || [],
+            itinerary: ((editingPackage as any).itinerary || []).map((it: any) => ({ time: '', activity: it.title, location: it.description || '' })),
+            isActive: editingPackage.isActive,
+          } : undefined}
+          // @ts-ignore - extend to support updates via route params if needed
+          idOrSlug={editingPackage ? String(editingPackage._id || editingPackage.slug) : undefined}
+        />
       </Modal>
     );
   };
@@ -576,7 +496,17 @@ export default function PackagesScreen() {
       </View>
 
       {/* Packages List */}
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      {loading && (
+        <View style={{ padding: 20 }}>
+          <ActivityIndicator />
+        </View>
+      )}
+      {error && (
+        <View style={{ paddingHorizontal: 20 }}>
+          <Text style={{ color: Colors.error }}>{error}</Text>
+        </View>
+      )}
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
         <View style={styles.content}>
           {sortedPackages.length > 0 ? (
             sortedPackages.map(renderPackageCard)

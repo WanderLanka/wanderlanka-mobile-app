@@ -152,13 +152,15 @@ const templateDefaults = {
 
 interface CreatePackageProps {
   onClose?: () => void;
+  defaultValues?: Partial<PackageForm>;
+  idOrSlug?: string;
 }
 
-export default function CreatePackageComponent({ onClose }: CreatePackageProps) {
+export default function CreatePackageComponent({ onClose, defaultValues, idOrSlug }: CreatePackageProps) {
   const params = useLocalSearchParams();
   const template = params.template as string | undefined;
   const packageId = params.packageId as string | undefined;
-  const [formData, setFormData] = useState<PackageForm>(defaultForm);
+  const [formData, setFormData] = useState<PackageForm>({ ...defaultForm, ...(defaultValues || {}) });
   const [currentStep, setCurrentStep] = useState(0);
   const [errors, setErrors] = useState<Partial<PackageForm>>({});
   const [newHighlight, setNewHighlight] = useState('');
@@ -182,6 +184,12 @@ export default function CreatePackageComponent({ onClose }: CreatePackageProps) 
       }));
     }
   }, [template]);
+
+  useEffect(() => {
+    if (defaultValues) {
+      setFormData(prev => ({ ...prev, ...defaultValues }));
+    }
+  }, [defaultValues]);
 
   const updateFormData = (field: keyof PackageForm, value: any) => {
     setFormData(prev => ({
@@ -311,23 +319,32 @@ export default function CreatePackageComponent({ onClose }: CreatePackageProps) 
         maxGroupSize: Number(formData.maxGroupSize),
       };
 
-      // Here you would typically save to your backend
-      console.log('Saving package:', cleanedData);
-      
-      Alert.alert(
-        'Success',
-        'Package saved successfully!',
-        [{
-          text: 'OK', 
-          onPress: () => {
-            if (onClose) {
-              onClose();
-            } else {
-              router.back();
-            }
-          }
-        }]
-      );
+      // Map to API schema
+      const payload = {
+        title: cleanedData.name,
+        description: cleanedData.description,
+        durationDays: cleanedData.duration ? Number(cleanedData.duration.replace(/\D/g, '')) || 1 : 1,
+        tags: [cleanedData.category],
+        includes: cleanedData.included,
+        excludes: cleanedData.excluded,
+        itinerary: cleanedData.itinerary.map((it, idx) => ({ day: idx + 1, title: it.activity, description: `${it.time} @ ${it.location}` })),
+        pricing: { amount: cleanedData.price, currency: 'LKR', perPerson: false },
+        isActive: cleanedData.isActive,
+      };
+
+      const { GuideService } = await import('../services/guide');
+      if (idOrSlug) {
+        await GuideService.updatePackage(idOrSlug, payload);
+      } else {
+        await GuideService.insertPackage(payload);
+      }
+
+      Alert.alert('Success', 'Package saved successfully!', [{
+        text: 'OK',
+        onPress: () => {
+          if (onClose) onClose(); else router.back();
+        },
+      }]);
     } catch (error) {
       console.error('Error saving package:', error);
       Alert.alert('Error', 'Failed to save package. Please try again.');
