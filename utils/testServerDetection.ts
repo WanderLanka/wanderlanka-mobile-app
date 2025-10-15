@@ -1,13 +1,13 @@
 // Test script for server detection
 // Run this in your mobile app to test IP detection
 
-import { ServerDetection } from './serverDetection';
+import { NetworkDetection } from './serverDetection';
 
 export const testServerDetection = async () => {
   console.log('🧪 Testing Server Detection...');
   
   try {
-    const detectedUrl = await ServerDetection.detectServer();
+  const detectedUrl = await NetworkDetection.detectServer();
     console.log('✅ Server detection result:', detectedUrl);
     
     // Test the detected URL
