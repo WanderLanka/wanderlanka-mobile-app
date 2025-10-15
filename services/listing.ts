@@ -23,6 +23,11 @@ export interface GuidesListResponse {
   };
 }
 
+export interface GuideDetailResponse {
+  success: boolean;
+  data: GuideListItem;
+}
+
 export type ListGuidesParams = {
   page?: number;
   limit?: number;
@@ -44,7 +49,22 @@ export const ListingService = {
   async listGuides(params: ListGuidesParams = {}): Promise<GuidesListResponse> {
     // Default to active status unless explicitly overridden
     const query = buildQuery({ limit: 20, page: 1, status: 'active', ...params });
-    // API Gateway route: /api/listing/guides
-    return ApiService.get<GuidesListResponse>(`/api/listing/guides${query}`);
+    // API Gateway route: /api/listing/tourguide-listing/allguides
+    return ApiService.get<GuidesListResponse>(`/api/listing/tourguide-listing/allguides${query}`);
   },
+  async getGuideByUsername(username: string, status: 'active' | 'pending' | 'suspended' | 'rejected' = 'active'): Promise<GuideDetailResponse> {
+    const usp = new URLSearchParams();
+    if (status) usp.set('status', status);
+    const qs = usp.toString() ? `?${usp.toString()}` : '';
+    // API Gateway route: /api/listing/service/tourguide-listing/guide/:username
+    return ApiService.get<GuideDetailResponse>(`/api/listing/service/tourguide-listing/guide/${encodeURIComponent(username)}${qs}`);
+  },
+  async listFeaturedGuides(limit = 10, status: 'active' | 'pending' | 'suspended' | 'rejected' = 'active'): Promise<GuidesListResponse> {
+    const usp = new URLSearchParams();
+    if (limit) usp.set('limit', String(limit));
+    if (status) usp.set('status', status);
+    const qs = usp.toString() ? `?${usp.toString()}` : '';
+    // API Gateway route: /api/listing/service/tourguide-listing/featuredguides
+    return ApiService.get<GuidesListResponse>(`/api/listing/service/tourguide-listing/featuredguides${qs}`);
+  }
 };
