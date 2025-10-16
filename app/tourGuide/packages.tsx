@@ -19,7 +19,7 @@ import { ThemedText, CustomTextInput } from '../../components';
 import CreatePackageComponent from '../../components/create-package';
 import EditPackageComponent from '../../components/edit-package';
 import { GuideService, PackageListItem } from '../../services/guide';
-import { API_CONFIG } from '../../services/config';
+import { toAbsoluteImageUrl } from '../../utils/imageUrl';
 
 // Removed local TourPackage interface; using PackageListItem from service
 
@@ -211,14 +211,10 @@ export default function PackagesScreen() {
           {((pkg.coverImage) || (Array.isArray(pkg.images) && pkg.images[0])) ? (
             <Image
               source={{
-                uri: (() => {
-                  const raw = (pkg.coverImage || pkg.images[0]) as string;
-                  if (!raw) return '';
-                  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
-                  return `${API_CONFIG.BASE_URL}/api/guide${raw.startsWith('/') ? '' : '/'}${raw}`;
-                })(),
+                uri: toAbsoluteImageUrl((pkg.coverImage || pkg.images[0]) as string),
               }}
               style={styles.packageImage}
+              onError={(e) => console.warn('Package card image failed:', (pkg.coverImage || (pkg.images && pkg.images[0])), e.nativeEvent?.error)}
             />
           ) : (
             <View style={styles.packageImagePlaceholder}>

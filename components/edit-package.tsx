@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Text, SafeAreaView } from 'react-native';
 import CreatePackageComponent from './create-package';
 import { GuideService, PackageListItem } from '../services/guide';
-import { API_CONFIG } from '../services/config';
+import { toAbsoluteImageUrl } from '../utils/imageUrl';
 import { Colors } from '../constants/Colors';
 
 type EditPackageProps = {
@@ -10,14 +10,10 @@ type EditPackageProps = {
   onClose?: () => void;
 };
 
-// Helper to absolutize image URLs
+// Helper wrapper to align with local usage signature
 const toAbsoluteUrl = (url?: string | null): string | undefined => {
-  if (!url) return undefined;
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  const base = API_CONFIG.BASE_URL?.replace(/\/$/, '') || '';
-  const path = url.startsWith('/') ? url : `/${url}`;
-  // Route through API gateway under /api/guide to reach guide-service static assets
-  return `${base}/api/guide${path}`;
+  const val = toAbsoluteImageUrl(url || '');
+  return val || undefined;
 };
 
 export default function EditPackageComponent({ idOrSlug, onClose }: EditPackageProps) {

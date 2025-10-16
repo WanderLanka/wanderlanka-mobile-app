@@ -15,7 +15,8 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { API_CONFIG } from '../services/config';
+// API_CONFIG is dynamically managed; not needed directly here
+import { toAbsoluteImageUrl } from '../utils/imageUrl';
 import { StatusBar } from 'expo-status-bar';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -441,10 +442,7 @@ export default function CreatePackageComponent({ onClose, defaultValues, idOrSlu
     const { ApiService } = await import('../services/api');
     const res: any = await ApiService.upload('/api/guide/uploads/package-image', form);
     if (res?.success && res.url) {
-      const absolute = res.url.startsWith('http')
-        ? res.url
-        : `${API_CONFIG.BASE_URL}/api/guide${res.url.startsWith('/') ? '' : '/'}${res.url}`;
-      updateFormData('coverImage', absolute);
+      updateFormData('coverImage', toAbsoluteImageUrl(res.url));
       return true;
     }
     throw new Error('Upload failed');
@@ -470,10 +468,7 @@ export default function CreatePackageComponent({ onClose, defaultValues, idOrSlu
     const { ApiService } = await import('../services/api');
     const res: any = await ApiService.upload('/api/guide/uploads/package-image', form);
     if (res?.success && res.url) {
-      const absolute = res.url.startsWith('http')
-        ? res.url
-        : `${API_CONFIG.BASE_URL}/api/guide${res.url.startsWith('/') ? '' : '/'}${res.url}`;
-      return absolute;
+      return toAbsoluteImageUrl(res.url);
     }
     throw new Error('Upload failed');
   };
@@ -607,7 +602,12 @@ export default function CreatePackageComponent({ onClose, defaultValues, idOrSlu
       <View style={styles.coverSection}>
         <Text style={styles.label}>Cover Image</Text>
         {formData.coverImage ? (
-          <Image source={{ uri: formData.coverImage }} style={styles.coverPreview} resizeMode="cover" />
+          <Image 
+            source={{ uri: toAbsoluteImageUrl(formData.coverImage) }} 
+            style={styles.coverPreview} 
+            resizeMode="cover"
+            onError={(e) => console.warn('Cover image failed to load:', formData.coverImage, e.nativeEvent?.error)}
+          />
         ) : (
           <View style={[styles.coverPreview, styles.coverPlaceholder]}>
             <Ionicons name="image" size={32} color={Colors.secondary400} />
@@ -783,7 +783,11 @@ export default function CreatePackageComponent({ onClose, defaultValues, idOrSlu
           {(formData.images || []).length > 0 ? (
             (formData.images || []).map((img, idx) => (
               <TouchableOpacity key={`${img}-${idx}`} style={styles.galleryItem} onPress={() => openViewer(idx)} activeOpacity={0.8}>
-                <Image source={{ uri: img }} style={styles.galleryImage} />
+                <Image 
+                  source={{ uri: toAbsoluteImageUrl(img) }} 
+                  style={styles.galleryImage} 
+                  onError={(e) => console.warn('Gallery image failed to load:', img, e.nativeEvent?.error)}
+                />
                 <TouchableOpacity style={styles.removeGalleryButton} onPress={() => updateFormData('images', (formData.images || []).filter((_, i) => i !== idx))}>
                   <Ionicons name="close" size={14} color={Colors.white} />
                 </TouchableOpacity>
@@ -806,9 +810,10 @@ export default function CreatePackageComponent({ onClose, defaultValues, idOrSlu
             <View style={styles.viewerCenter}>
               {Boolean((formData.images || []).length) ? (
                 <Image
-                  source={{ uri: (formData.images || [])[viewerIndex] }}
+                  source={{ uri: toAbsoluteImageUrl((formData.images || [])[viewerIndex]) }}
                   style={styles.viewerImage}
                   resizeMode="contain"
+                  onError={(e) => console.warn('Viewer image failed to load:', (formData.images || [])[viewerIndex], e.nativeEvent?.error)}
                 />
               ) : null}
             </View>
