@@ -37,12 +37,16 @@ export class ApiService {
 
     const makeRequest = async (): Promise<T> => {
       const config: RequestInit = {
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
         ...options,
       };
+
+      // Normalize headers without forcing Content-Type for FormData
+      const headers: Record<string, any> = { ...(options.headers || {}) };
+      const isFormData = typeof FormData !== 'undefined' && config.body instanceof FormData;
+      if (!isFormData && !('Content-Type' in headers) && (config.method && config.method !== 'GET')) {
+        headers['Content-Type'] = 'application/json';
+      }
+      config.headers = headers;
 
       // Add authorization header if access token exists
       const accessToken = await StorageService.getAccessToken();
@@ -64,7 +68,7 @@ export class ApiService {
       );
 
       // Make request with timeout
-      const responsePromise = fetch(`${this.baseURL}${url}`, config);
+  const responsePromise = fetch(`${this.baseURL}${url}`, config);
       const response = await Promise.race([responsePromise, timeoutPromise]);
 
       console.log('📡 API response status:', response.status);
@@ -171,10 +175,27 @@ export class ApiService {
   }
 
   /**
+   * PATCH request
+   */
+  static async patch<T>(url: string, data?: any): Promise<T> {
+    return this.request<T>(url, {
+      method: 'PATCH',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  /**
    * DELETE request
    */
   static async delete<T>(url: string): Promise<T> {
     return this.request<T>(url, { method: 'DELETE' });
+  }
+
+  /**
+   * Upload FormData (multipart)
+   */
+  static async upload<T>(url: string, formData: FormData): Promise<T> {
+    return this.request<T>(url, { method: 'POST', body: formData });
   }
 
   /**

@@ -8,14 +8,20 @@ export type PackageListItem = {
   slug: string;
   title: string;
   description?: string;
+  details?: string;
   durationDays: number;
+  duration?: { value: number; unit: 'days' | 'hours' | 'minutes' };
   locations?: string[];
   tags?: string[];
   images?: string[];
+  coverImage?: string;
   includes?: string[];
   excludes?: string[];
   pricing?: { currency?: string; amount: number; perPerson?: boolean };
   isActive?: boolean;
+  itinerary?: { day: number; title: string; description?: string }[];
+  policies?: { meetingPoint?: string; text?: string; freeCancellation?: boolean; freeCancellationWindow?: 'anytime' | '1_day_before' | '7_days_before' | '14_days_before' };
+  maxGroupSize?: number;
   guideId?: string;
   createdAt?: string;
 };
@@ -88,19 +94,27 @@ export const GuideService = {
     if (!guideId) {
       throw new Error('Your guide profile is not ready yet. Please try again after your account is approved.');
     }
+    const sanitizeList = (arr?: string[]) => Array.isArray(arr) ? arr.filter((s) => typeof s === 'string' && s.trim()) : [];
     const normalized = {
       guideId,
       slug: payload.slug || slugify(payload.title || payload.name || '', { lower: true, strict: true }),
       title: payload.title || payload.name,
       description: payload.description,
+      details: payload.details,
       durationDays: payload.durationDays || payload.duration,
       locations: payload.locations || [],
       tags: payload.tags || [],
       images: payload.images || [],
-      includes: payload.includes || payload.included || [],
-      excludes: payload.excludes || payload.excluded || [],
-      pricing: payload.pricing || { amount: payload.price, currency: 'LKR', perPerson: false },
+      coverImage: payload.coverImage,
+      includes: sanitizeList(payload.includes || payload.included),
+      excludes: sanitizeList(payload.excludes || payload.excluded),
+      highlights: sanitizeList(payload.highlights),
+      requirements: sanitizeList(payload.requirements),
+      pricing: payload.pricing || { amount: payload.price, currency: (payload.currency || 'LKR'), perPerson: !!payload.perPerson },
+      maxGroupSize: payload.maxGroupSize || undefined,
+      duration: payload.duration || undefined,
       itinerary: payload.itinerary || [],
+      policies: payload.policies,
       isActive: typeof payload.isActive === 'boolean' ? payload.isActive : true,
     };
     return ApiService.post<PackageDetailResponse>(`/api/guide/tourpackages/insert`, normalized);
@@ -118,16 +132,38 @@ export const GuideService = {
     if (payload?.duration && !payload.durationDays) {
       normalized.durationDays = payload.duration;
     }
+    const sanitizeList = (arr?: string[]) => Array.isArray(arr) ? arr.filter((s) => typeof s === 'string' && s.trim()) : [];
     if (payload?.included && !payload.includes) {
-      normalized.includes = payload.included;
+      normalized.includes = sanitizeList(payload.included);
     }
     if (payload?.excluded && !payload.excludes) {
-      normalized.excludes = payload.excluded;
+      normalized.excludes = sanitizeList(payload.excluded);
+    }
+    if (payload?.highlights) {
+      normalized.highlights = sanitizeList(payload.highlights);
+    }
+    if (payload?.requirements) {
+      normalized.requirements = sanitizeList(payload.requirements);
     }
     if (typeof payload?.price === 'number' && !payload.pricing) {
-      normalized.pricing = { amount: payload.price, currency: 'LKR', perPerson: false };
+      normalized.pricing = { amount: payload.price, currency: (payload.currency || 'LKR'), perPerson: !!payload.perPerson };
     }
-    return ApiService.put<PackageDetailResponse>(`/api/guide/tourpackages/update/${encodeURIComponent(slugOrId)}`, normalized);
+    if (payload?.coverImage) {
+      normalized.coverImage = payload.coverImage;
+    }
+    if (payload?.details) {
+      normalized.details = payload.details;
+    }
+    if (payload?.policies) {
+      normalized.policies = payload.policies;
+    }
+    if (typeof payload?.maxGroupSize === 'number') {
+      normalized.maxGroupSize = payload.maxGroupSize;
+    }
+    if (payload?.duration) {
+      normalized.duration = payload.duration;
+    }
+    return ApiService.patch<PackageDetailResponse>(`/api/guide/tourpackages/update/${encodeURIComponent(slugOrId)}`, normalized);
   },
 
   async deletePackage(slugOrId: string, hard = false): Promise<PackageDetailResponse> {
