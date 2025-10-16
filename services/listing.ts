@@ -1,4 +1,6 @@
 import { ApiService } from './api';
+import { API_CONFIG } from './config';
+import slugify from 'slugify';
 
 export interface GuideListItem {
   _id?: string;
@@ -76,13 +78,37 @@ export const ListingService = {
     const usp = new URLSearchParams();
     if (status) usp.set('status', status);
     const qs = usp.toString() ? `?${usp.toString()}` : '';
-    // Guide-service route: /api/guide/guide/get/:username
-    const res = await ApiService.get<GuideDetailResponse>(`/api/guide/guide/get/${encodeURIComponent(username)}${qs}`);
+    const base = API_CONFIG.BASE_URL?.replace(/\/$/, '') || '';
+
+    const tryFetch = async (handle: string) => {
+      const url = `${base}/api/guide/guide/get/${encodeURIComponent(handle)}${qs}`;
+      const res = await fetch(url, { headers: { Accept: 'application/json' } });
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json as GuideDetailResponse;
+    };
+
+    // Try raw username first
+    let out = await tryFetch(username);
+    if (!out) {
+      // Try slugified username variant (backend matches exact username only)
+      const slug = slugify(username, { lower: true, strict: true });
+      if (slug && slug !== username) {
+        out = await tryFetch(slug);
+      }
+    }
+
+    if (!out) {
+      // Keep the same error behavior for callers relying on try/catch fallback,
+      // but avoid ApiService logging a loud error.
+      throw new Error('Guide not found');
+    }
+
     return {
-      ...res,
+      ...out,
       data: {
-        ...res.data,
-        guideDetails: (res.data as any)?.guideDetails || (res.data as any)?.details || undefined,
+        ...out.data,
+        guideDetails: (out.data as any)?.guideDetails || (out.data as any)?.details || undefined,
       },
     };
   },

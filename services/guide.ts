@@ -41,21 +41,49 @@ export const GuideService = {
       const userId = user?.id || user?._id;
       if (!userId) return null;
       const accessToken = await StorageService.getAccessToken();
-      const res = await fetch(`${API_CONFIG.BASE_URL}/api/guide/guide/get?userId=${encodeURIComponent(userId)}`, {
-        headers: {
-          'Accept': 'application/json',
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-        },
-      });
-      if (res.ok) {
-        const json = await res.json();
-        return json?.data?._id || null;
-      }
-      // fallback: try resolving guide by username if available
-      const username = user?.username;
+      const authHeaders = {
+        'Accept': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      } as Record<string, string>;
+
+      // 1) Try by userId (if backend expects ObjectId and provided userId is not, backend may return 404)
+      try {
+        const res = await fetch(`${API_CONFIG.BASE_URL}/api/guide/guide/get?userId=${encodeURIComponent(userId)}`, {
+          headers: authHeaders,
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.data?._id) return json.data._id;
+        }
+      } catch {}
+
+      // 2) Fallbacks by username: raw and slugified
+      const username = user?.username as string | undefined;
       if (username) {
-        const g = await ApiService.get<any>(`/api/guide/guide/get/${encodeURIComponent(username)}`);
-        return g?.data?._id || null;
+        const candidates = [username, slugify(username, { lower: true, strict: true })];
+        for (const candidate of candidates) {
+          try {
+            const res = await fetch(`${API_CONFIG.BASE_URL}/api/guide/guide/get/${encodeURIComponent(candidate)}`, {
+              headers: authHeaders,
+            });
+            if (res.ok) {
+              const json = await res.json();
+              if (json?.data?._id) return json.data._id;
+            }
+          } catch {}
+        }
+
+        // 3) Final attempt: search list by q=username and take first
+        try {
+          const res = await fetch(`${API_CONFIG.BASE_URL}/api/guide/guide/list?q=${encodeURIComponent(username)}&limit=1`, {
+            headers: authHeaders,
+          });
+          if (res.ok) {
+            const json = await res.json();
+            const first = json?.data?.[0];
+            if (first?._id) return first._id;
+          }
+        } catch {}
       }
       return null;
     } catch {
@@ -64,7 +92,36 @@ export const GuideService = {
   },
   async getGuide(idOrUsername: string): Promise<any | null> {
     try {
-      return ApiService.get<any>(`/api/guide/guide/get/${encodeURIComponent(idOrUsername)}`);
+      // Try direct (may be id or exact username)
+      try {
+        const res = await fetch(`${API_CONFIG.BASE_URL}/api/guide/guide/get/${encodeURIComponent(idOrUsername)}`, {
+          headers: { 'Accept': 'application/json' },
+        });
+        if (res.ok) return await res.json();
+      } catch {}
+
+      // Try slugified username
+      const slug = slugify(idOrUsername, { lower: true, strict: true });
+      if (slug && slug !== idOrUsername) {
+        try {
+          const res2 = await fetch(`${API_CONFIG.BASE_URL}/api/guide/guide/get/${encodeURIComponent(slug)}`, {
+            headers: { 'Accept': 'application/json' },
+          });
+          if (res2.ok) return await res2.json();
+        } catch {}
+      }
+
+      // Fallback: list search
+      try {
+        const res3 = await fetch(`${API_CONFIG.BASE_URL}/api/guide/guide/list?q=${encodeURIComponent(idOrUsername)}&limit=1`, {
+          headers: { 'Accept': 'application/json' },
+        });
+        if (res3.ok) {
+          const json = await res3.json();
+          if (json?.data?.[0]) return { success: true, data: json.data[0] };
+        }
+      } catch {}
+      return null;
     } catch {
       return null;
     }
