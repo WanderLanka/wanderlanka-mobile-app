@@ -9,14 +9,17 @@ import {
   Alert,
   Modal,
   RefreshControl,
-  ActivityIndicator
+  ActivityIndicator,
+  Image
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 import { ThemedText, CustomTextInput } from '../../components';
 import CreatePackageComponent from '../../components/create-package';
+import EditPackageComponent from '../../components/edit-package';
 import { GuideService, PackageListItem } from '../../services/guide';
+import { toAbsoluteImageUrl } from '../../utils/imageUrl';
 
 // Removed local TourPackage interface; using PackageListItem from service
 
@@ -24,6 +27,7 @@ export default function PackagesScreen() {
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'draft'>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [sortBy] = useState<'popular' | 'newest' | 'price_low' | 'price_high'>('popular');
@@ -32,6 +36,7 @@ export default function PackagesScreen() {
   const [error, setError] = useState<string | null>(null);
   const [packages, setPackages] = useState<PackageListItem[]>([]);
   const [editingPackage, setEditingPackage] = useState<PackageListItem | null>(null);
+  const [pendingId, setPendingId] = useState<string | null>(null);
 
   const categories = ['All', 'Cultural', 'Adventure', 'Nature', 'Historical', 'Beach', 'City Tour', 'Wildlife'];
 
@@ -127,21 +132,27 @@ export default function PackagesScreen() {
             const pkg = packages.find(p => String(p._id || p.slug) === packageId);
             if (!pkg) return;
             try {
+              setPendingId(packageId);
               await GuideService.insertPackage({
                 title: `${pkg.title} (Copy)`,
                 description: pkg.description,
+                details: (pkg as any).details,
                 durationDays: pkg.durationDays,
                 tags: pkg.tags,
                 images: pkg.images,
+                coverImage: (pkg as any).coverImage,
                 includes: (pkg as any).includes,
                 excludes: (pkg as any).excludes,
                 pricing: pkg.pricing,
                 itinerary: (pkg as any).itinerary,
+                policies: (pkg as any).policies || { meetingPoint: '', freeCancellation: false, freeCancellationWindow: 'anytime' },
                 isActive: pkg.isActive,
               });
               fetchPackages();
             } catch (e: any) {
               Alert.alert('Error', e?.message || 'Failed to duplicate');
+            } finally {
+              setPendingId(null);
             }
           }}
         ]);
@@ -154,10 +165,14 @@ export default function PackagesScreen() {
             { text: 'Cancel', style: 'cancel' },
             { text: 'Delete', style: 'destructive', onPress: async () => {
               try {
-                await GuideService.deletePackage(packageId);
+                setPendingId(packageId);
+                // Hard delete to match the irreversible confirmation
+                await GuideService.deletePackage(packageId, true);
                 fetchPackages();
               } catch (e: any) {
                 Alert.alert('Error', e?.message || 'Failed to delete');
+              } finally {
+                setPendingId(null);
               }
             } }
           ]
@@ -167,19 +182,23 @@ export default function PackagesScreen() {
         // Toggle active/inactive status
         const pkg = packages.find(p => String(p._id || p.slug) === packageId);
         if (!pkg) return;
+        setPendingId(packageId);
         GuideService.updatePackage(packageId, { isActive: !pkg.isActive })
           .then(fetchPackages)
-          .catch((e) => Alert.alert('Error', e?.message || 'Failed to update status'));
+          .catch((e) => Alert.alert('Error', e?.message || 'Failed to update status'))
+          .finally(() => setPendingId(null));
         break;
     }
   };
 
   const handleCreateFromTemplate = (template: string) => {
+    setSelectedTemplate(template);
     setShowCreateModal(false);
     setShowCreateForm(true);
   };
 
   const handleCreateFromScratch = () => {
+    setSelectedTemplate(undefined);
     setShowCreateModal(false);
     setShowCreateForm(true);
   };
@@ -189,9 +208,19 @@ export default function PackagesScreen() {
       {/* Package Header */}
       <View style={styles.packageHeader}>
         <View style={styles.packageImageContainer}>
-          <View style={styles.packageImagePlaceholder}>
-            <Ionicons name="image" size={32} color={Colors.secondary400} />
-          </View>
+          {((pkg.coverImage) || (Array.isArray(pkg.images) && pkg.images[0])) ? (
+            <Image
+              source={{
+                uri: toAbsoluteImageUrl((pkg.coverImage || pkg.images[0]) as string),
+              }}
+              style={styles.packageImage}
+              onError={(e) => console.warn('Package card image failed:', (pkg.coverImage || (pkg.images && pkg.images[0])), e.nativeEvent?.error)}
+            />
+          ) : (
+            <View style={styles.packageImagePlaceholder}>
+              <Ionicons name="image" size={32} color={Colors.secondary400} />
+            </View>
+          )}
           <View style={styles.packageBadges}>
             <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(pkg.difficulty) }]}>
               <Text style={styles.difficultyText}>{pkg.difficulty}</Text>
@@ -231,8 +260,8 @@ export default function PackagesScreen() {
         </View>
         
         <View style={styles.packagePrice}>
-          <Text style={styles.priceAmount}>LKR {(pkg.pricing?.amount || 0).toLocaleString()}</Text>
-          <Text style={styles.priceUnit}>per group</Text>
+          <Text style={styles.priceAmount}>{(pkg.pricing?.currency || 'LKR')} {(pkg.pricing?.amount || 0).toLocaleString()}</Text>
+          <Text style={styles.priceUnit}>{pkg.pricing?.perPerson ? 'per person' : 'per group'}</Text>
         </View>
       </View>
 
@@ -241,43 +270,48 @@ export default function PackagesScreen() {
         {pkg.description}
       </Text>
 
-      {/* Package Highlights */}
-      <View style={styles.highlightsSection}>
-        <Text style={styles.sectionTitle}>Highlights</Text>
-        <View style={styles.highlightsList}>
-          {(pkg.highlights || []).slice(0, 3).map((highlight: string, index: number) => (
-            <View key={`${highlight}-${index}`} style={styles.highlightItem}>
-              <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
-              <Text style={styles.highlightText}>{highlight}</Text>
-            </View>
-          ))}
-          {Array.isArray(pkg.highlights) && pkg.highlights.length > 3 && (
-            <Text style={styles.moreHighlights}>+{(pkg.highlights.length - 3)} more</Text>
-          )}
+      {/* Package Highlights (only if available) */}
+      {Array.isArray((pkg as any).highlights) && (pkg as any).highlights.filter((h: any) => typeof h === 'string' && h.trim()).length > 0 && (
+        <View style={styles.highlightsSection}>
+          <Text style={styles.sectionTitle}>Highlights</Text>
+          <View style={styles.highlightsList}>
+            {(pkg as any).highlights.filter((h: any) => typeof h === 'string' && h.trim()).slice(0, 3).map((highlight: string, index: number) => (
+              <View key={`${highlight}-${index}`} style={styles.highlightItem}>
+                <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
+                <Text style={styles.highlightText}>{highlight}</Text>
+              </View>
+            ))}
+            {Array.isArray((pkg as any).highlights) && (pkg as any).highlights.filter((h: any) => typeof h === 'string' && h.trim()).length > 3 && (
+              <Text style={styles.moreHighlights}>+{((pkg as any).highlights.filter((h: any) => typeof h === 'string' && h.trim()).length - 3)} more</Text>
+            )}
+          </View>
         </View>
-      </View>
+      )}
 
       {/* Package Actions */}
       <View style={styles.packageActions}>
         <TouchableOpacity 
-          style={styles.actionButton}
+          style={[styles.actionButton, pendingId === String(pkg._id || pkg.slug) && styles.actionButtonDisabled]}
           onPress={() => handlePackageAction(String(pkg._id || pkg.slug), 'edit')}
+          disabled={pendingId === String(pkg._id || pkg.slug)}
         >
           <Ionicons name="create" size={18} color={Colors.primary600} />
           <Text style={styles.actionButtonText}>Edit</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={styles.actionButton}
+          style={[styles.actionButton, pendingId === String(pkg._id || pkg.slug) && styles.actionButtonDisabled]}
           onPress={() => handlePackageAction(String(pkg._id || pkg.slug), 'duplicate')}
+          disabled={pendingId === String(pkg._id || pkg.slug)}
         >
           <Ionicons name="copy" size={18} color={Colors.secondary600} />
           <Text style={styles.actionButtonText}>Duplicate</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.actionButton, styles.toggleButton]}
+          style={[styles.actionButton, styles.toggleButton, pendingId === String(pkg._id || pkg.slug) && styles.actionButtonDisabled]}
           onPress={() => handlePackageAction(String(pkg._id || pkg.slug), 'toggle')}
+          disabled={pendingId === String(pkg._id || pkg.slug)}
         >
           <Ionicons 
             name={pkg.isActive ? 'pause' : 'play'} 
@@ -292,10 +326,15 @@ export default function PackagesScreen() {
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.actionButton, styles.deleteButton]}
+          style={[styles.actionButton, styles.deleteButton, pendingId === String(pkg._id || pkg.slug) && styles.actionButtonDisabled]}
           onPress={() => handlePackageAction(String(pkg._id || pkg.slug), 'delete')}
+          disabled={pendingId === String(pkg._id || pkg.slug)}
         >
-          <Ionicons name="trash" size={18} color={Colors.error} />
+          {pendingId === String(pkg._id || pkg.slug) ? (
+            <ActivityIndicator size="small" color={Colors.error} />
+          ) : (
+            <Ionicons name="trash" size={18} color={Colors.error} />
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -381,22 +420,17 @@ export default function PackagesScreen() {
         presentationStyle="fullScreen"
         onRequestClose={() => setShowCreateForm(false)}
       >
-        <CreatePackageComponent 
-          onClose={() => { setShowCreateForm(false); fetchPackages(); setEditingPackage(null); }}
-          defaultValues={editingPackage ? {
-            name: editingPackage.title,
-            description: editingPackage.description || '',
-            duration: `${editingPackage.durationDays || 1} days`,
-            price: String(editingPackage.pricing?.amount || ''),
-            category: (editingPackage.tags && editingPackage.tags[0]) as any,
-            included: (editingPackage as any).includes || [],
-            excluded: (editingPackage as any).excludes || [],
-            itinerary: ((editingPackage as any).itinerary || []).map((it: any) => ({ time: '', activity: it.title, location: it.description || '' })),
-            isActive: editingPackage.isActive,
-          } : undefined}
-          // @ts-ignore - extend to support updates via route params if needed
-          idOrSlug={editingPackage ? String(editingPackage._id || editingPackage.slug) : undefined}
-        />
+        {editingPackage ? (
+          <EditPackageComponent
+            idOrSlug={String(editingPackage._id || editingPackage.slug)}
+            onClose={() => { setShowCreateForm(false); fetchPackages(); setEditingPackage(null); }}
+          />
+        ) : (
+          <CreatePackageComponent
+            onClose={() => { setShowCreateForm(false); fetchPackages(); setEditingPackage(null); }}
+            template={selectedTemplate}
+          />
+        )}
       </Modal>
     );
   };
@@ -704,6 +738,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
+  packageImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    backgroundColor: Colors.secondary100,
+  },
+
   packageBadges: {
     position: 'absolute',
     top: -8,
@@ -864,6 +905,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     backgroundColor: Colors.secondary50,
+  },
+
+  actionButtonDisabled: {
+    opacity: 0.6,
   },
 
   actionButtonText: {

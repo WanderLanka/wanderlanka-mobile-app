@@ -1,14 +1,27 @@
 import { ApiService } from './api';
+import { API_CONFIG } from './config';
+import slugify from 'slugify';
 
 export interface GuideListItem {
+  _id?: string;
   username: string;
-  avatar?: string;
-  role: 'guide';
   status?: string;
+  featured?: boolean;
+  details?: {
+    firstName?: string;
+    lastName?: string;
+    avatar?: string;
+  };
+  // Back-compat for existing screens that use `guideDetails`
   guideDetails?: {
     firstName?: string;
     lastName?: string;
+    avatar?: string;
     approvedAt?: string | null;
+  };
+  metrics?: {
+    rating?: number;
+    totalReviews?: number;
   };
 }
 
@@ -47,24 +60,72 @@ const buildQuery = (params: ListGuidesParams = {}) => {
 
 export const ListingService = {
   async listGuides(params: ListGuidesParams = {}): Promise<GuidesListResponse> {
-    // Default to active status unless explicitly overridden
-    const query = buildQuery({ limit: 20, page: 1, status: 'active', ...params });
-    // API Gateway route: /api/listing/tourguide-listing/allguides
-    return ApiService.get<GuidesListResponse>(`/api/listing/tourguide-listing/allguides${query}`);
+    // No default filters; list as-is
+    const query = buildQuery(params);
+    // Guide-service route: /api/guide/guide/list
+    const res = await ApiService.get<GuidesListResponse>(`/api/guide/guide/list${query}`);
+    // Normalize to include legacy `guideDetails` for existing UI
+    const normalized: GuidesListResponse = {
+      ...res,
+      data: (res.data || []).map((g: any) => ({
+        ...g,
+        guideDetails: g.guideDetails || g.details || undefined,
+      })),
+    };
+    return normalized;
   },
-  async getGuideByUsername(username: string, status: 'active' | 'pending' | 'suspended' | 'rejected' = 'active'): Promise<GuideDetailResponse> {
+  async getGuideByUsername(username: string, status?: 'active' | 'pending' | 'suspended' | 'rejected'): Promise<GuideDetailResponse> {
     const usp = new URLSearchParams();
     if (status) usp.set('status', status);
     const qs = usp.toString() ? `?${usp.toString()}` : '';
-    // API Gateway route: /api/listing/service/tourguide-listing/guide/:username
-    return ApiService.get<GuideDetailResponse>(`/api/listing/service/tourguide-listing/guide/${encodeURIComponent(username)}${qs}`);
+    const base = API_CONFIG.BASE_URL?.replace(/\/$/, '') || '';
+
+    const tryFetch = async (handle: string) => {
+      const url = `${base}/api/guide/guide/get/${encodeURIComponent(handle)}${qs}`;
+      const res = await fetch(url, { headers: { Accept: 'application/json' } });
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json as GuideDetailResponse;
+    };
+
+    // Try raw username first
+    let out = await tryFetch(username);
+    if (!out) {
+      // Try slugified username variant (backend matches exact username only)
+      const slug = slugify(username, { lower: true, strict: true });
+      if (slug && slug !== username) {
+        out = await tryFetch(slug);
+      }
+    }
+
+    if (!out) {
+      // Keep the same error behavior for callers relying on try/catch fallback,
+      // but avoid ApiService logging a loud error.
+      throw new Error('Guide not found');
+    }
+
+    return {
+      ...out,
+      data: {
+        ...out.data,
+        guideDetails: (out.data as any)?.guideDetails || (out.data as any)?.details || undefined,
+      },
+    };
   },
   async listFeaturedGuides(limit = 10, status: 'active' | 'pending' | 'suspended' | 'rejected' = 'active'): Promise<GuidesListResponse> {
     const usp = new URLSearchParams();
     if (limit) usp.set('limit', String(limit));
     if (status) usp.set('status', status);
     const qs = usp.toString() ? `?${usp.toString()}` : '';
-    // API Gateway route: /api/listing/service/tourguide-listing/featuredguides
-    return ApiService.get<GuidesListResponse>(`/api/listing/service/tourguide-listing/featuredguides${qs}`);
+    // Guide-service route: /api/guide/featuredguides
+    const res = await ApiService.get<GuidesListResponse>(`/api/guide/featuredguides${qs}`);
+    const normalized: GuidesListResponse = {
+      ...res,
+      data: (res.data || []).map((g: any) => ({
+        ...g,
+        guideDetails: g.guideDetails || g.details || undefined,
+      })),
+    };
+    return normalized;
   }
 };
