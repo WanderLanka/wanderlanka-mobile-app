@@ -29,10 +29,62 @@ export default function GuideDetailScreen() {
 				try {
 					setLoading(true);
 					setError(null);
-					const username = decodeURIComponent(String(title || '')).trim();
-					if (!username) throw new Error('Invalid guide identifier');
-					const res = await ListingService.getGuideByUsername(username, 'active');
-					if (isMounted) setDetails(res.data);
+					const raw = decodeURIComponent(String(title || '')).trim();
+					if (!raw) throw new Error('Invalid guide identifier');
+
+					// 1) Try direct by-username fetch
+					try {
+						const res = await ListingService.getGuideByUsername(raw);
+						if (isMounted) setDetails(res.data);
+						return;
+					} catch {}
+
+					// 2) Fallback: search list by name/username and resolve a username
+					const norm = (s: string) => (s || '').toLowerCase().trim();
+					const full = norm(raw);
+					const parts = full.split(/\s+/).filter(Boolean);
+
+					const tryPickFrom = (items: any[]) => {
+            const candidates = items || [];
+            return (
+              candidates.find((g: any) => {
+                const uname = norm(g.username);
+                const fname = norm(g.guideDetails?.firstName || g.details?.firstName || '');
+                const lname = norm(g.guideDetails?.lastName || g.details?.lastName || '');
+                const fullname = `${fname} ${lname}`.trim();
+                return uname === full || fullname === full;
+              }) ||
+              candidates.find((g: any) => {
+                const uname = norm(g.username);
+                return uname.includes(full);
+              }) ||
+              candidates[0]
+            );
+          };
+
+					// First, try with full query
+					let list = await ListingService.listGuides({ q: raw, limit: 10 });
+					let pick = tryPickFrom(list.data || []);
+
+					// If not found or missing username, try first and last tokens separately
+					if (!pick?.username && parts.length) {
+						list = await ListingService.listGuides({ q: parts[0], limit: 10 });
+						pick = tryPickFrom(list.data || []);
+					}
+					if (!pick?.username && parts.length > 1) {
+						list = await ListingService.listGuides({ q: parts[parts.length - 1], limit: 10 });
+						pick = tryPickFrom(list.data || []);
+					}
+
+					// Final fallback: grab a broader list and search client-side
+					if (!pick?.username) {
+						list = await ListingService.listGuides({ limit: 50 });
+						pick = tryPickFrom(list.data || []);
+					}
+
+					if (!pick?.username) throw new Error('Guide not found');
+					const res2 = await ListingService.getGuideByUsername(pick.username);
+					if (isMounted) setDetails(res2.data);
 				} catch (e: any) {
 					console.error('Guide details load failed:', e);
 					if (isMounted) setError(e?.message || 'Failed to load guide');
