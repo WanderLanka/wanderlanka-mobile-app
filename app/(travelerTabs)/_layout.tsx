@@ -1,5 +1,5 @@
-import { Tabs, router } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { CustomButton, ThemedText } from '../../components';
 import {
   FlatList,
   Modal,
@@ -12,12 +12,12 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { CustomButton, ThemedText } from '../../components';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Tabs, router } from 'expo-router';
 
-import { Ionicons } from '@expo/vector-icons';
 import { Calendar } from 'react-native-calendars';
-import { Modalize } from 'react-native-modalize';
 import { Colors } from '../../constants/Colors';
+import { Ionicons } from '@expo/vector-icons';
 
 // If you get module not found errors, check that these files exist at app/ui/CustomTextInput.tsx and app/ui/ThemedText.tsx
 // If not, update the import paths to the correct location or create the missing files.
@@ -37,7 +37,10 @@ interface Location {
 }
 
 export default function TravelerTabsLayout() {
-  const modalRef = useRef<Modalize>(null);
+  const bottomSheetRef = useRef<BottomSheet>(null);
+  
+  // Snap points for bottom sheet
+  const snapPoints = useMemo(() => ['90%'], []);
   
   // Location states
   const [destination, setDestination] = useState<Location | null>(null);
@@ -74,11 +77,11 @@ export default function TravelerTabsLayout() {
   }, [searchTimeout]);
 
   const openBottomSheet = () => {
-    modalRef.current?.open();
+    bottomSheetRef.current?.expand();
   };
 
   const closeBottomSheet = () => {
-    modalRef.current?.close();
+    bottomSheetRef.current?.close();
   };
 
   const handleStartPlanning = () => {
@@ -310,31 +313,26 @@ export default function TravelerTabsLayout() {
         </Tabs>
       </View>
       {/* Bottom Sheet */}
-      <Modalize 
-        ref={modalRef} 
-        adjustToContentHeight
-        avoidKeyboardLikeIOS={Platform.OS === 'ios'}
-        keyboardAvoidingBehavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        closeOnOverlayTap={false}
-        panGestureEnabled={true}
-        withHandle={true}
-        modalStyle={{
+      <BottomSheet
+        ref={bottomSheetRef}
+        index={-1}
+        snapPoints={snapPoints}
+        enablePanDownToClose={true}
+        backgroundStyle={{
           backgroundColor: Colors.white,
           borderTopLeftRadius: 20,
           borderTopRightRadius: 20,
         }}
-        overlayStyle={{
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        }}
-        handleStyle={{
+        handleIndicatorStyle={{
           backgroundColor: Colors.secondary200,
           width: 40,
           height: 4,
-          borderRadius: 2,
         }}
-        disableScrollIfPossible={false}
       >
-        <View style={styles.bottomSheetContent}>
+        <BottomSheetScrollView 
+          contentContainerStyle={styles.bottomSheetContent}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.sheetTitle}>
             <ThemedText variant="title" style={styles.bottomSheetTitle}>Your Dream Trip Starts Here</ThemedText>
             <TouchableOpacity 
@@ -344,11 +342,7 @@ export default function TravelerTabsLayout() {
               <Ionicons name="close" size={24} color={Colors.white} />
             </TouchableOpacity>
           </View>
-          <ScrollView 
-            style={styles.sheetBody} 
-            contentContainerStyle={styles.sheetBodyContent}
-            showsVerticalScrollIndicator={false}
-          >
+          <View style={styles.sheetBody}>
             {/* Destination Selection */}
             <View style={styles.inputSection}>
               <Text style={styles.inputLabel}>Where are you going?</Text>
@@ -440,9 +434,9 @@ export default function TravelerTabsLayout() {
               onPress={handleStartPlanning}
               style={styles.startPlanningButton}
             />
-          </ScrollView>
-        </View>
-      </Modalize>
+          </View>
+        </BottomSheetScrollView>
+      </BottomSheet>
 
       {/* Date Pickers */}
       <Modal
@@ -698,10 +692,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   bottomSheetContent: {
-    flex: 1,
-    alignItems: 'stretch',
-    backgroundColor: Colors.secondary50,
-    paddingBottom: 20,
+    paddingBottom: 40,
   },
   sheetTitle: {
     width: '100%',
@@ -722,14 +713,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   sheetBody: {
+    flex: 1,
     backgroundColor: Colors.secondary50,
-    borderBottomLeftRadius: 18,
-    borderBottomRightRadius: 18,
-  },
-  sheetBodyContent: {
     paddingHorizontal: 24,
     paddingVertical: 28,
-    alignItems: 'stretch',
   },
   dateRow: {
     flexDirection: 'row',

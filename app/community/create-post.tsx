@@ -2,6 +2,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   Image,
@@ -16,10 +17,14 @@ import {
 import React, { useState } from 'react';
 import { getLocationIcon, getMockLocationSuggestions } from '../../utils/locationService';
 
+import { ApiService } from '../../services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
+import { NetworkDetection } from '../../utils/serverDetection';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -50,12 +55,14 @@ interface LocationSuggestion {
 }
 
 export default function CreatePostScreen() {
+  const { user } = useAuth();
   const [postContent, setPostContent] = useState('');
   const [postTitle, setPostTitle] = useState('');
   const [location, setLocation] = useState('');
   const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('experience');
   const [isLocationLoading, setIsLocationLoading] = useState(false);
+  const [isPosting, setIsPosting] = useState(false);
   const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
   const [locationSearchTimeout, setLocationSearchTimeout] = useState<number | null>(null);
@@ -234,7 +241,7 @@ export default function CreatePostScreen() {
     setTimeout(() => setSuggestionJustSelected(false), 100);
   };
 
-  const handlePost = () => {
+  const handlePost = async () => {
     if (!postTitle.trim()) {
       Alert.alert('Missing Title', 'Please add a title for your travel post');
       return;
@@ -250,71 +257,121 @@ export default function CreatePostScreen() {
       return;
     }
 
-    // Create post data object for backend integration
-    const postData = {
-      title: postTitle.trim(),
-      content: postContent.trim(),
-      location: location.trim(),
-      category: selectedCategory,
-      images: selectedImages,
-      options: postOptions,
-      timestamp: new Date().toISOString(),
-      author: {
-        id: 'current_user_id', // TODO: Get from auth
-        name: 'Current User', // TODO: Get from auth
+    setIsPosting(true);
+
+    try {
+      // Get auth token
+      const token = await AsyncStorage.getItem('accessToken');
+      
+      if (!token) {
+        Alert.alert('Authentication Required', 'Please log in to create a post');
+        setIsPosting(false);
+        return;
       }
-    };
 
-    // TODO: Submit to backend API
-    console.log('Post data:', postData);
+      // Create FormData for multipart/form-data request
+      const formData = new FormData();
+      formData.append('title', postTitle.trim());
+      formData.append('content', postContent.trim());
+      formData.append('locationName', location.trim());
+      formData.append('tags', JSON.stringify([selectedCategory]));
 
-    Alert.alert(
-      'Post Created! 🎉',
-      'Your travel story has been shared with the WanderLanka community.',
-      [
-        {
-          text: 'View Post',
-          onPress: () => {
-            // TODO: Navigate to the created post
-            router.back();
-          },
+      // Add images if any
+      if (selectedImages.length > 0) {
+        selectedImages.forEach((image, index) => {
+          const uriParts = image.uri.split('.');
+          const fileType = uriParts[uriParts.length - 1];
+          
+          formData.append('images', {
+            uri: image.uri,
+            name: `photo_${index}.${fileType}`,
+            type: `image/${fileType}`,
+          } as any);
+        });
+      }
+
+      console.log('📤 Posting to community service via API Gateway...');
+
+      // Get the correct base URL from API_CONFIG (updated by NetworkDetection)
+      const baseURL = await NetworkDetection.detectServer();
+      // Use API Gateway - it will route to community service
+      const apiGatewayURL = `${baseURL}/api/community/posts`;
+
+      console.log('🌐 Using API Gateway URL:', apiGatewayURL);
+
+      // Make API request through API Gateway
+      const response = await fetch(apiGatewayURL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type - let fetch set it with boundary for FormData
         },
-        {
-          text: 'Share Another',
-          onPress: () => {
-            // Reset form for another post
-            setPostTitle('');
-            setPostContent('');
-            setLocation('');
-            setSelectedImages([]);
-            setSelectedCategory('experience');
-          },
-        },
-      ]
-    );
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        console.log('✅ Post created successfully:', data.data);
+        
+        Alert.alert(
+          'Post Created! 🎉',
+          'Your travel story has been shared with the WanderLanka community.',
+          [
+            {
+              text: 'Done',
+              onPress: () => router.back(),
+            },
+          ]
+        );
+
+        // Reset form
+        setPostTitle('');
+        setPostContent('');
+        setLocation('');
+        setSelectedImages([]);
+        setSelectedCategory('experience');
+      } else {
+        console.error('❌ Post creation failed:', data);
+        Alert.alert('Error', data.message || 'Failed to create post. Please try again.');
+      }
+    } catch (error: any) {
+      console.error('❌ Error creating post:', error);
+      Alert.alert(
+        'Network Error',
+        'Could not connect to the server. Please check your connection and try again.'
+      );
+    } finally {
+      setIsPosting(false);
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.back()} disabled={isPosting}>
           <Text style={styles.cancelText}>Cancel</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Share Travel Story</Text>
         <TouchableOpacity 
           onPress={handlePost}
+          disabled={!postTitle.trim() || !postContent.trim() || !location.trim() || isPosting}
           style={[
             styles.postButton,
-            (!postTitle.trim() || !postContent.trim() || !location.trim()) && styles.postButtonDisabled
+            (!postTitle.trim() || !postContent.trim() || !location.trim() || isPosting) && styles.postButtonDisabled
           ]}
         >
-          <Text style={[
-            styles.postText,
-            (!postTitle.trim() || !postContent.trim() || !location.trim()) && styles.postTextDisabled
-          ]}>
-            Share
-          </Text>
+          {isPosting ? (
+            <ActivityIndicator size="small" color={Colors.secondary400} />
+          ) : (
+            <Text style={[
+              styles.postText,
+              (!postTitle.trim() || !postContent.trim() || !location.trim()) && styles.postTextDisabled
+            ]}>
+              Share
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
 

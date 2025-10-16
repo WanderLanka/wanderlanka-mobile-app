@@ -1,13 +1,14 @@
-import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Modalize } from 'react-native-modalize';
-import { CustomTextInput } from '../../components';
+import React, { useMemo, useRef, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+
+import { Colors } from '../../constants/Colors';
 import { CustomButton } from '../../components/CustomButton';
+import { CustomTextInput } from '../../components';
+import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '../../components/ThemedText';
 import { UserReview } from '../../components/UserReview';
-import { Colors } from '../../constants/Colors';
 
 const mockData = [
   {
@@ -55,7 +56,8 @@ export default function AccomodationDetailsScreen() {
   const screenWidth = Dimensions.get('window').width;
   const [currentImage, setCurrentImage] = useState(0);
   const scrollRef = useRef(null);
-  const modalRef = useRef<Modalize>(null);
+  const bottomSheetRef = useRef<BottomSheet>(null);
+  const snapPoints = useMemo(() => ['85%'], []);
 
 interface ScrollEvent {
     nativeEvent: {
@@ -72,7 +74,7 @@ const handleScroll = (event: ScrollEvent) => {
 };
 
 const openBottomSheet = () => {
-  modalRef.current?.open();
+  bottomSheetRef.current?.expand();
 };
 
   return (
@@ -174,8 +176,23 @@ const openBottomSheet = () => {
           onPress={openBottomSheet}
         />
       </View>
-      <Modalize ref={modalRef} adjustToContentHeight>
-        <View style={styles.sheetContent}>
+      <BottomSheet
+        ref={bottomSheetRef}
+        index={-1}
+        snapPoints={snapPoints}
+        enablePanDownToClose={true}
+        backgroundStyle={{
+          backgroundColor: Colors.white,
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+        }}
+        handleIndicatorStyle={{
+          backgroundColor: Colors.secondary200,
+          width: 40,
+          height: 4,
+        }}
+      >
+        <BottomSheetScrollView contentContainerStyle={styles.sheetContent}>
           <View style={styles.sheetTitle}>
             <ThemedText variant="title" style={styles.sheetTitleText}>Booking Details</ThemedText>
           </View>
@@ -240,8 +257,8 @@ const openBottomSheet = () => {
               onPress={() => {}}
             />
           </View>
-        </View>
-      </Modalize>
+        </BottomSheetScrollView>
+      </BottomSheet>
     </SafeAreaView>
   );
 }
