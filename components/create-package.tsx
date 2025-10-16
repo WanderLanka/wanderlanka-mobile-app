@@ -184,7 +184,7 @@ interface CreatePackageProps {
 export default function CreatePackageComponent({ onClose, defaultValues, idOrSlug, template }: CreatePackageProps) {
   const params = useLocalSearchParams();
   const routeTemplate = params.template as string | undefined;
-  const packageId = params.packageId as string | undefined;
+  const isEditing = !!idOrSlug;
   const [formData, setFormData] = useState<PackageForm>({ ...defaultForm, ...(defaultValues || {}) });
   const [currentStep, setCurrentStep] = useState(0);
   const [errors, setErrors] = useState<Partial<PackageForm>>({});
@@ -297,10 +297,8 @@ export default function CreatePackageComponent({ onClose, defaultValues, idOrSlu
         else if (isNaN(Number(formData.maxGroupSize))) newErrors.maxGroupSize = 'Group size must be a number';
         break;
       case 1: // Details
-        // Details optional overall, but we still encourage at least one included item
-        if (formData.included.filter(i => i.trim()).length === 0) {
-          newErrors.included = ['At least one included item is required'];
-        }
+        // Details are optional; don't block navigation on this step.
+        // We could show hints later, but allow Next to proceed.
         break;
       case 2: // Itinerary
         const validItinerary = formData.itinerary.filter(item => 
@@ -1101,7 +1099,7 @@ export default function CreatePackageComponent({ onClose, defaultValues, idOrSlu
           <Ionicons name="close" size={24} color={Colors.secondary700} />
         </TouchableOpacity>
         <ThemedText variant="title" style={styles.headerTitle}>
-          {packageId ? 'Edit Package' : 'Create Package'}
+          {isEditing ? 'Edit Package' : 'Create Package'}
         </ThemedText>
         <View style={{ width: 24 }} />
       </View>
