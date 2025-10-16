@@ -11,24 +11,28 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      router.replace('../auth/login');
+      router.replace('/auth/login');
       return;
     }
 
-    // Role-based navigation redirect
+    // Role-based navigation redirect - immediate redirect without showing dashboard content
     if (user && user.role) {
       console.log('Dashboard: Redirecting user with role:', user.role);
       
       if (user.role === 'guide') {
         // Redirect guides to their interface
         console.log('Dashboard: Redirecting to guide interface');
-        router.replace('../tourGuide/home');
-      } else if (user.role === 'traveller' || user.role === 'tourist') {
-        // Redirect travellers/tourists to their interface  
+        router.replace('/tourGuide/home');
+        return;
+      } else if (user.role === 'traveller' || user.role === 'traveler') {
+        // Redirect travellers to their interface  
         console.log('Dashboard: Redirecting to traveller interface');
-        router.replace('../(travelerTabs)/home');
+        router.replace('/(travelerTabs)/home');
+        return;
       } else {
-        console.log('Dashboard: Unknown role, staying on dashboard:', user.role);
+        console.log('Dashboard: Unknown role, redirecting to traveler interface as fallback:', user.role);
+        router.replace('/(travelerTabs)/home');
+        return;
       }
     }
   }, [isAuthenticated, user]);
@@ -36,7 +40,7 @@ export default function DashboardScreen() {
   const handleLogout = async () => {
     try {
       await logout();
-      router.replace('../auth/login');
+      router.replace('/auth/login');
     } catch (error) {
       console.error('Logout error:', error);
     }

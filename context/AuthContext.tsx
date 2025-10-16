@@ -4,7 +4,7 @@ import { User } from '../types';
 import { AuthService } from '../services/auth';
 
 // Frontend role type for signup form
-type FrontendRole = 'tourist' | 'guide';
+type FrontendRole = 'traveler' | 'guide';
 
 interface AuthContextType {
   user: User | null;
@@ -101,7 +101,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         username,
         email,
         password,
-        role, // This is 'tourist' or 'guide', backend will map 'tourist' to 'traveller'
+        role, // This is 'traveler' or 'guide', backend will map 'traveler' to 'traveller'
       });
 
       if (response.success && response.data) {

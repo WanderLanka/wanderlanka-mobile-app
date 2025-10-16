@@ -20,17 +20,20 @@ export default function Index() {
         
         if (user.role === 'guide') {
           console.log('Index: Redirecting guide to tourGuide interface');
-          router.replace('./tourGuide/home');
-        } else if (user.role === 'traveller' || user.role === 'tourist') {
+          console.log('Index: About to navigate to /tourGuide/home');
+          router.replace('/tourGuide/home');
+        } else if (user.role === 'traveller' || user.role === 'traveler') {
           console.log('Index: Redirecting traveller to traveler interface');
-          router.replace('./(travelerTabs)/home');
+          console.log('Index: About to navigate to /(travelerTabs)/home');
+          router.replace('/(travelerTabs)/home');
         } else {
-          console.log('Index: Unknown role, redirecting to dashboard:', user.role);
-          router.replace('./dashboard');
+          console.log('Index: Unknown role, redirecting to traveler interface as fallback:', user.role);
+          console.log('Index: About to navigate to /(travelerTabs)/home as fallback');
+          router.replace('/(travelerTabs)/home');
         }
       } else {
         console.log('Index: User not authenticated, redirecting to login');
-        router.replace('./auth/login');
+        router.replace('/auth/login');
       }
     } else {
       console.log('Index: Still loading...');

@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 
 // Define the role type that the frontend uses
-type FrontendRole = 'tourist' | 'guide';
+type FrontendRole = 'traveler' | 'guide';
 
 interface RoleSelectorProps {
   selectedRole: FrontendRole | null;
@@ -20,7 +20,7 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 }) => {
   const roles = [
     {
-      value: 'tourist' as FrontendRole, // Frontend uses 'tourist', backend maps to 'traveller'
+      value: 'traveler' as FrontendRole, // Frontend uses 'traveler', backend maps to 'traveller'
       label: 'Traveller',
       description: 'Explore destinations and plan trips',
       icon: 'map' as keyof typeof Ionicons.glyphMap,

@@ -1,4 +1,4 @@
-// User roles (backend uses 'traveller' instead of 'tourist')
+// User roles (backend uses 'traveller' instead of 'traveler')
 export type UserRole = 'traveller' | 'guide';
 
 export interface User {
@@ -14,12 +14,12 @@ export interface User {
   updatedAt: Date;
 }
 
-// Authentication interfaces
+//Authentication interfaces
 export interface SignUpRequest {
   username: string;
   email: string;
   password: string;
-  role: 'tourist' | 'guide'; // Frontend uses 'tourist', backend maps to 'traveller'
+  role: 'traveler' | 'guide'; // Frontend uses 'traveler', backend maps to 'traveller'
 }
 
 export interface LoginRequest {
