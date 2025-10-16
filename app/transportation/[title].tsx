@@ -1,13 +1,14 @@
-import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Modalize } from 'react-native-modalize';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useMemo, useRef, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+
+import { Colors } from '../../constants/Colors';
 import { CustomButton } from '../../components/CustomButton';
 import { CustomTextInput } from '../../components/CustomTextInput';
+import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '../../components/ThemedText';
-import { Colors } from '../../constants/Colors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const vehicleData = [
   {
@@ -170,7 +171,8 @@ export default function VehicleDetailScreen() {
   const insets = useSafeAreaInsets();
   const { title } = useLocalSearchParams();
   const details = vehicleData.find(item => item.title === title) || vehicleData[0];
-  const modalRef = useRef<Modalize>(null);
+  const bottomSheetRef = useRef<BottomSheet>(null);
+  const snapPoints = useMemo(() => ['85%'], []);
   const [pickupType, setPickupType] = useState<'address' | 'gps'>('address');
   const [pickupAddress, setPickupAddress] = useState('');
   const [pickupGPS, setPickupGPS] = useState('');
@@ -187,7 +189,7 @@ export default function VehicleDetailScreen() {
   const isFormValid = pickupDate.trim() !== '' && pickupTime.trim() !== '' && isPickupLocationValid;
 
   const openBottomSheet = () => {
-    modalRef.current?.open();
+    bottomSheetRef.current?.expand();
   };
 
   const handleConfirmBooking = () => {
@@ -278,8 +280,23 @@ export default function VehicleDetailScreen() {
           onPress={openBottomSheet}
         />
       </View>
-      <Modalize ref={modalRef} adjustToContentHeight>
-        <View style={sheetStyles.sheetContent}>
+      <BottomSheet
+        ref={bottomSheetRef}
+        index={-1}
+        snapPoints={snapPoints}
+        enablePanDownToClose={true}
+        backgroundStyle={{
+          backgroundColor: Colors.white,
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+        }}
+        handleIndicatorStyle={{
+          backgroundColor: Colors.secondary200,
+          width: 40,
+          height: 4,
+        }}
+      >
+        <BottomSheetScrollView contentContainerStyle={sheetStyles.sheetContent}>
           <View style={sheetStyles.sheetTitle}>
             <ThemedText variant="title" style={sheetStyles.sheetTitleText}>Booking Details</ThemedText>
           </View>
@@ -358,8 +375,8 @@ export default function VehicleDetailScreen() {
               disabled={false}
             />
           </View>
-        </View>
-      </Modalize>
+        </BottomSheetScrollView>
+      </BottomSheet>
     </SafeAreaView>
   );
 }
