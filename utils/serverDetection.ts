@@ -299,3 +299,39 @@ export const handleNetworkChange = async () => {
   await NetworkDetection.clearCache();
   await initializeServerConnection();
 };
+
+/**
+ * Force server re-detection (useful before critical operations)
+ * Returns true if server is reachable, false otherwise
+ */
+export const ensureServerConnection = async (): Promise<boolean> => {
+  if (!__DEV__) return true; // Skip in production
+  
+  console.log('🔍 Ensuring server connection before operation...');
+  
+  try {
+    // First, try current BASE_URL
+    const currentURL = new URL(API_CONFIG.BASE_URL);
+    const currentIP = currentURL.hostname;
+    
+    const isCurrentWorking = await NetworkDetection['testServer']?.call(
+      NetworkDetection,
+      currentIP
+    ) as boolean;
+    
+    if (isCurrentWorking) {
+      console.log(`✅ Current server is reachable: ${API_CONFIG.BASE_URL}`);
+      return true;
+    }
+    
+    // Current server not working, force re-detection
+    console.warn('⚠️ Current server not reachable, forcing re-detection...');
+    await NetworkDetection.clearCache();
+    const newURL = await NetworkDetection.detectServer();
+    console.log(`✅ Server re-detected: ${newURL}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Server connection check failed:', error);
+    return false;
+  }
+};
