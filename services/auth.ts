@@ -8,7 +8,6 @@ import {
 import { API_CONFIG } from './config';
 import { ApiService } from './api';
 import { StorageService } from './storage';
-import { ensureServerConnection } from '../utils/serverDetection';
 
 /**
  * Authentication Service with dynamic server detection
@@ -22,12 +21,7 @@ export class AuthService {
   static async signUp(userData: SignUpRequest): Promise<AuthResponse> {
     try {
       // Ensure server connection before signup
-      console.log('🔍 Checking server connection before signup...');
-      const serverReachable = await ensureServerConnection();
-      
-      if (!serverReachable) {
-        throw new Error('Unable to connect to server. Please check your network connection and try again.');
-      }
+      // Proceed without automatic server detection
       
       console.log('🔗 Signup request:', { ...userData, password: '[HIDDEN]' });
       
@@ -120,12 +114,7 @@ export class AuthService {
   static async login(credentials: LoginRequest): Promise<AuthResponse> {
     try {
       // Ensure server connection before login
-      console.log('🔍 Checking server connection before login...');
-      const serverReachable = await ensureServerConnection();
-      
-      if (!serverReachable) {
-        throw new Error('Unable to connect to server. Please check your network connection and try again.');
-      }
+      // Proceed without automatic server detection
       
       // Use direct fetch for login to handle 403 responses properly
   const response = await fetch(`${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/login`, {
@@ -238,12 +227,7 @@ export class AuthService {
   }): Promise<void> {
     try {
       // Ensure server connection before critical operation
-      console.log('🔍 Checking server connection before guide registration...');
-      const serverReachable = await ensureServerConnection();
-      
-      if (!serverReachable) {
-        throw new Error('Unable to connect to server. Please check your network connection and try again.');
-      }
+      // Proceed without automatic server detection
       
       // Backend expects unified /register endpoint (with platform-aware handling)
       // For mobile guide registration, we must send role: 'guide' and guideDetails block

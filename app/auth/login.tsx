@@ -11,11 +11,9 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import {
     CustomButton,
     CustomTextInput,
-    NetworkStatus,
     ThemedText,
     ThemedView
 } from '../../components';
@@ -28,7 +26,7 @@ import { Colors } from '../../constants/Colors';
 import { useAuth } from '../../context/AuthContext';
 
 export default function LoginScreen() {
-  const { login, isLoading, refreshNetwork } = useAuth();
+  const { login, isLoading } = useAuth();
   const [formData, setFormData] = useState({
     identifier: '', // Can be username or email
     password: '',
@@ -223,21 +221,7 @@ export default function LoginScreen() {
               </Text>
             </TouchableOpacity>
 
-            {/* Network refresh button for WiFi changes */}
-            {__DEV__ && (
-              <TouchableOpacity 
-                style={styles.networkRefresh} 
-                onPress={refreshNetwork}
-                disabled={isLoading}
-              >
-                <View style={styles.networkRefreshContent}>
-                  <Ionicons name="wifi-outline" size={16} color={Colors.secondary400} />
-                  <Text style={styles.networkRefreshText}>
-                    Refresh Network Connection
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
+
 
             <View style={styles.signUpPrompt}>
               <Text style={styles.signUpPromptText}>
@@ -310,21 +294,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.primary600,
     fontWeight: '600',
-    fontFamily: 'Inter',
-  },
-  networkRefresh: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  networkRefreshContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  networkRefreshText: {
-    fontSize: 12,
-    color: Colors.secondary400,
-    fontWeight: '500',
     fontFamily: 'Inter',
   },
   signUpPrompt: {

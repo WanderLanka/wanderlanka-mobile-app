@@ -14,7 +14,6 @@ interface AuthContextType {
   login: (identifier: string, password: string) => Promise<{ success: boolean; status?: string; message?: string; }>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
-  refreshNetwork: () => Promise<void>;
   completeGuideRegistration: (data: GuideRegistrationData) => Promise<void>;
 }
 
@@ -291,22 +290,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await checkAuthStatus();
   };
 
-  const refreshNetwork = async () => {
-    try {
-      setIsLoading(true);
-      console.log('🔄 Manual network refresh triggered...');
-      
-      // Import the refresh function dynamically
-      const { refreshNetworkConnection } = await import('../utils/networkMonitor');
-      await refreshNetworkConnection();
-      
-      console.log('✅ Network refresh completed');
-    } catch (error) {
-      console.error('❌ Network refresh failed:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Network refresh feature removed; relying on static BASE_URL
 
   const completeGuideRegistration = async (data: GuideRegistrationData) => {
     try {
@@ -328,7 +312,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     logout,
     refreshAuth,
-    refreshNetwork,
     completeGuideRegistration,
   };
 

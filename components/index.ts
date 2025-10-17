@@ -3,7 +3,7 @@ export { CustomButton } from './CustomButton';
 export { CustomTextInput } from './CustomTextInput';
 export { DeleteAccountModal } from './DeleteAccountModal';
 export { HotelCard } from './HotelCard';
-export { NetworkStatus } from './NetworkStatus';
+export { InlineCalendar } from './InlineCalendar';
 export { ProfileAvatar } from './ProfileAvatar';
 export { RoleSelector } from './RoleSelector';
 export { ServicesTopBar } from './ServicesTopBar';

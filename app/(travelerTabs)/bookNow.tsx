@@ -1,6 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
+import { useScrollToTop } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import vehicleIcon from '../../assets/images/car.png';
@@ -13,6 +14,9 @@ import { clearAllStorage } from '../../utils/StorageUtils';
 
 export default function BookNowScreen() {
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
+  // Ensure tab press scrolls to top and proper scrollable node is registered
+  useScrollToTop(scrollRef);
   const [upcomingBookings, setUpcomingBookings] = useState<ConfirmedBooking[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -123,7 +127,7 @@ export default function BookNowScreen() {
         onProfilePress={() => { /* handle profile/account */ }}
         onNotificationsPress={() => { /* handle notifications */ }}
       />
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+  <ScrollView ref={scrollRef} style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Header Section */}
         <View style={styles.greetingContainer}>
           <ThemedText variant="title" style={styles.greeting}>Book Now !</ThemedText>
