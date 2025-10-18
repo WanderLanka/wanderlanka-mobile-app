@@ -11,11 +11,13 @@ import {
   View,
 } from 'react-native';
 import React, { useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { NetworkDetection } from '../../utils/serverDetection';
 
 // Question categories
 const QUESTION_CATEGORIES = [
@@ -89,32 +91,58 @@ export default function AskQuestionFormScreen() {
     setIsSubmitting(true);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Get auth token
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        Alert.alert('Error', 'Please login to ask a question');
+        setIsSubmitting(false);
+        return;
+      }
 
-      // Mock submission data
+      // Get base URL
+      const baseURL = await NetworkDetection.detectServer();
+
+      // Prepare question data
       const questionData = {
-        title: questionTitle,
-        content: questionContent,
+        title: questionTitle.trim(),
+        content: questionContent.trim(),
         category: selectedCategory,
         tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0),
-        anonymous: isAnonymous,
-        timestamp: new Date().toISOString(),
+        isAnonymous: isAnonymous,
       };
 
-      console.log('Question submitted:', questionData);
+      console.log('📤 Submitting question:', questionData);
 
-      Alert.alert(
-        'Question Submitted!',
-        'Your question has been posted to the community. You\'ll be notified when someone answers it.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.back(),
-          },
-        ]
-      );
+      // Make API call
+      const response = await fetch(`${baseURL}/api/community/questions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(questionData),
+      });
+
+      const data = await response.json();
+
+      console.log('📥 Response:', data);
+
+      if (response.ok && data.success) {
+        Alert.alert(
+          'Question Submitted!',
+          'Your question has been posted to the community. You\'ll be notified when someone answers it.',
+          [
+            {
+              text: 'OK',
+              onPress: () => router.back(),
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Error', data.message || 'Failed to submit question. Please try again.');
+      }
     } catch (error) {
+      console.error('❌ Error submitting question:', error);
       Alert.alert('Error', 'Failed to submit question. Please try again.');
     } finally {
       setIsSubmitting(false);
