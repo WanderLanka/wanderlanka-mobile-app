@@ -241,33 +241,40 @@ export class AuthService {
       
       // Backend expects unified /register endpoint (with platform-aware handling)
       // For mobile guide registration, we must send role: 'guide' and guideDetails block
-      const payload = {
-        username: data.username,
-        email: data.email,
-        password: data.password,
-        role: data.role, // 'guide'
-        guideDetails: {
-          firstName: data.guideDetails.firstName,
-          lastName: data.guideDetails.lastName,
-          nicNumber: data.guideDetails.nicNumber,
-          dateOfBirth: data.guideDetails.dateOfBirth,
-        },
-      };
+      // Use FormData to upload the document file
+      const formData = new FormData();
+      formData.append('username', data.username);
+      formData.append('email', data.email);
+      formData.append('password', data.password);
+      formData.append('role', data.role);
+      formData.append('firstName', data.guideDetails.firstName);
+      formData.append('lastName', data.guideDetails.lastName);
+      formData.append('nicNumber', data.guideDetails.nicNumber);
+      formData.append('dateOfBirth', data.guideDetails.dateOfBirth);
+      
+      // Upload document file - the multer middleware in user-service expects 'document' field
+      // and will save it to uploads/docs/ directory
+      const document = data.guideDetails.proofDocument;
+      formData.append('document', {
+        uri: document.uri,
+        name: document.name,
+        type: document.type,
+      } as any);
 
       // Primary endpoint: unified register
   const primaryUrl = `${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/register`;
       console.log('🔗 Guide registration primary URL:', primaryUrl);
-      console.log('📤 Guide registration payload:', payload);
+      console.log('📤 Guide registration with document upload');
       
-      // Make API call with JSON data; include platform header for backend logic
+      // Make API call with FormData; don't set Content-Type header (let FormData set it with boundary)
       let response = await fetch(primaryUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'x-client-type': 'mobile', // Server expects x-client-type, not x-platform
           'x-platform': 'mobile', // Keep for backwards compatibility
+          // Note: Don't set Content-Type for FormData - browser/RN will set it with boundary
         },
-        body: JSON.stringify(payload),
+        body: formData,
       });
 
       console.log('📡 Guide registration response status:', response.status);
@@ -282,24 +289,32 @@ export class AuthService {
         console.warn('⚠️ /register returned 404. Retrying with legacy /api/auth/guide-registration');
   const legacyUrl = `${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/guide-registration`;
         console.log('🔗 Guide registration legacy URL:', legacyUrl);
+        
+        // Re-create FormData for legacy endpoint
+        const legacyFormData = new FormData();
+        legacyFormData.append('username', data.username);
+        legacyFormData.append('email', data.email);
+        legacyFormData.append('password', data.password);
+        legacyFormData.append('role', data.role);
+        legacyFormData.append('firstName', data.guideDetails.firstName);
+        legacyFormData.append('lastName', data.guideDetails.lastName);
+        legacyFormData.append('nicNumber', data.guideDetails.nicNumber);
+        legacyFormData.append('dateOfBirth', data.guideDetails.dateOfBirth);
+        
+        const document = data.guideDetails.proofDocument;
+        legacyFormData.append('document', {
+          uri: document.uri,
+          name: document.name,
+          type: document.type,
+        } as any);
+        
         response = await fetch(legacyUrl, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'x-client-type': 'mobile', // Server expects x-client-type, not x-platform
-            'x-platform': 'mobile', // Keep for backwards compatibility
+            'x-client-type': 'mobile',
+            'x-platform': 'mobile',
           },
-          // Legacy endpoint maps fields to guideDetails server-side
-          body: JSON.stringify({
-            username: data.username,
-            email: data.email,
-            password: data.password,
-            role: data.role,
-            firstName: data.guideDetails.firstName,
-            lastName: data.guideDetails.lastName,
-            nicNumber: data.guideDetails.nicNumber,
-            dateOfBirth: data.guideDetails.dateOfBirth,
-          }),
+          body: legacyFormData,
         });
 
         console.log('📡 Legacy guide registration status:', response.status);
