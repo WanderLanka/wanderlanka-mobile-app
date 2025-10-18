@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { InlineCalendar } from './InlineCalendar';
 import { BookingService } from '../services/booking';
+import { BookingDataManager, ConfirmedBooking } from '../utils/BookingDataManager';
 import { StorageService } from '../services/storage';
 import { PackageListItem } from '../services/guide';
 import { router } from 'expo-router';
@@ -144,9 +145,34 @@ export default function BookingModal({ visible, pkg, onClose, onBooked }: Bookin
       };
       const res = await BookingService.createTourPackageBooking(payload as any);
       if (res?.success) {
+        // Persist booking locally as pending
+        try {
+          const bookingIdFromApi: string | undefined = (res as any)?.data?._id || (res as any)?.data?.id;
+          const transactionIdFromApi: string | undefined = (res as any)?.data?.payment?.intentId || (res as any)?.data?.transactionId;
+          const confirmed: ConfirmedBooking = {
+            id: bookingIdFromApi || `booking_${Date.now()}`,
+            bookingId: bookingIdFromApi || `WL${Math.floor(Math.random() * 100000)}`,
+            tripName: String(pkg?.title || 'Tour Package'),
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            totalAmount: Number(totalPrice),
+            paymentDate: new Date().toISOString(),
+            transactionId: transactionIdFromApi || `TXN${Date.now()}`,
+            email: String(user?.email || ''),
+            status: 'pending',
+            accommodation: [],
+            transport: [],
+            guides: [],
+            createdAt: new Date().toISOString(),
+          };
+          await BookingDataManager.addToUpcomingBookings([confirmed]);
+        } catch (persistErr) {
+          console.warn('Failed to persist booking locally:', persistErr);
+        }
+
         Alert.alert('Booking placed', 'Your booking has been submitted.');
         onClose();
-        onBooked?.(res.data?._id);
+        onBooked?.((res as any)?.data?._id);
       } else {
         throw new Error(res?.error || 'Failed to create booking');
       }

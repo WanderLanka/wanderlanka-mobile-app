@@ -2,15 +2,17 @@ import { router, useFocusEffect } from 'expo-router';
 import { useScrollToTop } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Image, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, View, TouchableOpacity } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import vehicleIcon from '../../assets/images/car.png';
 import guideIcon from '../../assets/images/guide.png';
 import accomodationIcon from '../../assets/images/hotel.png';
 import { CustomButton, ThemedText, TopBar } from '../../components';
 import { Colors } from '../../constants/Colors';
-import { BookingDataManager, ConfirmedBooking } from '../../utils/BookingDataManager';
+import { ConfirmedBooking } from '../../utils/BookingDataManager';
 import { clearAllStorage } from '../../utils/StorageUtils';
+import { BookingService, TourPackageBookingItem } from '../../services/booking';
+import { StorageService } from '../../services/storage';
 
 export default function BookNowScreen() {
   const insets = useSafeAreaInsets();
@@ -33,9 +35,47 @@ export default function BookNowScreen() {
 
   const loadUpcomingBookings = async () => {
     try {
-      // Use BookingDataManager for automatic cleanup and filtering
-      const bookings = await BookingDataManager.getUpcomingBookings();
-      setUpcomingBookings(bookings);
+      // Prefer backend data
+      const user = await StorageService.getUserData();
+      const userId = user?.id || user?._id;
+      if (!userId) throw new Error('Not logged in');
+
+      const res = await BookingService.listTourPackageBookings({ userId: String(userId) });
+      const items: TourPackageBookingItem[] = (res?.success && Array.isArray(res.data)) ? (res.data as any) : [];
+
+      const now = new Date();
+      const mapped: ConfirmedBooking[] = items.map((it) => {
+        // Compute UI status
+        const end = new Date(it.endDate);
+        let status: ConfirmedBooking['status'] = 'confirmed';
+        if (it.status === 'cancelled') status = 'cancelled';
+        else if (end < now) status = 'completed';
+        else if (it.status === 'pending') status = 'pending';
+        else if (it.status === 'approved') status = 'approved';
+        else status = 'upcoming'; // future confirmed
+
+        return {
+          id: String(it._id),
+          bookingId: String(it._id),
+          tripName: it.packageTitle,
+          startDate: new Date(it.startDate).toISOString(),
+          endDate: new Date(it.endDate).toISOString(),
+          totalAmount: Number(it.pricing?.totalAmount || 0),
+          paymentDate: new Date(it.createdAt).toISOString(),
+          transactionId: (it as any)?.payment?.intentId || '',
+          email: user?.email || '',
+          status,
+          accommodation: [],
+          transport: [],
+          guides: [],
+          createdAt: new Date(it.createdAt).toISOString(),
+        };
+      })
+      // Filter to upcoming section: future and not cancelled
+  .filter(b => (['upcoming','pending','approved','confirmed'] as ConfirmedBooking['status'][]).includes(b.status))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      setUpcomingBookings(mapped);
     } catch (error) {
       console.error('Error loading bookings:', error);
       setUpcomingBookings([]);
@@ -106,6 +146,10 @@ export default function BookNowScreen() {
 
   const getStatusColor = (booking: ConfirmedBooking) => {
     switch (booking.status) {
+      case 'pending':
+        return Colors.warning;
+      case 'approved':
+        return Colors.info;
       case 'upcoming':
         return Colors.success;
       case 'confirmed':
@@ -209,7 +253,12 @@ export default function BookNowScreen() {
               </View>
             ) : upcomingBookings.length > 0 ? (
               upcomingBookings.slice(0, 5).map((booking) => (
-                <View key={booking.id} style={styles.bookingItem}>
+                <TouchableOpacity
+                  key={booking.id}
+                  style={styles.bookingItem}
+                  activeOpacity={0.8}
+                  onPress={() => router.push(`/bookings/${encodeURIComponent(booking.id)}`)}
+                >
                   <View style={[styles.bookingDot, { 
                     backgroundColor: getStatusColor(booking)
                   }]} />
@@ -223,7 +272,7 @@ export default function BookNowScreen() {
                   <View style={styles.bookingImage}>
                     <Image source={getServiceIcon(booking)} style={styles.bookingIcon} />
                   </View>
-                </View>
+                </TouchableOpacity>
               ))
             ) : (
               <View style={styles.emptyContainer}>
