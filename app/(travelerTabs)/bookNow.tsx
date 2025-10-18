@@ -45,14 +45,29 @@ export default function BookNowScreen() {
 
       const now = new Date();
       const mapped: ConfirmedBooking[] = items.map((it) => {
-        // Compute UI status
+        // Compute UI status based on backend status and dates
         const end = new Date(it.endDate);
         let status: ConfirmedBooking['status'] = 'confirmed';
-        if (it.status === 'cancelled') status = 'cancelled';
-        else if (end < now) status = 'completed';
-        else if (it.status === 'pending') status = 'pending';
-        else if (it.status === 'approved') status = 'approved';
-        else status = 'upcoming'; // future confirmed
+        
+        // Priority order: cancelled/declined > completed > confirmed > approved > pending
+        if (it.status === 'cancelled') {
+          status = 'cancelled';
+        } else if (it.status === 'declined') {
+          status = 'declined';
+        } else if (it.status === 'completed') {
+          status = 'completed';
+        } else if (end < now && it.status === 'confirmed') {
+          // Auto-mark as completed if end date has passed and still confirmed
+          status = 'completed';
+        } else if (it.status === 'pending') {
+          status = 'pending';
+        } else if (it.status === 'approved') {
+          status = 'approved';
+        } else if (it.status === 'confirmed') {
+          status = 'upcoming'; // future confirmed bookings are "upcoming"
+        } else {
+          status = 'upcoming';
+        }
 
         return {
           id: String(it._id),
@@ -179,6 +194,8 @@ export default function BookNowScreen() {
       case 'completed':
         return Colors.secondary400;
       case 'cancelled':
+        return Colors.error;
+      case 'declined':
         return Colors.error;
       default:
         return Colors.secondary400;

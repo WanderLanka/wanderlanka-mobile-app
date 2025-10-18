@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Alert, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
@@ -6,7 +6,7 @@ import { InlineCalendar } from './InlineCalendar';
 import { BookingService } from '../services/booking';
 import { BookingDataManager, ConfirmedBooking } from '../utils/BookingDataManager';
 import { StorageService } from '../services/storage';
-import { PackageListItem } from '../services/guide';
+import { PackageListItem, GuideService } from '../services/guide';
 import { router } from 'expo-router';
 
 export type BookingModalProps = {
@@ -23,6 +23,8 @@ export default function BookingModal({ visible, pkg, onClose, onBooked }: Bookin
   const [participants, setParticipants] = useState<string>('1');
   const [notes, setNotes] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
+  const [unavailableDates, setUnavailableDates] = useState<string[]>([]);
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
 
   const totalSteps = 3;
   const maxGroupSize = pkg?.maxGroupSize || 0;
@@ -30,6 +32,7 @@ export default function BookingModal({ visible, pkg, onClose, onBooked }: Bookin
   const unitAmount = pkg?.pricing?.amount || 0;
   const currency = pkg?.pricing?.currency || 'LKR';
   const durationDays = pkg?.durationDays || 1;
+  const guideId = (pkg as any)?.guideId;
 
   useEffect(() => {
     if (!startDate) { setEndDate(null); return; }
@@ -50,6 +53,39 @@ export default function BookingModal({ visible, pkg, onClose, onBooked }: Bookin
     })();
   }, []);
 
+  // Fetch guide availability when modal opens
+  const loadGuideAvailability = useCallback(async () => {
+    if (!guideId) return;
+    
+    setLoadingAvailability(true);
+    try {
+      // Get availability for next 3 months
+      const today = new Date();
+      const threeMonthsLater = new Date();
+      threeMonthsLater.setMonth(today.getMonth() + 3);
+      
+      const response = await GuideService.getGuideAvailability(
+        guideId,
+        today.toISOString().split('T')[0],
+        threeMonthsLater.toISOString().split('T')[0]
+      );
+      
+      if (response.success && response.data) {
+        setUnavailableDates(response.data.unavailableDates);
+      }
+    } catch (error) {
+      console.error('Failed to load guide availability:', error);
+    } finally {
+      setLoadingAvailability(false);
+    }
+  }, [guideId]);
+
+  useEffect(() => {
+    if (visible && guideId) {
+      loadGuideAvailability();
+    }
+  }, [visible, guideId, loadGuideAvailability]);
+
   const parsedParticipants = useMemo(() => {
     const n = parseInt(participants, 10);
     return isNaN(n) || n < 1 ? 1 : n;
@@ -60,6 +96,17 @@ export default function BookingModal({ visible, pkg, onClose, onBooked }: Bookin
   }, [perPerson, unitAmount, parsedParticipants]);
 
   const onDaySelect = (d: Date) => {
+    // Check if selected date is unavailable
+    const dateStr = d.toISOString().split('T')[0];
+    if (unavailableDates.includes(dateStr)) {
+      Alert.alert(
+        'Date Unavailable',
+        'The tour guide is not available on this date. Another traveler has already booked the guide. Please select a different date.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
     setStartDate(d);
   };
 
@@ -142,6 +189,11 @@ export default function BookingModal({ visible, pkg, onClose, onBooked }: Bookin
         },
         notes: String(notes || ''),
         paymentMethod: 'mock' as const,
+        // Include cancellation policy from package
+        cancellationPolicy: pkg.policies ? {
+          freeCancellation: pkg.policies.freeCancellation || false,
+          freeCancellationWindow: pkg.policies.freeCancellationWindow || undefined,
+        } : undefined,
       };
       const res = await BookingService.createTourPackageBooking(payload as any);
       if (res?.success) {
@@ -170,11 +222,23 @@ export default function BookingModal({ visible, pkg, onClose, onBooked }: Bookin
           console.warn('Failed to persist booking locally:', persistErr);
         }
 
-        Alert.alert('Booking placed', 'Your booking has been submitted.');
+        Alert.alert('Booking placed', 'Your booking has been submitted and is pending guide approval.');
         onClose();
         onBooked?.((res as any)?.data?._id);
       } else {
-        throw new Error(res?.error || 'Failed to create booking');
+        // Check if this is a guide availability error
+        const errorMsg = res?.error || '';
+        if (errorMsg.includes('not available') || errorMsg.includes('selected dates')) {
+          Alert.alert(
+            'Guide Unavailable',
+            'The tour guide is not available on your selected dates. Another traveler has already booked this guide. Please select different dates and try again.',
+            [{ text: 'OK' }]
+          );
+          // Reload availability
+          loadGuideAvailability();
+        } else {
+          throw new Error(errorMsg || 'Failed to create booking');
+        }
       }
     } catch (e: any) {
       Alert.alert('Booking failed', e?.message || 'Please try again later');
@@ -257,9 +321,25 @@ export default function BookingModal({ visible, pkg, onClose, onBooked }: Bookin
                     <Text style={styles.sectionTitle}>Select Start Date</Text>
                   </View>
                   
+                  {loadingAvailability && (
+                    <View style={styles.availabilityLoading}>
+                      <Text style={styles.availabilityLoadingText}>Loading guide availability...</Text>
+                    </View>
+                  )}
+                  
+                  {!loadingAvailability && unavailableDates.length > 0 && (
+                    <View style={styles.availabilityInfo}>
+                      <Ionicons name="information-circle" size={16} color={Colors.info} />
+                      <Text style={styles.availabilityInfoText}>
+                        Dates marked with a red dot are unavailable (guide already booked)
+                      </Text>
+                    </View>
+                  )}
+                  
                   <View style={styles.calendarWrapper}>
                     <InlineCalendar 
                       selectedDate={startDate}
+                      unavailableDates={unavailableDates}
                       onDaySelect={(d: Date) => {
                         onDaySelect(d);
                       }} 
@@ -722,6 +802,36 @@ const styles = StyleSheet.create({
   },
 
   // Date Display
+  availabilityLoading: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: Colors.secondary50,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  availabilityLoadingText: {
+    fontSize: 14,
+    color: Colors.secondary600,
+    fontFamily: 'Inter',
+    textAlign: 'center',
+  },
+  availabilityInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#eff6ff', // Light blue background
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  availabilityInfoText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.secondary700,
+    lineHeight: 18,
+    fontFamily: 'Inter',
+  },
   calendarWrapper: {
     borderRadius: 16,
     overflow: 'hidden',

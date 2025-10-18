@@ -71,8 +71,41 @@ export default function BookingsScreen() {
       setActingId(bookingId);
       if (action === 'approve') {
         const res = await BookingService.approveTourPackageBooking(bookingId);
-        if (!res?.success) throw new Error((res as any)?.error || 'Failed to approve');
-        Alert.alert('Approved', 'Booking was approved. Ask client to proceed with payment.');
+        if (!res?.success) {
+          const errorData = res as any;
+          // Check if it's a date conflict error (409)
+          if (errorData?.error?.includes('not available') || errorData?.conflict) {
+            const conflict = errorData.conflict;
+            let conflictMessage = 'You already have a booking on the selected dates.';
+            
+            if (conflict) {
+              const startDate = new Date(conflict.startDate).toLocaleDateString('en-US', { 
+                month: 'short', day: 'numeric', year: 'numeric' 
+              });
+              const endDate = new Date(conflict.endDate).toLocaleDateString('en-US', { 
+                month: 'short', day: 'numeric', year: 'numeric' 
+              });
+              conflictMessage = `You already have a ${conflict.status} booking for "${conflict.packageTitle}" from ${startDate} to ${endDate}.\n\nYou cannot approve this request as it overlaps with your existing booking.`;
+            }
+            
+            Alert.alert(
+              'Booking Conflict',
+              conflictMessage,
+              [
+                { 
+                  text: 'Decline This Request', 
+                  style: 'destructive',
+                  onPress: () => handleBookingAction(bookingId, 'decline')
+                },
+                { text: 'OK', style: 'cancel' }
+              ]
+            );
+          } else {
+            throw new Error(errorData?.error || 'Failed to approve');
+          }
+        } else {
+          Alert.alert('Approved', 'Booking was approved. The client can now proceed with payment.');
+        }
       } else if (action === 'decline') {
         const res = await BookingService.cancelTourPackageBooking(bookingId);
         if (!res?.success) throw new Error((res as any)?.error || 'Failed to decline');
@@ -89,7 +122,7 @@ export default function BookingsScreen() {
       }
     } catch (e: any) {
       console.error(`Failed to ${action} booking`, e);
-      Alert.alert('Action failed', e?.message || 'Please try again.');
+      Alert.alert('Action Failed', e?.message || 'Please try again.');
     } finally {
       setActingId(null);
     }

@@ -40,7 +40,7 @@ export type TourPackageBookingItem = {
     totalAmount: number;
     perPerson?: boolean;
   };
-  status: 'pending' | 'approved' | 'confirmed' | 'cancelled';
+  status: 'pending' | 'approved' | 'confirmed' | 'completed' | 'cancelled' | 'declined';
   payment?: any;
   notes?: string;
   createdAt: string;
@@ -68,10 +68,15 @@ export const BookingService = {
   async approveTourPackageBooking(id: string): Promise<BookingResponse<TourPackageBookingItem>> {
     return ApiService.post<BookingResponse>(`/api/booking/tourpackage_booking/approve/${encodeURIComponent(id)}`);
   },
+  async declineTourPackageBooking(id: string, reason?: string): Promise<BookingResponse<TourPackageBookingItem>> {
+    return ApiService.post<BookingResponse>(`/api/booking/tourpackage_booking/decline/${encodeURIComponent(id)}`, { reason });
+  },
   async payTourPackageBooking(id: string): Promise<BookingResponse<TourPackageBookingItem>> {
     return ApiService.post<BookingResponse>(`/api/booking/tourpackage_booking/pay/${encodeURIComponent(id)}`);
-  }
-  ,
+  },
+  async completeTourPackageBooking(id: string): Promise<BookingResponse<TourPackageBookingItem>> {
+    return ApiService.post<BookingResponse>(`/api/booking/tourpackage_booking/complete/${encodeURIComponent(id)}`);
+  },
   async cancelTourPackageBooking(id: string): Promise<BookingResponse<TourPackageBookingItem>> {
     return ApiService.post<BookingResponse>(`/api/booking/tourpackage_booking/cancel/${encodeURIComponent(id)}`);
   }

@@ -6,10 +6,16 @@ import { Colors } from '../constants/Colors';
 interface InlineCalendarProps {
   onDaySelect: (day: Date) => void;
   selectedDate?: Date | null;
+  unavailableDates?: string[]; // Array of dates in 'YYYY-MM-DD' format
 }
 
-export const InlineCalendar: React.FC<InlineCalendarProps> = ({ onDaySelect, selectedDate }) => {
+export const InlineCalendar: React.FC<InlineCalendarProps> = ({ onDaySelect, selectedDate, unavailableDates = [] }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  // Create a Set for faster lookups
+  const unavailableDatesSet = React.useMemo(() => {
+    return new Set(unavailableDates);
+  }, [unavailableDates]);
 
   // Generate days for month view
   const getDaysInMonth = (date: Date) => {
@@ -96,6 +102,8 @@ export const InlineCalendar: React.FC<InlineCalendarProps> = ({ onDaySelect, sel
           const isToday = day.toDateString() === today.toDateString();
           const isSelected = selectedDate && day.toDateString() === selectedDate.toDateString();
           const isPast = day < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+          const dateStr = day.toISOString().split('T')[0];
+          const isUnavailable = unavailableDatesSet.has(dateStr);
           
           return (
             <TouchableOpacity
@@ -104,20 +112,25 @@ export const InlineCalendar: React.FC<InlineCalendarProps> = ({ onDaySelect, sel
                 styles.calendarDay,
                 isToday && styles.todayDay,
                 isSelected && styles.selectedDay,
-                isPast && styles.pastDay
+                isPast && styles.pastDay,
+                isUnavailable && styles.unavailableDay
               ]}
-              onPress={() => !isPast && selectDay(day)}
+              onPress={() => !isPast && !isUnavailable && selectDay(day)}
               activeOpacity={0.7}
-              disabled={isPast}
+              disabled={isPast || isUnavailable}
             >
               <Text style={[
                 styles.dayText,
                 isToday && styles.todayText,
                 isSelected && styles.selectedText,
-                isPast && styles.pastText
+                isPast && styles.pastText,
+                isUnavailable && styles.unavailableText
               ]}>
                 {day.getDate()}
               </Text>
+              {isUnavailable && !isPast && (
+                <View style={styles.unavailableDot} />
+              )}
             </TouchableOpacity>
           );
         })}
@@ -189,6 +202,12 @@ const styles = StyleSheet.create({
   pastDay: {
     opacity: 0.3,
   },
+  unavailableDay: {
+    backgroundColor: '#fee2e2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    opacity: 0.6,
+  },
   dayText: {
     fontSize: 14,
     color: Colors.secondary700,
@@ -205,5 +224,18 @@ const styles = StyleSheet.create({
   },
   pastText: {
     color: Colors.secondary400,
+  },
+  unavailableText: {
+    color: Colors.error,
+    fontWeight: '600',
+    textDecorationLine: 'line-through',
+  },
+  unavailableDot: {
+    position: 'absolute',
+    bottom: 4,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.error,
   },
 });

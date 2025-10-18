@@ -236,4 +236,23 @@ export const GuideService = {
     const qs = hard ? '?hard=true' : '';
     return ApiService.delete<any>(`/api/guide/guide/delete/${encodeURIComponent(idOrUsername)}${qs}`);
   },
+  
+  async getGuideAvailability(guideId: string, startDate?: string, endDate?: string): Promise<{
+    success: boolean;
+    data?: {
+      guideId: string;
+      dateRange: { start: string; end: string };
+      availableDates: string[];
+      unavailableDates: string[];
+      confirmedBookings: number;
+    };
+    error?: string;
+  }> {
+    const params = new URLSearchParams();
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    
+    return ApiService.get<any>(`/api/guide/guide/${encodeURIComponent(guideId)}/availability${qs}`);
+  },
 };

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Modal, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Modal, Image, Alert } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +19,7 @@ export default function BookingDetailsScreen() {
   const [guide, setGuide] = useState<any>(null);
   const [packageDetails, setPackageDetails] = useState<PackageListItem | null>(null);
   const [showItineraryModal, setShowItineraryModal] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -69,6 +70,83 @@ export default function BookingDetailsScreen() {
     return () => { mounted = false; };
   }, [bookingId]);
 
+  const handlePayment = async () => {
+    if (!booking) return;
+
+    Alert.alert(
+      'Confirm Payment',
+      `Complete payment of ${booking.pricing.currency} ${booking.pricing.totalAmount.toLocaleString()} for ${booking.packageTitle}?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Pay Now',
+          onPress: async () => {
+            setProcessingPayment(true);
+            try {
+              const response = await BookingService.payTourPackageBooking(booking._id);
+              
+              if (response.success && response.data) {
+                // Update local booking state
+                setBooking(response.data);
+                
+                Alert.alert(
+                  'Payment Successful!',
+                  'Your booking has been confirmed. You can now view your itinerary and contact the tour guide.',
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => {
+                        // Optionally refresh the page or navigate
+                      },
+                    },
+                  ]
+                );
+              } else {
+                // Check if this is a guide availability error
+                const errorMsg = response.error || '';
+                const isAvailabilityError = errorMsg.includes('not available') || errorMsg.includes('selected dates');
+                
+                if (isAvailabilityError) {
+                  // Guide is not available - booking has been set back to pending
+                  setBooking({ ...booking, status: 'pending' });
+                  
+                  Alert.alert(
+                    'Guide Unavailable',
+                    'The tour guide is not available on your selected dates. Another traveller has already booked this guide during your tour period. Please choose different dates and try again.',
+                    [
+                      { 
+                        text: 'Choose New Dates',
+                        onPress: () => {
+                          // Navigate back to booking page to select new dates
+                          router.back();
+                        }
+                      },
+                      { text: 'Cancel', style: 'cancel' }
+                    ]
+                  );
+                } else {
+                  throw new Error(errorMsg || 'Payment failed');
+                }
+              }
+            } catch (error: any) {
+              console.error('Payment error:', error);
+              Alert.alert(
+                'Payment Failed',
+                error.message || 'Unable to process payment. Please try again.',
+                [{ text: 'OK' }]
+              );
+            } finally {
+              setProcessingPayment(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const statusBadge = useMemo(() => {
     // Return { bg, text } for status badge styling
     switch (booking?.status) {
@@ -78,8 +156,12 @@ export default function BookingDetailsScreen() {
         return { bg: Colors.info, text: Colors.white, label: 'Approved' };
       case 'confirmed':
         return { bg: Colors.success, text: Colors.white, label: 'Confirmed' };
+      case 'completed':
+        return { bg: Colors.secondary400, text: Colors.white, label: 'Completed' };
       case 'cancelled':
         return { bg: Colors.error, text: Colors.white, label: 'Cancelled' };
+      case 'declined':
+        return { bg: Colors.error, text: Colors.white, label: 'Declined' };
       default:
         return { bg: Colors.secondary200, text: Colors.secondary700, label: 'Unknown' };
     }
@@ -361,14 +443,21 @@ export default function BookingDetailsScreen() {
         {booking.status === 'approved' && (
           <View style={styles.actionSection}>
             <TouchableOpacity 
-              style={styles.primaryButton} 
-              onPress={() => {
-                // TODO: Navigate to payment screen
-                console.log('Navigate to payment for booking:', booking._id);
-              }}
+              style={[styles.primaryButton, processingPayment && styles.disabledButton]} 
+              onPress={handlePayment}
+              disabled={processingPayment}
             >
-              <Ionicons name="card-outline" size={20} color={Colors.white} />
-              <Text style={styles.primaryButtonText}>Proceed to Payment</Text>
+              {processingPayment ? (
+                <>
+                  <ActivityIndicator size="small" color={Colors.white} />
+                  <Text style={styles.primaryButtonText}>Processing...</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="card-outline" size={20} color={Colors.white} />
+                  <Text style={styles.primaryButtonText}>Proceed to Payment</Text>
+                </>
+              )}
             </TouchableOpacity>
             
             {guide && (
@@ -447,6 +536,45 @@ export default function BookingDetailsScreen() {
                 <Text style={[styles.infoBoxTitle, { color: Colors.error }]}>Booking Cancelled</Text>
                 <Text style={styles.infoBoxText}>
                   This booking has been cancelled. If you have any questions, please contact support.
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {booking.status === 'declined' && (
+          <View style={styles.actionSection}>
+            <View style={[styles.infoBox, { backgroundColor: Colors.error + '10', borderColor: Colors.error }]}>
+              <Ionicons name="close-circle" size={24} color={Colors.error} />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={[styles.infoBoxTitle, { color: Colors.error }]}>Booking Declined</Text>
+                <Text style={styles.infoBoxText}>
+                  The tour guide has declined your booking request. Please try booking another tour package or contact the guide for more information.
+                </Text>
+              </View>
+            </View>
+            {guide && (
+              <TouchableOpacity 
+                style={styles.secondaryButton}
+                onPress={() => {
+                  console.log('Contact guide:', guide.name || guide.username);
+                }}
+              >
+                <Ionicons name="chatbubble-outline" size={20} color={Colors.primary600} />
+                <Text style={styles.secondaryButtonText}>Contact Tour Guide</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {booking.status === 'completed' && (
+          <View style={styles.actionSection}>
+            <View style={[styles.infoBox, { backgroundColor: Colors.success + '10', borderColor: Colors.success }]}>
+              <Ionicons name="checkmark-circle" size={24} color={Colors.success} />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={[styles.infoBoxTitle, { color: Colors.success }]}>Tour Completed</Text>
+                <Text style={styles.infoBoxText}>
+                  Hope you enjoyed your tour! Please consider leaving a review for the guide.
                 </Text>
               </View>
             </View>
@@ -904,6 +1032,9 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     fontWeight: '700',
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
   secondaryButton: {
     flexDirection: 'row',
