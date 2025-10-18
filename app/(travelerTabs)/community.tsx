@@ -20,7 +20,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText, TopBar } from '../../components';
 import { formatTimeShort, getTimestampAgo } from '../../utils/timeFormat';
-import { useFocusEffect } from '@react-navigation/native';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants/Colors';
@@ -30,6 +29,7 @@ import { NetworkDetection } from '../../utils/serverDetection';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useFocusEffect } from '@react-navigation/native';
 
 // Mock data - easily replaceable with backend API calls
 const MOCK_TRAVEL_POSTS = [

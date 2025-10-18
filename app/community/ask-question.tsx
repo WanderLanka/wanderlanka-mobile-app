@@ -1,23 +1,23 @@
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  ActivityIndicator,
-  RefreshControl,
 } from 'react-native';
-import React, { useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useState } from 'react';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
+import { NetworkDetection } from '../../utils/serverDetection';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatTimeAgo } from '../../utils/timeFormat';
 import { router } from 'expo-router';
-import { NetworkDetection } from '../../utils/serverDetection';
 
 // Category mapping
 const CATEGORY_MAP: { [key: string]: string } = {

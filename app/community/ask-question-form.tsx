@@ -11,13 +11,13 @@ import {
   View,
 } from 'react-native';
 import React, { useRef, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
+import { NetworkDetection } from '../../utils/serverDetection';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { NetworkDetection } from '../../utils/serverDetection';
 
 // Question categories
 const QUESTION_CATEGORIES = [

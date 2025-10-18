@@ -12,13 +12,13 @@ import {
 } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
+import { NetworkDetection } from '../../utils/serverDetection';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatTimeAgo } from '../../utils/timeFormat';
-import { NetworkDetection } from '../../utils/serverDetection';
 
 // Category display mapping
 const CATEGORY_MAP: { [key: string]: string } = {
