@@ -21,7 +21,15 @@ export default function Calendar({ bookings, onClose, onDaySelect }: CalendarPro
 
   // Get bookings for a specific date
   const getBookingsForDate = (date: Date): Booking[] => {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    const dayKey = `${yyyy}-${mm}-${dd}`;
+
     return bookings.filter(booking => {
+      if (booking.isoDate) {
+        return booking.isoDate === dayKey;
+      }
       const bookingDate = parseBookingDate(booking.date);
       return (
         bookingDate.getDate() === date.getDate() &&
@@ -199,7 +207,7 @@ export default function Calendar({ bookings, onClose, onDaySelect }: CalendarPro
                 ]}
                 onPress={() => selectDay(day)}
                 activeOpacity={0.7}
-                disabled={!hasBookings}
+                disabled={false}
               >
                 <Text style={[
                   calendarStyles.dayText,

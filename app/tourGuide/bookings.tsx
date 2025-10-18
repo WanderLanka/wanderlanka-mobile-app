@@ -36,33 +36,40 @@ export default function BookingsScreen() {
   }, []);
 
   const bookings = useMemo(() => {
-    // Map backend items to calendar booking shape
-    const toPrettyDate = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    // Expand multi-day bookings into per-day calendar entries
+    const toPrettyDate = (iso: string | Date) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     const toTime = (iso: string) => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    return items.map((it): CalendarBooking => {
-      // Map backend status to calendar status
-      let calendarStatus: 'booked' | 'pending';
-      if (it.status === 'confirmed' || it.status === 'approved') {
-        calendarStatus = 'booked';
-      } else {
-        calendarStatus = 'pending';
+
+    const expanded: CalendarBooking[] = [];
+    for (const it of items) {
+      const start = new Date(it.startDate);
+      const end = new Date(it.endDate);
+
+      const status: 'booked' | 'pending' = (it.status === 'confirmed' || it.status === 'approved') ? 'booked' : 'pending';
+      const totalDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1); // inclusive
+
+      for (let i = 0; i < totalDays; i++) {
+        const day = new Date(start);
+        day.setDate(start.getDate() + i);
+        const isoDay = `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
+        expanded.push({
+          id: `${String(it._id)}:${day.toISOString().split('T')[0]}`,
+          clientName: it.packageTitle,
+          clientEmail: '',
+          tourType: it.packageTitle,
+          date: toPrettyDate(day),
+          isoDate: isoDay,
+          time: i === 0 ? toTime(it.startDate) : 'All day',
+          duration: `${Math.max(1, Math.ceil((new Date(it.endDate).getTime() - new Date(it.startDate).getTime()) / (1000 * 60 * 60 * 24)))} days`,
+          location: it.packageSlug || 'Tour Package',
+          amount: Number(it.pricing?.totalAmount || 0),
+          status,
+          groupSize: Number(it.peopleCount || 1),
+          specialRequests: it.notes || undefined,
+        });
       }
-      
-      return {
-        id: String(it._id),
-        clientName: it.packageTitle, // no client name available; show packageTitle
-        clientEmail: '',
-        tourType: it.packageTitle,
-        date: toPrettyDate(it.startDate),
-        time: toTime(it.startDate),
-        duration: `${Math.max(1, Math.ceil((new Date(it.endDate).getTime() - new Date(it.startDate).getTime())/(1000*60*60*24)))} days`,
-        location: it.packageSlug || 'Tour Package',
-        amount: Number(it.pricing?.totalAmount || 0),
-        status: calendarStatus,
-        groupSize: Number(it.peopleCount || 1),
-        specialRequests: it.notes || undefined,
-      };
-    });
+    }
+    return expanded;
   }, [items]);
 
   const filteredBookings = bookings.filter(booking => booking.status === activeTab);

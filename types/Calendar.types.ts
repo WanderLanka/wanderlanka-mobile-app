@@ -3,7 +3,8 @@ export interface Booking {
   clientName: string;
   clientEmail: string;
   tourType: string;
-  date: string;
+  date: string; // human-readable label
+  isoDate?: string; // strict YYYY-MM-DD for matching
   time: string;
   duration: string;
   location: string;
