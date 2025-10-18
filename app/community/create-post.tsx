@@ -275,6 +275,10 @@ export default function CreatePostScreen() {
       formData.append('content', postContent.trim());
       formData.append('locationName', location.trim());
       formData.append('tags', JSON.stringify([selectedCategory]));
+      
+      // Add post options
+      formData.append('allowComments', postOptions.allowComments.toString());
+      formData.append('allowSharing', postOptions.allowSharing.toString());
 
       // Add images if any
       if (selectedImages.length > 0) {
@@ -380,7 +384,7 @@ export default function CreatePostScreen() {
             <Ionicons name="person" size={20} color={Colors.secondary400} />
           </View>
           <View style={styles.userInfo}>
-            <Text style={styles.userName}>Your Name</Text>
+            <Text style={styles.userName}>{user?.username || 'Traveler'}</Text>
             <Text style={styles.postVisibility}>Sharing to WanderLanka community</Text>
           </View>
         </View>

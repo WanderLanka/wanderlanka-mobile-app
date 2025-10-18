@@ -11,7 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "config": {
-        "googleMapsApiKey": "AIzaSyClCL8iZ9n7AtjF3J3nVSCaQcoCJ5SaKtw"
+        "googleMapsApiKey": "AIzaSyBPAjLGZlFyzwIRo60j3HlhR7Qp0pmqQQ8"
       },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app needs location access for navigation.",
@@ -28,7 +28,7 @@
       "edgeToEdgeEnabled": true,
       "config": {
         "googleMaps": {
-          "apiKey": "AIzaSyBV-XxyXh8Az3HpKr884W8rNjJ93m2qGmc"
+          "apiKey": "AIzaSyBPAjLGZlFyzwIRo60j3HlhR7Qp0pmqQQ8"
         }
       },
       "permissions": [
