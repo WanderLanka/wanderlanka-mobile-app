@@ -20,6 +20,9 @@ export class AuthService {
    */
   static async signUp(userData: SignUpRequest): Promise<AuthResponse> {
     try {
+      // Ensure server connection before signup
+      // Proceed without automatic server detection
+      
       console.log('🔗 Signup request:', { ...userData, password: '[HIDDEN]' });
       
       // Use direct fetch for signup to match login implementation
@@ -27,7 +30,8 @@ export class AuthService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-platform': 'mobile',
+          'x-client-type': 'mobile', // Server expects x-client-type, not x-platform
+          'x-platform': 'mobile', // Keep for backwards compatibility
         },
         body: JSON.stringify(userData),
       });
@@ -109,12 +113,16 @@ export class AuthService {
    */
   static async login(credentials: LoginRequest): Promise<AuthResponse> {
     try {
+      // Ensure server connection before login
+      // Proceed without automatic server detection
+      
       // Use direct fetch for login to handle 403 responses properly
   const response = await fetch(`${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-platform': 'mobile',
+          'x-client-type': 'mobile', // Server expects x-client-type, not x-platform
+          'x-platform': 'mobile', // Keep for backwards compatibility
         },
         body: JSON.stringify(credentials),
       });
@@ -155,6 +163,16 @@ export class AuthService {
           success: false,
           message: data.message || 'Account status issue',
           error: data.error || data.message || 'Account access restricted'
+        };
+      }
+
+      // Handle 429 Rate Limiting as a user-friendly error
+      if (response.status === 429) {
+        return {
+          success: false,
+          message: 'Too many login attempts. Please try again in a few minutes.',
+          error: data.error || 'Rate limit exceeded',
+          code: data.code || 'RATE_LIMIT_EXCEEDED'
         };
       }
 
@@ -218,6 +236,9 @@ export class AuthService {
     };
   }): Promise<void> {
     try {
+      // Ensure server connection before critical operation
+      // Proceed without automatic server detection
+      
       // Backend expects unified /register endpoint (with platform-aware handling)
       // For mobile guide registration, we must send role: 'guide' and guideDetails block
       const payload = {
@@ -243,7 +264,8 @@ export class AuthService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-platform': 'mobile',
+          'x-client-type': 'mobile', // Server expects x-client-type, not x-platform
+          'x-platform': 'mobile', // Keep for backwards compatibility
         },
         body: JSON.stringify(payload),
       });
@@ -264,7 +286,8 @@ export class AuthService {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-platform': 'mobile',
+            'x-client-type': 'mobile', // Server expects x-client-type, not x-platform
+            'x-platform': 'mobile', // Keep for backwards compatibility
           },
           // Legacy endpoint maps fields to guideDetails server-side
           body: JSON.stringify({
@@ -284,14 +307,26 @@ export class AuthService {
 
       // After potential retry, handle non-OK statuses
       if (!response.ok) {
+        // Provide user-friendly network error messages
+        if (response.status === 0) {
+          throw new Error('Network connection failed. Please check your WiFi connection and server.');
+        }
+        
         if (contentType && contentType.includes('application/json')) {
           const errorResult = await response.json();
           console.error('❌ JSON error response:', errorResult);
-          throw new Error(errorResult.message || errorResult.error || `Server error: ${response.status}`);
+          
+          // Map common error messages to user-friendly versions
+          const errorMsg = errorResult.message || errorResult.error || `Server error: ${response.status}`;
+          if (errorMsg === 'Registration failed' || errorMsg.includes('Registration failed')) {
+            throw new Error('Registration failed. Please check all required fields and try again.');
+          }
+          
+          throw new Error(errorMsg);
         } else {
           const errorText = await response.text();
           console.error('❌ Non-JSON error response:', errorText);
-          throw new Error(`Server error: ${response.status} - ${response.statusText}`);
+          throw new Error(`Server error: ${response.status} - ${response.statusText || 'Unknown error'}`);
         }
       }
 
@@ -312,18 +347,33 @@ export class AuthService {
       // Registration successful - the user will need to wait for approval
     } catch (error) {
       console.error('Guide registration error:', error);
+      console.error('Current API_CONFIG.BASE_URL:', API_CONFIG.BASE_URL);
+      
       // Normalize common errors for better UX
       if (error instanceof Error) {
         const msg = error.message.toLowerCase();
+        
+        // Network connection errors
+        if (msg.includes('network request failed') || msg.includes('failed to fetch')) {
+          throw new Error(`Cannot connect to server at ${API_CONFIG.BASE_URL}. Please check:\n1. Your WiFi connection\n2. Server is running\n3. You're on the same network as the server`);
+        }
+        
         if (msg.includes('route not found') || msg.includes('404')) {
           throw new Error('Registration endpoint not available. Please ensure the user-service is running and accessible on your network.');
         }
-        if (msg.includes('network') || msg.includes('timeout') || msg.includes('fetch')) {
-          throw new Error('Network error during registration. Please check your connection and try again.');
+        
+        if (msg.includes('network') || msg.includes('timeout')) {
+          throw new Error(`Network timeout. Current server: ${API_CONFIG.BASE_URL}. Please try again or restart the app if you changed WiFi networks.`);
         }
+        
+        // If error message looks like it's from the server, pass it through
+        if (msg.includes('required') || msg.includes('invalid') || msg.includes('already exists')) {
+          throw error;
+        }
+        
         throw error;
       }
-      throw new Error('Guide registration failed');
+      throw new Error('Guide registration failed. Please try again.');
     }
   }
 

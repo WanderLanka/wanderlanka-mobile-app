@@ -10,7 +10,7 @@ export interface ConfirmedBooking {
   paymentDate: string;
   transactionId: string;
   email: string;
-  status: 'confirmed' | 'upcoming' | 'completed' | 'cancelled';
+  status: 'pending' | 'approved' | 'confirmed' | 'upcoming' | 'completed' | 'cancelled' | 'declined';
   accommodation: any[];
   transport: any[];
   guides: any[];

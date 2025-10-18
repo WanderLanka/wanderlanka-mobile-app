@@ -10,7 +10,22 @@ import {
   classifyNetworkError, 
   retryWithBackoff 
 } from '../utils/networkUtils';
-import { NetworkDetection } from '../utils/serverDetection';
+// Removed automatic server detection: rely on configured BASE_URL only
+
+// Custom API Error to carry HTTP status and optional error code
+export class ApiError extends Error {
+  status?: number;
+  code?: string;
+  details?: any;
+  noRetry?: boolean;
+  constructor(message: string, status?: number, code?: string, details?: any) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+    this.details = details;
+  }
+}
 
 /**
  * API Service for making HTTP requests
@@ -36,6 +51,7 @@ export class ApiService {
     }
 
     const makeRequest = async (): Promise<T> => {
+      // Use configured BASE_URL without auto detection
       const config: RequestInit = {
         ...options,
       };
@@ -68,14 +84,14 @@ export class ApiService {
       );
 
       // Make request with timeout
-  const responsePromise = fetch(`${this.baseURL}${url}`, config);
+      const responsePromise = fetch(`${this.baseURL}${url}`, config);
       const response = await Promise.race([responsePromise, timeoutPromise]);
 
       console.log('📡 API response status:', response.status);
 
       // Check if response is JSON
       const contentType = response.headers.get('content-type');
-      let data;
+      let data: any;
       
       if (contentType && contentType.includes('application/json')) {
         data = await response.json();
@@ -86,42 +102,69 @@ export class ApiService {
         throw new Error('Server returned invalid response format');
       }
 
-      if (!response.ok) {
-        throw new Error(data.message || data.error || `HTTP ${response.status}`);
-      }
+      // If unauthorized/forbidden, attempt token refresh before throwing
+      const isAuthError =
+        (response.status === HTTP_STATUS.UNAUTHORIZED || response.status === HTTP_STATUS.FORBIDDEN) &&
+        (data?.code === 'AUTH_TOKEN_INVALID' || data?.code === 'AUTH_TOKEN_MISSING' || !!accessToken);
 
-      // Handle token refresh if needed
-      if (response.status === HTTP_STATUS.UNAUTHORIZED && accessToken) {
+      if (!response.ok && isAuthError) {
         const refreshed = await this.refreshToken();
         if (refreshed) {
-          // Retry the original request with new token
           const newAccessToken = await StorageService.getAccessToken();
           if (newAccessToken) {
-            config.headers = {
-              ...config.headers,
-              Authorization: `Bearer ${newAccessToken}`,
-            };
-            const retryResponsePromise = fetch(`${this.baseURL}${url}`, config);
+            const retryHeaders: Record<string, any> = { ...(config.headers || {}) };
+            retryHeaders.Authorization = `Bearer ${newAccessToken}`;
+            const retryConfig: RequestInit = { ...config, headers: retryHeaders };
+
+            const retryResponsePromise = fetch(`${this.baseURL}${url}`, retryConfig);
             const retryResponse = await Promise.race([retryResponsePromise, timeoutPromise]);
-            
             const retryContentType = retryResponse.headers.get('content-type');
-            let retryData;
-            
+            let retryData: any;
+
             if (retryContentType && retryContentType.includes('application/json')) {
               retryData = await retryResponse.json();
             } else {
               throw new Error('Server returned invalid response format on retry');
             }
-            
+
             if (!retryResponse.ok) {
-              throw new Error(retryData.message || retryData.error || `HTTP ${retryResponse.status}`);
+              // If retry still unauthorized, surface non-retryable auth error without clearing tokens
+              const err: any = new Error(retryData.message || retryData.error || 'Authentication required. Please try again.');
+              err.noRetry = true;
+              throw err;
             }
-            return retryData;
+            return retryData as T;
           }
         }
+        // Refresh failed - surface non-retryable error but do not clear tokens automatically
+        const err: any = new Error(data?.message || data?.error || 'Authentication required. Please try again.');
+        err.noRetry = true;
+        throw err;
       }
 
-      return data;
+      if (!response.ok) {
+        // Create a more descriptive error for specific status codes
+        let errorMessage = data.message || data.error || `HTTP ${response.status}`;
+        let errorCode: string | undefined = data?.code;
+
+        // Handle specific error cases
+        if (response.status === 409) {
+          // Conflict - likely a booking conflict
+          errorMessage = data.message || 'The tour guide already has a confirmed booking during your selected dates. Please choose another available date.';
+          if (!errorCode) errorCode = 'BOOKING_CONFLICT';
+        } else if (response.status === 400) {
+          // Bad request - validation error
+          errorMessage = data.message || data.error || 'Invalid request. Please check your input and try again.';
+        } else if (response.status === 404) {
+          // Not found
+          errorMessage = data.message || data.error || 'The requested resource was not found.';
+        }
+
+        const err = new ApiError(errorMessage, response.status, errorCode, data);
+        throw err;
+      }
+
+      return data as T;
     };
 
     try {
@@ -132,18 +175,22 @@ export class ApiService {
 
       // On network-related failures, try to re-detect the server and retry once
       const errorInfo = classifyNetworkError(error as Error);
-      if (errorInfo.type === 'NO_INTERNET' || errorInfo.type === 'TIMEOUT' || errorInfo.type === 'SERVER_ERROR') {
-        try {
-          console.warn('🔄 Network error detected. Re-discovering server and retrying request once...');
-          await NetworkDetection.detectServer();
-          return await makeRequest();
-        } catch (retryErr) {
-          console.error('Retry after server re-detection failed:', retryErr);
-        }
-      }
+      // No automatic server discovery or fallback; rely on configured BASE_URL
 
-      // Classify error and provide user-friendly message
-      throw new Error(errorInfo.message);
+      // Provide clearer message for local/LAN development
+      let message = errorInfo.message;
+      try {
+        const base = this.baseURL;
+        const isLocal = /^http:\/\/(localhost|127\.0\.0\.1|10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/i.test(base);
+        if (errorInfo.type === 'NO_INTERNET' && isLocal) {
+          message = `Cannot connect to server at ${base}. Please ensure the API Gateway is running and your device is on the same Wi‑Fi network.`;
+        }
+      } catch {}
+
+  // Classify error and provide user-friendly message
+  const err: any = new ApiError(message, undefined, errorInfo.type);
+  if (errorInfo.type === 'NO_INTERNET') err.noRetry = true;
+  throw err;
     }
   }
 

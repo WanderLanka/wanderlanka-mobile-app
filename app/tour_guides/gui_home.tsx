@@ -1,174 +1,459 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { 
+  ActivityIndicator, 
+  Animated,
+  Modal, 
+  RefreshControl,
+  ScrollView, 
+  StyleSheet, 
+  Text, 
+  TextInput,
+  TouchableOpacity, 
+  View 
+} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CustomButton, CustomTextInput, ServicesTopBar, ThemedText } from '../../components';
+import { CustomButton, ServicesTopBar, ThemedText } from '../../components';
 import { ItemCard } from '../../components/ItemCard';
-import { ListingService } from '../../services';
+import { GuideService } from '../../services/guide';
 import { Colors } from '../../constants/Colors';
 
-const featuredGuides = [
-  {
-    image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9',
-    title: 'Samantha Perera',
-    city: 'Colombo',
-    price: '$25/hr',
-    rating: 4.9,
-    languages: ['English', 'Sinhala'],
-    bio: 'Expert in Sri Lankan history and culture.',
-    type: 'guide',
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e',
-    title: 'Ravi Fernando',
-    city: 'Kandy',
-    price: '$30/hr',
-    rating: 4.8,
-    languages: ['English', 'Tamil'],
-    bio: 'Nature and wildlife specialist.',
-    type: 'guide',
-  },
-];
+// Debounce hook for search optimization
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
-// Data from API will be rendered in place of this
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
+type Guide = {
+  _id: string;
+  username: string;
+  status: string;
+  featured?: boolean;
+  details?: {
+    firstName?: string;
+    lastName?: string;
+    avatar?: string;
+    bio?: string;
+    languages?: string[];
+  };
+  metrics?: {
+    rating?: number;
+    totalReviews?: number;
+    totalBookings?: number;
+    responseTimeMs?: number;
+  };
+};
 
 const languageOptions = ['English', 'Sinhala', 'Tamil', 'French', 'German', 'Spanish'];
 const expertiseOptions = ['History', 'Nature', 'Food', 'Adventure', 'Culture'];
 
 export default function TourGuidesHomeScreen() {
   const insets = useSafeAreaInsets();
+  
+  // State management
   const [search, setSearch] = useState('');
   const [filterVisible, setFilterVisible] = useState(false);
-  const [location, setLocation] = useState('');
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [selectedExpertise, setSelectedExpertise] = useState<string[]>([]);
   const [minRating, setMinRating] = useState(0);
-  const [minPrice, setMinPrice] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
-  const [guides, setGuides] = useState<any[]>([]);
+  
+  const [featuredGuides, setFeaturedGuides] = useState<Guide[]>([]);
+  const [allGuides, setAllGuides] = useState<Guide[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  // Availability and other filters can be added as needed
+  const [showMore, setShowMore] = useState<boolean>(false);
+  
+  // Debounced search value (500ms delay)
+  const debouncedSearch = useDebounce(search, 500);
+  
+  // Animation values - start visible
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
 
+  // Filter toggle handlers
   const toggleLanguage = (lang: string) => {
     setSelectedLanguages(prev => prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang]);
   };
+  
   const toggleExpertise = (exp: string) => {
     setSelectedExpertise(prev => prev.includes(exp) ? prev.filter(e => e !== exp) : [...prev, exp]);
   };
 
+  // Initial load - only run when debounced search changes
+  useEffect(() => {
+    let mounted = true;
+    
+    const loadData = async () => {
+      if (mounted) {
+        setLoading(true);
+        
+        // Reset animation values before loading
+        fadeAnim.setValue(0);
+        slideAnim.setValue(30);
+        
+        const limit = showMore ? 20 : 5;
+        
+        try {
+          const [featuredRes, allRes] = await Promise.all([
+            GuideService.getFeaturedGuides({ limit, status: 'active', q: debouncedSearch || undefined }),
+            GuideService.getFeaturedGuides({ limit: 100, status: 'active', q: debouncedSearch || undefined })
+          ]);
+          
+          if (mounted) {
+            if (featuredRes?.success && Array.isArray(featuredRes.data)) {
+              console.log('Featured guides loaded:', featuredRes.data.length);
+              setFeaturedGuides(featuredRes.data);
+            } else {
+              console.log('No featured guides data:', featuredRes);
+              setFeaturedGuides([]);
+            }
+            
+            if (allRes?.success && Array.isArray(allRes.data)) {
+              console.log('All guides loaded:', allRes.data.length);
+              setAllGuides(allRes.data);
+            } else {
+              console.log('No all guides data:', allRes);
+              setAllGuides([]);
+            }
+            
+            // Animate in after data is set
+            Animated.parallel([
+              Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 400,
+                useNativeDriver: true,
+              }),
+              Animated.timing(slideAnim, {
+                toValue: 0,
+                duration: 350,
+                useNativeDriver: true,
+              }),
+            ]).start();
+          }
+        } catch (e: any) {
+          console.error('Failed to load guides:', e);
+          if (mounted) {
+            setError(e?.message || 'Failed to load guides');
+            setFeaturedGuides([]);
+            setAllGuides([]);
+          }
+        } finally {
+          if (mounted) {
+            setLoading(false);
+          }
+        }
+      }
+    };
+    
+    loadData();
+    
+    return () => {
+      mounted = false;
+    };
+    // Only re-run when debouncedSearch changes, not showMore
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
+
+  // Reload when showMore changes - but not on initial mount
+  useEffect(() => {
+    // Skip on initial mount and when loading
+    if (featuredGuides.length > 0 && !loading) {
+      const limit = showMore ? 20 : 5;
+      
+      GuideService.getFeaturedGuides({ 
+        limit, 
+        status: 'active',
+        q: debouncedSearch || undefined 
+      }).then(res => {
+        if (res?.success && Array.isArray(res.data)) {
+          setFeaturedGuides(res.data);
+        }
+      }).catch(e => {
+        console.error('Failed to load featured guides:', e);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showMore]);
+
+  // Pull to refresh handler
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    
+    try {
+      const limit = showMore ? 20 : 5;
+      const [featuredRes, allRes] = await Promise.all([
+        GuideService.getFeaturedGuides({ limit, status: 'active', q: debouncedSearch || undefined }),
+        GuideService.getFeaturedGuides({ limit: 100, status: 'active', q: debouncedSearch || undefined })
+      ]);
+      
+      if (featuredRes?.success && Array.isArray(featuredRes.data)) {
+        setFeaturedGuides(featuredRes.data);
+      } else {
+        setFeaturedGuides([]);
+      }
+      
+      if (allRes?.success && Array.isArray(allRes.data)) {
+        setAllGuides(allRes.data);
+      } else {
+        setAllGuides([]);
+      }
+    } catch (e: any) {
+      console.error('Failed to refresh guides:', e);
+      setError(e?.message || 'Failed to refresh guides');
+    } finally {
+      setRefreshing(false);
+    }
+  }, [debouncedSearch, showMore]);
+
+  // Apply client-side filters
+  const filteredGuides = useMemo(() => {
+    let filtered = [...allGuides];
+
+    // Language filter
+    if (selectedLanguages.length > 0) {
+      filtered = filtered.filter(guide => 
+        guide.details?.languages?.some(lang => 
+          selectedLanguages.includes(lang)
+        )
+      );
+    }
+
+    // Rating filter
+    if (minRating > 0) {
+      filtered = filtered.filter(guide => 
+        (guide.metrics?.rating || 0) >= minRating
+      );
+    }
+
+    // Bio/expertise filter (simple keyword match)
+    if (selectedExpertise.length > 0) {
+      filtered = filtered.filter(guide => 
+        selectedExpertise.some(exp => 
+          guide.details?.bio?.toLowerCase().includes(exp.toLowerCase())
+        )
+      );
+    }
+
+    return filtered;
+  }, [allGuides, selectedLanguages, minRating, selectedExpertise]);
+
   const handleApplyFilters = () => {
     setFilterVisible(false);
-    // TODO: Connect to actual filtering logic
+    // Filters are applied automatically via useMemo
   };
+
   const handleCancelFilters = () => {
     setFilterVisible(false);
   };
 
-  // For now, show the list as-is without applying filters
-  const filteredGuides = guides;
+  const handleClearFilters = () => {
+    setSelectedLanguages([]);
+    setSelectedExpertise([]);
+    setMinRating(0);
+  };
 
-  const renderItemCard = (item: any, prefix: string, index: number) => (
-    <ItemCard
-      key={`${prefix}-${index}`}
-      image={item.image || item.avatar || 'https://images.unsplash.com/photo-1517841905240-472988babdf9'}
-      title={item.title || `${item.guideDetails?.firstName || ''} ${item.guideDetails?.lastName || ''}`.trim() || item.username}
-      city={item.city}
-      price={item.price || undefined}
-      rating={item.rating || undefined}
-      type="guide"
-      style={styles.carouselCard}
-    />
-  );
+  // Render guide card with animation
+  const renderGuideCard = (guide: Guide, index: number) => {
+    const firstName = guide.details?.firstName || '';
+    const lastName = guide.details?.lastName || '';
+    const fullName = `${firstName} ${lastName}`.trim() || guide.username;
+    const avatar = guide.details?.avatar || 'https://images.unsplash.com/photo-1517841905240-472988babdf9';
+    const rating = guide.metrics?.rating || 0;
+    const bio = guide.details?.bio || 'Experienced tour guide';
+    const languages = guide.details?.languages || [];
 
-  useEffect(() => {
-    let isMounted = true;
-    const fetchGuides = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-  const res = await ListingService.listGuides({ limit: 100, page: 1, status: 'active' });
-        // Map API data to UI-friendly items minimally
-        const items = (res.data || []).map((u: any) => ({
-          avatar: u.avatar,
-          username: u.username,
-          guideDetails: u.guideDetails,
-          title: `${u.guideDetails?.firstName || ''} ${u.guideDetails?.lastName || ''}`.trim() || u.username,
-          // Placeholder values until pricing/ratings available via listing
-          languages: [],
-          bio: '',
-          price: undefined,
-          rating: undefined,
-          city: undefined,
-        }));
-        if (isMounted) setGuides(items);
-      } catch (e: any) {
-        console.error('Failed to load guides:', e);
-        if (isMounted) setError(e?.message || 'Failed to load guides');
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-    fetchGuides();
-    return () => { isMounted = false; };
-  }, []);
+    return (
+      <View
+        key={guide._id}
+        style={styles.guideCardWrapper}
+      >
+        <ItemCard
+          image={avatar}
+          title={fullName}
+          city={bio.substring(0, 50)}
+          rating={rating > 0 ? rating : undefined}
+          type="guide"
+          style={styles.carouselCard}
+        />
+        {languages.length > 0 && (
+          <View style={styles.languageBadges}>
+            {languages.slice(0, 3).map((lang, i) => (
+              <View key={i} style={styles.languageBadge}>
+                <Text style={styles.languageBadgeText}>{lang}</Text>
+              </View>
+            ))}
+            {languages.length > 3 && (
+              <View style={styles.languageBadge}>
+                <Text style={styles.languageBadgeText}>+{languages.length - 3}</Text>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={[styles.statusBarBackground, { height: insets.top }]} />
       <StatusBar style="light" translucent />
       <ServicesTopBar onProfilePress={() => {}} onNotificationsPress={() => {}} />
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.greetingContainer}>
-          <ThemedText variant="title" style={styles.greeting}>Find a Guide</ThemedText>
-          <ThemedText variant="caption" style={styles.caption}>Book a local expert for your journey.</ThemedText>
-        </View>
-        <View style={styles.searchArea}>
-          <CustomTextInput
-            label=""
-            placeholder="Search guides by city, name, or keyword"
-            leftIcon="search"
-            value={search}
-            onChangeText={setSearch}
-            containerStyle={[styles.searchInput, { marginBottom: 0 }]}
+      
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary600}
+            colors={[Colors.primary600]}
           />
-          <CustomButton
-            variant="primary"
-            size="small"
-            title=""
-            rightIcon={<Ionicons name="filter" size={22} color="white" />}
-            style={styles.filterButton}
-            onPress={() => setFilterVisible(true)}
-          />
-        </View>
-        <View style={styles.sectionHeader}>
-          <ThemedText variant="title" style={styles.sectionTitle}>Featured Guides</ThemedText>
-          <ThemedText variant="caption" style={styles.seeMore}>See more →</ThemedText>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
-          {featuredGuides.map((item, i) => renderItemCard(item, 'featured', i))}
-        </ScrollView>
-        <View style={styles.sectionHeader}>
-          <ThemedText style={styles.sectionTitle}>All Guides</ThemedText>
-          <ThemedText style={styles.seeMore}>See more →</ThemedText>
-        </View>
-        {loading ? (
-          <View style={styles.emptyState}><ThemedText style={styles.emptyText}>Loading guides...</ThemedText></View>
-        ) : error ? (
-          <View style={styles.emptyState}><ThemedText style={styles.emptyText}>{error}</ThemedText></View>
-        ) : filteredGuides.length === 0 ? (
-          <View style={styles.emptyState}>
-            <ThemedText variant="caption" style={styles.emptyText}>
-              No guides found for your criteria. Try adjusting your filters.
-            </ThemedText>
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Compact Header with Integrated Search */}
+        <View style={styles.headerSection}>
+          <View style={styles.headerContent}>
+            <View style={styles.headerTextContainer}>
+              <ThemedText variant="title" style={styles.greeting}>Tour Guides</ThemedText>
+              <ThemedText variant="caption" style={styles.caption}>
+                Find expert local guides
+              </ThemedText>
+            </View>
+            
+            {/* Integrated Search Bar */}
+            <View style={styles.searchRow}>
+              <View style={styles.searchInputContainer}>
+                <Ionicons name="search" size={18} color={Colors.secondary500} />
+                <TextInput
+                  style={styles.searchTextInput}
+                  placeholder="Search guides..."
+                  placeholderTextColor={Colors.secondary400}
+                  value={search}
+                  onChangeText={setSearch}
+                />
+                {search.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearch('')}>
+                    <Ionicons name="close-circle" size={18} color={Colors.secondary400} />
+                  </TouchableOpacity>
+                )}
+              </View>
+              <TouchableOpacity 
+                style={styles.filterButton}
+                onPress={() => setFilterVisible(true)}
+              >
+                <Ionicons name="options-outline" size={20} color={Colors.primary700} />
+              </TouchableOpacity>
+            </View>
           </View>
-        ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
-            {filteredGuides.map((item, i) => renderItemCard(item, 'all', i))}
-          </ScrollView>
+        </View>
+
+        {/* Loading State */}
+        {loading && !refreshing && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.primary600} />
+            <Text style={styles.loadingText}>Loading guides...</Text>
+          </View>
+        )}
+
+        {/* Error State */}
+        {error && !loading && (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle" size={48} color={Colors.error} />
+            <Text style={styles.errorText}>{error}</Text>
+            <CustomButton
+              title="Try Again"
+              variant="primary"
+              onPress={onRefresh}
+              style={styles.retryButton}
+            />
+          </View>
+        )}
+
+        {/* Featured Guides Section */}
+        {!loading && !error && (
+          <>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <Ionicons name="star" size={18} color={Colors.warning} />
+                <ThemedText variant="title" style={styles.sectionTitle}>
+                  Featured
+                </ThemedText>
+              </View>
+              <TouchableOpacity onPress={() => setShowMore(!showMore)}>
+                <Text style={styles.seeMore}>
+                  {showMore ? 'Less' : 'More'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {featuredGuides.length > 0 ? (
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                style={styles.carousel}
+                contentContainerStyle={styles.carouselContent}
+              >
+                {featuredGuides.map((guide, i) => renderGuideCard(guide, i))}
+              </ScrollView>
+            ) : (
+              <View style={styles.emptyState}>
+                <Ionicons name="search" size={40} color={Colors.secondary400} />
+                <Text style={styles.emptyText}>
+                  {debouncedSearch 
+                    ? 'No featured guides match your search' 
+                    : 'No featured guides available'}
+                </Text>
+              </View>
+            )}
+
+            {/* All Guides Section */}
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleContainer}>
+                <Ionicons name="people" size={18} color={Colors.primary600} />
+                <ThemedText style={styles.sectionTitle}>All Guides</ThemedText>
+              </View>
+              <Text style={styles.guideCount}>
+                {filteredGuides.length}
+              </Text>
+            </View>
+
+            {filteredGuides.length > 0 ? (
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                style={styles.carousel}
+                contentContainerStyle={styles.carouselContent}
+              >
+                {filteredGuides.map((guide, i) => renderGuideCard(guide, i))}
+              </ScrollView>
+            ) : (
+              <View style={styles.emptyState}>
+                <Ionicons name="file-tray-outline" size={40} color={Colors.secondary400} />
+                <Text style={styles.emptyText}>No guides found</Text>
+                <Text style={styles.emptySubtext}>
+                  Try adjusting your search or filters
+                </Text>
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
+
       {/* Filter Modal */}
       <Modal
         visible={filterVisible}
@@ -178,98 +463,86 @@ export default function TourGuidesHomeScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <ThemedText variant="title" style={styles.modalTitle}>Filter Guides</ThemedText>
+              <TouchableOpacity onPress={handleCancelFilters}>
+                <Ionicons name="close" size={24} color={Colors.secondary700} />
+              </TouchableOpacity>
+            </View>
+            
             <ScrollView contentContainerStyle={styles.modalContent}>
-              <ThemedText variant="title" style={styles.modalTitle}>Set Your Preferences</ThemedText>
-              {/* Location */}
-              <View style={styles.modalSection}>
-                <ThemedText style={styles.modalLabel}>Location</ThemedText>
-                <CustomTextInput
-                  label=""
-                  placeholder="Enter location"
-                  value={location}
-                  onChangeText={setLocation}
-                />
-              </View>
               {/* Languages */}
               <View style={styles.modalSection}>
-                <ThemedText style={[styles.modalLabel,{marginBottom : 20}]}>Languages</ThemedText>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                <ThemedText style={styles.modalLabel}>Languages</ThemedText>
+                <View style={styles.chipContainer}>
                   {languageOptions.map((lang) => (
                     <TouchableOpacity
                       key={lang}
                       style={[styles.typeChip, selectedLanguages.includes(lang) && styles.typeChipSelected]}
                       onPress={() => toggleLanguage(lang)}
                     >
-                      <Text style={[styles.typeChipText, selectedLanguages.includes(lang) && styles.typeChipTextSelected]}>{lang}</Text>
+                      <Text style={[styles.typeChipText, selectedLanguages.includes(lang) && styles.typeChipTextSelected]}>
+                        {lang}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               </View>
+
               {/* Expertise */}
               <View style={styles.modalSection}>
-                <ThemedText style={[styles.modalLabel,{marginBottom : 20}]}>Expertise</ThemedText>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                <ThemedText style={styles.modalLabel}>Expertise</ThemedText>
+                <View style={styles.chipContainer}>
                   {expertiseOptions.map((exp) => (
                     <TouchableOpacity
                       key={exp}
                       style={[styles.typeChip, selectedExpertise.includes(exp) && styles.typeChipSelected]}
                       onPress={() => toggleExpertise(exp)}
                     >
-                      <Text style={[styles.typeChipText, selectedExpertise.includes(exp) && styles.typeChipTextSelected]}>{exp}</Text>
+                      <Text style={[styles.typeChipText, selectedExpertise.includes(exp) && styles.typeChipTextSelected]}>
+                        {exp}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               </View>
+
               {/* Minimum Rating */}
               <View style={styles.modalSection}>
-                <ThemedText style={[styles.modalLabel,{marginBottom : 20}]}>Minimum Rating</ThemedText>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                  {[1,2,3,4,5].map((r) => (
+                <ThemedText style={styles.modalLabel}>Minimum Rating</ThemedText>
+                <View style={styles.chipContainer}>
+                  {[1, 2, 3, 4, 5].map((r) => (
                     <TouchableOpacity
                       key={r}
                       style={[styles.typeChip, minRating === r && styles.typeChipSelected]}
                       onPress={() => setMinRating(r)}
                     >
-                      <Text style={[styles.typeChipText, minRating === r && styles.typeChipTextSelected]}>{r} Star{r > 1 ? 's' : ''}</Text>
+                      <Ionicons 
+                        name="star" 
+                        size={14} 
+                        color={minRating === r ? Colors.primary800 : Colors.warning} 
+                      />
+                      <Text style={[styles.typeChipText, minRating === r && styles.typeChipTextSelected]}>
+                        {r}+
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               </View>
-              {/* Price Range */}
-              <View style={styles.modalSection}>
-                <ThemedText style={styles.modalLabel}>Price Range ($/hr)</ThemedText>
-                <View style={{ flexDirection: 'row'}}>
-                  <CustomTextInput
-                    label=""
-                    placeholder="Min"
-                    keyboardType="numeric"
-                    value={minPrice}
-                    onChangeText={setMinPrice}
-                    containerStyle={[styles.modalInput, { flex: 1 }]}
-                  />
-                  <CustomTextInput
-                    label=""
-                    placeholder="Max"
-                    keyboardType="numeric"
-                    value={maxPrice}
-                    onChangeText={setMaxPrice}
-                    containerStyle={[styles.modalInput, { flex: 1 }]}
-                  />
-                </View>
-              </View>
             </ScrollView>
+
             {/* Modal Actions */}
             <View style={styles.modalActions}>
               <CustomButton
-                title="Cancel"
+                title="Clear All"
                 variant="secondary"
                 style={styles.modalActionBtn}
-                onPress={handleCancelFilters}
+                onPress={handleClearFilters}
               />
               <CustomButton
                 title="Apply Filters"
                 variant="primary"
-                style={styles.modalActionBtn}
+                style={[styles.modalActionBtn, styles.applyButton]}
                 onPress={handleApplyFilters}
               />
             </View>
@@ -283,129 +556,240 @@ export default function TourGuidesHomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.secondary50,
+    backgroundColor: '#f8fafc',
   },
   statusBarBackground: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: Colors.primary800,
+    backgroundColor: Colors.white,
     zIndex: 10,
   },
-  greetingContainer: {
-    backgroundColor: Colors.primary800,
-    alignSelf: 'stretch',
-    width: '100%',
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+  headerSection: {
+    backgroundColor: Colors.white,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.secondary100,
+  },
+  headerContent: {
+    paddingHorizontal: 16,
+  },
+  headerTextContainer: {
+    marginBottom: 12,
   },
   greeting: {
-    marginTop: 10,
-    marginBottom: 4,
     fontSize: 24,
-    fontWeight: '400',
-    color: Colors.white,
-    zIndex: 2,
+    fontWeight: '700',
+    color: Colors.primary800,
+    marginBottom: 2,
   },
   caption: {
-    color: Colors.primary100,
-    marginBottom: 20,
-    zIndex: 2,
+    fontSize: 13,
+    color: Colors.secondary500,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   scrollView: {
     flex: 1,
-    zIndex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
-    paddingTop: 0,
+    paddingBottom: 24,
   },
   searchArea: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     gap: 10,
+  },
+  searchInputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.secondary50,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.secondary200,
+    paddingHorizontal: 12,
+    height: 44,
+    gap: 8,
+  },
+  searchIcon: {
+    marginRight: 0,
+  },
+  searchTextInput: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.secondary700,
+    fontFamily: 'Inter',
+  },
+  clearButton: {
+    padding: 2,
   },
   searchInput: {
     flex: 1,
-    height: 48,
-    borderRadius: 12,
-    justifyContent: 'center',
+    height: 44,
   },
   filterButton: {
-    height: 48,
-    aspectRatio: 1,
+    height: 44,
+    width: 44,
     borderRadius: 12,
+    backgroundColor: Colors.primary100,
+    borderWidth: 1,
+    borderColor: Colors.primary300,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: Colors.secondary600,
+    fontFamily: 'Inter',
+  },
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 32,
+  },
+  errorText: {
+    marginTop: 10,
+    marginBottom: 18,
+    fontSize: 14,
+    color: Colors.error,
+    textAlign: 'center',
+    fontFamily: 'Inter',
+  },
+  retryButton: {
+    paddingHorizontal: 24,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 5,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 10,
+  },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   sectionTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginTop: 15,
-    marginBottom: 10,
+    fontSize: 18,
+    fontWeight: '700',
     color: Colors.primary800,
   },
   seeMore: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.primary600,
+    fontWeight: '600',
+  },
+  guideCount: {
+    fontSize: 13,
+    color: Colors.secondary500,
     fontWeight: '500',
   },
   carousel: {
-    paddingLeft: 20,
-    marginBottom: 10,
+    paddingLeft: 16,
+    marginBottom: 16,
+    minHeight: 280,
+  },
+  carouselContent: {
+    paddingRight: 16,
+    gap: 12,
+    alignItems: 'center',
+  },
+  guideCardWrapper: {
+    width: 200,
   },
   carouselCard: {
-    width: 220,
+    width: 200,
+    marginRight: 0,
+  },
+  languageBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 6,
+    paddingHorizontal: 2,
+  },
+  languageBadge: {
+    backgroundColor: Colors.primary100,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  languageBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.primary700,
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 40,
+    paddingVertical: 40,
+    paddingHorizontal: 32,
   },
   emptyText: {
-    color: Colors.primary600,
-    fontSize: 16,
+    marginTop: 10,
+    fontSize: 15,
+    color: Colors.secondary600,
     textAlign: 'center',
+    fontFamily: 'Inter',
+  },
+  emptySubtext: {
+    marginTop: 6,
+    fontSize: 13,
+    color: Colors.secondary400,
+    textAlign: 'center',
+    fontFamily: 'Inter',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
   },
   modalContainer: {
-    width: '90%',
-    maxHeight: '90%',
     backgroundColor: Colors.white,
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: Colors.secondary500,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 10,
+    elevation: 15,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.secondary200,
   },
   modalContent: {
+    padding: 20,
     paddingBottom: 10,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    marginBottom: 18,
     color: Colors.primary800,
-    textAlign: 'center',
   },
   modalSection: {
     marginBottom: 20,
@@ -416,29 +800,37 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: Colors.primary700,
   },
+  chipContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   modalInput: {
     flex: 1,
-    padding: 12,
+    padding: 10,
     marginBottom: 0,
-    fontSize: 15,
+    fontSize: 14,
     minWidth: 80,
   },
   typeChip: {
-    borderWidth: 1,
-    borderColor: Colors.primary100,
-    borderRadius: 16,
-    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1.5,
+    borderColor: Colors.secondary200,
+    borderRadius: 18,
+    paddingVertical: 8,
     paddingHorizontal: 14,
-    marginBottom: 6,
-    backgroundColor: Colors.secondary50,
+    backgroundColor: Colors.white,
   },
   typeChipSelected: {
     borderColor: Colors.primary600,
     backgroundColor: Colors.primary100,
   },
   typeChipText: {
-    color: Colors.primary700,
+    color: Colors.secondary700,
     fontWeight: '500',
+    fontSize: 13,
   },
   typeChipTextSelected: {
     color: Colors.primary800,
@@ -446,11 +838,17 @@ const styles = StyleSheet.create({
   },
   modalActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     gap: 10,
-    marginTop: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.secondary200,
+    backgroundColor: Colors.white,
   },
   modalActionBtn: {
     flex: 1,
+  },
+  applyButton: {
+    flex: 1.5,
   },
 });

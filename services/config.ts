@@ -2,8 +2,8 @@
  * API Configuration with dynamic IP support
  */
 export const API_CONFIG = {
-  // This will be updated dynamically by serverDetection.ts
-  BASE_URL: __DEV__ ? 'http://192.168.8.142:3000' : 'https://your-production-api.com',
+  // Static BASE_URL for development/testing
+  BASE_URL: __DEV__ ? 'http://192.168.1.12:3000' : 'https://your-production-api.com',
   ENDPOINTS: {
     AUTH: '/api/auth', // Gateway namespace for auth endpoints
     HEALTH: '/health',

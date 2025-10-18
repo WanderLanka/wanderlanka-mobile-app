@@ -1,104 +1,83 @@
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-import { Booking } from '../../types/Calendar.types';
-import Calendar from '../../components/Calendar';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { ThemedText } from '../../components';
+import Calendar from '../../components/Calendar';
+import { Booking as CalendarBooking } from '../../types/Calendar.types';
+import { BookingService, TourPackageBookingItem } from '../../services/booking';
+import { GuideService } from '../../services/guide';
 
 export default function BookingsScreen() {
   const [activeTab, setActiveTab] = useState<'booked' | 'pending'>('booked');
   const [showCalendar, setShowCalendar] = useState(false);
+  const [items, setItems] = useState<TourPackageBookingItem[]>([]);
+  const [actingId, setActingId] = useState<string | null>(null);
 
-  const bookings: Booking[] = [
-    {
-      id: '1',
-      clientName: 'Sarah Johnson',
-      clientEmail: 'sarah.johnson@email.com',
-      tourType: 'Cultural Heritage Tour',
-      date: 'July 20, 2025',
-      time: '9:00 AM',
-      duration: '6 hours',
-      location: 'Kandy Temple Complex',
-      amount: 15000,
-      status: 'booked',
-      groupSize: 4,
-      specialRequests: 'Vegetarian lunch preferred'
-    },
-    {
-      id: '2',
-      clientName: 'Mike Chen',
-      clientEmail: 'mike.chen@email.com',
-      tourType: 'Adventure Hiking',
-      date: 'July 25, 2025',
-      time: '6:00 AM',
-      duration: '8 hours',
-      location: 'Ella Rock Trail',
-      amount: 22000,
-      status: 'booked',
-      groupSize: 2
-    },
-    {
-      id: '3',
-      clientName: 'Emma Wilson',
-      clientEmail: 'emma.wilson@email.com',
-      tourType: 'Beach & Wildlife',
-      date: 'Dec 25, 2025',
-      time: '8:00 AM',
-      duration: '10 hours',
-      location: 'Mirissa & Yala National Park',
-      amount: 28000,
-      status: 'booked',
-      groupSize: 6
-    },
-    {
-      id: '4',
-      clientName: 'James Rodriguez',
-      clientEmail: 'james.rodriguez@email.com',
-      tourType: 'Mountain Adventure',
-      date: 'Aug 2, 2025',
-      time: '7:00 AM',
-      duration: '12 hours',
-      location: 'Adams Peak',
-      amount: 18000,
-      status: 'pending',
-      groupSize: 3,
-      specialRequests: 'Need transportation from hotel'
-    },
-    {
-      id: '5',
-      clientName: 'Lisa Parker',
-      clientEmail: 'lisa.parker@email.com',
-      tourType: 'Cultural Experience',
-      date: 'Aug 20, 2025',
-      time: '10:00 AM',
-      duration: '5 hours',
-      location: 'Galle Fort & Surroundings',
-      amount: 12000,
-      status: 'pending',
-      groupSize: 2
-    },
-    {
-      id: '6',
-      clientName: 'David Kim',
-      clientEmail: 'david.kim@email.com',
-      tourType: 'Tea Plantation Tour',
-      date: 'Aug 30, 2025',
-      time: '9:30 AM',
-      duration: '7 hours',
-      location: 'Nuwara Eliya',
-      amount: 16500,
-      status: 'pending',
-      groupSize: 5
+  useEffect(() => {
+    let mount = true;
+    const load = async () => {
+      try {
+        const guideId = await GuideService.getCurrentGuideId();
+        if (!guideId) throw new Error('Guide profile not found');
+        const res = await BookingService.listTourPackageBookings({ guideId: String(guideId) });
+        if (res?.success && Array.isArray(res.data) && mount) setItems(res.data as any);
+        else if (mount) setItems([]);
+      } catch (e) {
+        console.error('Failed to load guide bookings:', e);
+        if (mount) setItems([]);
+      } finally {
+        // no-op
+      }
+    };
+    load();
+    return () => { mount = false; };
+  }, []);
+
+  const bookings = useMemo(() => {
+    // Expand multi-day bookings into per-day calendar entries
+    const toPrettyDate = (iso: string | Date) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const toTime = (iso: string) => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+    const expanded: CalendarBooking[] = [];
+    for (const it of items) {
+      const start = new Date(it.startDate);
+      const end = new Date(it.endDate);
+
+      const status: 'booked' | 'pending' = (it.status === 'confirmed' || it.status === 'approved') ? 'booked' : 'pending';
+      const totalDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1); // inclusive
+
+      for (let i = 0; i < totalDays; i++) {
+        const day = new Date(start);
+        day.setDate(start.getDate() + i);
+        const isoDay = `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
+        expanded.push({
+          id: `${String(it._id)}:${day.toISOString().split('T')[0]}`,
+          clientName: it.packageTitle,
+          clientEmail: '',
+          tourType: it.packageTitle,
+          date: toPrettyDate(day),
+          isoDate: isoDay,
+          time: i === 0 ? toTime(it.startDate) : 'All day',
+          duration: `${Math.max(1, Math.ceil((new Date(it.endDate).getTime() - new Date(it.startDate).getTime()) / (1000 * 60 * 60 * 24)))} days`,
+          location: it.packageSlug || 'Tour Package',
+          amount: Number(it.pricing?.totalAmount || 0),
+          status,
+          groupSize: Number(it.peopleCount || 1),
+          specialRequests: it.notes || undefined,
+        });
+      }
     }
-  ];
+    return expanded;
+  }, [items]);
 
   const filteredBookings = bookings.filter(booking => booking.status === activeTab);
 
-  const handleDaySelect = (day: Date, bookingsForDay: Booking[]) => {
+  const handleDaySelect = (day: Date, bookingsForDay: CalendarBooking[]) => {
     // Calendar component now handles showing the DayBookings modal internally
     console.log(`Selected ${day.toDateString()} with ${bookingsForDay.length} bookings`);
   };
@@ -107,13 +86,87 @@ export default function BookingsScreen() {
     setShowCalendar(false);
   };
 
-  const handleBookingAction = (bookingId: string, action: 'approve' | 'decline' | 'contact') => {
-    // Handle booking actions
-    console.log(`${action} booking ${bookingId}`);
+  const handleBookingAction = async (bookingId: string, action: 'approve' | 'decline' | 'contact') => {
+    try {
+      setActingId(bookingId);
+      if (action === 'approve') {
+        const res = await BookingService.approveTourPackageBooking(bookingId);
+        if (!res?.success) {
+          const errorData = res as any;
+          // Check if it's a date conflict error (409)
+          if (errorData?.error?.includes('not available') || errorData?.conflict) {
+            const conflict = errorData.conflict;
+            let conflictMessage = 'You already have a booking on the selected dates.';
+            
+            if (conflict) {
+              const startDate = new Date(conflict.startDate).toLocaleDateString('en-US', { 
+                month: 'short', day: 'numeric', year: 'numeric' 
+              });
+              const endDate = new Date(conflict.endDate).toLocaleDateString('en-US', { 
+                month: 'short', day: 'numeric', year: 'numeric' 
+              });
+              conflictMessage = `You already have a ${conflict.status} booking for "${conflict.packageTitle}" from ${startDate} to ${endDate}.\n\nYou cannot approve this request as it overlaps with your existing booking.`;
+            }
+            
+            Alert.alert(
+              'Booking Conflict',
+              conflictMessage,
+              [
+                { 
+                  text: 'Decline This Request', 
+                  style: 'destructive',
+                  onPress: () => handleBookingAction(bookingId, 'decline')
+                },
+                { text: 'OK', style: 'cancel' }
+              ]
+            );
+          } else {
+            throw new Error(errorData?.error || 'Failed to approve');
+          }
+        } else {
+          Alert.alert('Approved', 'Booking was approved. The client can now proceed with payment.');
+        }
+      } else if (action === 'decline') {
+        const res = await BookingService.cancelTourPackageBooking(bookingId);
+        if (!res?.success) throw new Error((res as any)?.error || 'Failed to decline');
+        Alert.alert('Declined', 'Booking request has been declined.');
+      } else if (action === 'contact') {
+        // Placeholder for contact flow (chat/phone)
+        Alert.alert('Contact', 'Contacting client feature coming soon.');
+      }
+      // Reload after action
+      const gid = await GuideService.getCurrentGuideId();
+      if (gid) {
+        const res = await BookingService.listTourPackageBookings({ guideId: String(gid) });
+        if (res?.success && Array.isArray(res.data)) setItems(res.data as any);
+      }
+    } catch (e: any) {
+      console.error(`Failed to ${action} booking`, e);
+      Alert.alert('Action Failed', e?.message || 'Please try again.');
+    } finally {
+      setActingId(null);
+    }
   };
 
-  const renderBookingCard = (booking: Booking) => (
-    <View key={booking.id} style={styles.bookingCard}>
+  const renderBookingCard = (booking: CalendarBooking) => {
+    const backendStatus = items.find(it => String(it._id) === String(booking.id))?.status;
+    const statusPill = (() => {
+      switch (backendStatus) {
+        case 'approved':
+          return { label: 'Approved', bg: Colors.info, text: Colors.white };
+        case 'pending':
+          return { label: 'Pending', bg: Colors.warning, text: Colors.white };
+        case 'confirmed':
+          return { label: 'Booked', bg: Colors.success, text: Colors.white };
+        case 'cancelled':
+          return { label: 'Cancelled', bg: Colors.error, text: Colors.white };
+        default:
+          return undefined;
+      }
+    })();
+    const disabled = actingId === booking.id;
+
+    return (<View key={booking.id} style={styles.bookingCard}>
       <View style={styles.bookingHeader}>
         <View style={styles.clientInfo}>
           <View style={styles.clientAvatar}>
@@ -134,6 +187,11 @@ export default function BookingsScreen() {
       <View style={styles.tourInfo}>
         <View style={styles.tourHeader}>
           <Text style={styles.tourType}>{booking.tourType}</Text>
+          {statusPill && (
+            <View style={[styles.statusPill, { backgroundColor: statusPill.bg }]}>
+              <Text style={[styles.statusPillText, { color: statusPill.text }]}>{statusPill.label}</Text>
+            </View>
+          )}
           <View style={styles.groupSizeContainer}>
             <Ionicons name="people" size={14} color={Colors.secondary500} />
             <Text style={styles.groupSize}>{booking.groupSize} people</Text>
@@ -164,21 +222,41 @@ export default function BookingsScreen() {
       </View>
 
       <View style={styles.bookingActions}>
-        {booking.status === 'pending' ? (
+        {backendStatus === 'pending' ? (
           <>
             <TouchableOpacity 
-              style={[styles.actionButton, styles.approveButton]}
+              style={[styles.actionButton, styles.approveButton, disabled && styles.actionButtonDisabled]}
               onPress={() => handleBookingAction(booking.id, 'approve')}
+              disabled={disabled}
             >
               <Ionicons name="checkmark" size={18} color={Colors.white} />
               <Text style={styles.approveButtonText}>Approve</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={[styles.actionButton, styles.declineButton]}
+              style={[styles.actionButton, styles.declineButton, disabled && styles.actionButtonDisabled]}
               onPress={() => handleBookingAction(booking.id, 'decline')}
+              disabled={disabled}
             >
               <Ionicons name="close" size={18} color={Colors.error} />
               <Text style={styles.declineButtonText}>Decline</Text>
+            </TouchableOpacity>
+          </>
+        ) : backendStatus === 'approved' ? (
+          <>
+            <TouchableOpacity 
+              style={[styles.actionButton, styles.declineButton, disabled && styles.actionButtonDisabled]}
+              onPress={() => handleBookingAction(booking.id, 'decline')}
+              disabled={disabled}
+            >
+              <Ionicons name="close" size={18} color={Colors.error} />
+              <Text style={styles.declineButtonText}>Decline</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.actionButton, styles.contactButton]}
+              onPress={() => handleBookingAction(booking.id, 'contact')}
+            >
+              <Ionicons name="chatbubble" size={18} color={Colors.primary600} />
+              <Text style={styles.contactButtonText}>Contact Client</Text>
             </TouchableOpacity>
           </>
         ) : (
@@ -191,8 +269,8 @@ export default function BookingsScreen() {
           </TouchableOpacity>
         )}
       </View>
-    </View>
-  );
+    </View>);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -564,6 +642,21 @@ const styles = StyleSheet.create({
     color: Colors.primary600,
     fontWeight: '600',
     marginLeft: 4,
+  },
+
+  // New styles for status pill and disabled action state
+  statusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    marginHorizontal: 8,
+  },
+  statusPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  actionButtonDisabled: {
+    opacity: 0.5,
   },
 
   emptyState: {
