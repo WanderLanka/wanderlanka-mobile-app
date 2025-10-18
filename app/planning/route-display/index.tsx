@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import MapViewDirections from 'react-native-maps-directions';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { itineraryApi, routeApi } from '../../../utils/itineraryApi';
 
 const { width, height } = Dimensions.get('window');
 
@@ -122,13 +123,20 @@ const ROUTE_OPTIONS: RouteOption[] = [
 
 function RouteDisplayScreen() {
   const params = useLocalSearchParams();
-  const { destination, startPoint, startDate, endDate, itinerary: itineraryString } = params;
+  const { itineraryId } = params;
   
-  const [itinerary, setItinerary] = useState<DayItinerary[]>([]);
+  // Itinerary data from database
+  const [itineraryData, setItineraryData] = useState<any>(null);
+  const [dayItineraries, setDayItineraries] = useState<DayItinerary[]>([]);
   const [allPlaces, setAllPlaces] = useState<Place[]>([]);
+  const [isLoadingItinerary, setIsLoadingItinerary] = useState(true);
+  
+  // Route selection and calculation
   const [selectedRouteType, setSelectedRouteType] = useState<RouteType>('recommended');
+  const [routesData, setRoutesData] = useState<any>(null);
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
+  const [isCalculatingRoutes, setIsCalculatingRoutes] = useState(false);
   
   // New state for route generation
   const [generatedRoutes, setGeneratedRoutes] = useState<GeneratedRoute[]>([]);
@@ -316,7 +324,7 @@ function RouteDisplayScreen() {
     return locationMap['Colombo'];
   };
 
-  // Initialize data
+  // Load itinerary data from database
   useEffect(() => {
     // Prevent multiple initializations
     if (initializedRef.current) {
@@ -324,111 +332,186 @@ function RouteDisplayScreen() {
       return;
     }
     
-    const initializeData = async () => {
-      console.log('Initializing route display with params:', { destination, startPoint, startDate, endDate });
+    const loadItineraryData = async () => {
+      if (!itineraryId) {
+        console.error('No itinerary ID provided');
+        Alert.alert('Error', 'No itinerary ID provided');
+        return;
+      }
+
+      console.log('🔄 Loading itinerary from database:', itineraryId);
+      setIsLoadingItinerary(true);
       
       try {
         // Mark as initialized at the start
         initializedRef.current = true;
 
-        // Initialize default route info
-        const defaultRouteInfo = calculateRouteInfo('recommended');
-        setRouteInfo(defaultRouteInfo);
+        // Fetch itinerary from database
+        const response = await itineraryApi.getItinerary(itineraryId as string);
+        console.log('✅ Itinerary loaded:', response);
 
-        // Set default location if no start point
-        if (!startPoint) {
-          console.log('No start point provided, using default Colombo location');
-          setStartLocation({ latitude: 6.9271, longitude: 79.8612 });
-        } else {
-          // First, geocode start point if provided
-          console.log('Geocoding start point:', startPoint);
-          const coords = await geocodeStartPoint(startPoint as string);
-          if (coords) {
-            console.log('Start location coordinates:', coords);
-            setStartLocation(coords);
-          } else {
-            console.log('Geocoding failed, using default Colombo location');
-            setStartLocation({ latitude: 6.9271, longitude: 79.8612 });
-          }
+        if (!response || !response.success) {
+          throw new Error(response?.message || 'Failed to load itinerary');
         }
 
-        if (itineraryString) {
-          try {
-            const parsedItinerary = JSON.parse(itineraryString as string);
-            console.log('Parsed itinerary:', parsedItinerary);
-            setItinerary(parsedItinerary);
+        const itinerary = response.data;
+        setItineraryData(itinerary);
 
-            const places: Place[] = [];
-            parsedItinerary.forEach((day: DayItinerary) => {
-              places.push(...day.places);
-            });
-            setAllPlaces(places);
-            console.log('All places extracted:', places.length);
-
-            // Set initial map region based on first place
-            if (places.length > 0) {
-              const firstPlace = places[0];
-              const newRegion = {
-                latitude: firstPlace.coordinates.latitude,
-                longitude: firstPlace.coordinates.longitude,
-                latitudeDelta: 0.5,
-                longitudeDelta: 0.5,
-              };
-              console.log('Setting initial map region to first place:', newRegion);
-              setMapRegion(newRegion);
-              setInitialRegionSet(true);
-              
-              // Set fallback start location if not already set
-              if (!startLocation && startPoint) {
-                const fallbackStart = await geocodeStartPoint(startPoint as string);
-                if (fallbackStart) {
-                  setStartLocation(fallbackStart);
-                } else {
-                  // Use first place as fallback start location
-                  setStartLocation(firstPlace.coordinates);
-                }
-              }
-            }
-          } catch (error) {
-            console.error('Error parsing itinerary:', error);
-            Alert.alert('Error', 'Failed to load itinerary data');
-          }
-        } else {
-          console.log('No itinerary data provided');
-          // Set some default places for testing
-          const defaultPlaces: Place[] = [
-            {
-              id: '1',
-              name: 'Kandy',
-              address: 'Kandy, Sri Lanka',
-              coordinates: { latitude: 7.2936, longitude: 80.6417 }
-            },
-            {
-              id: '2',
-              name: 'Nuwara Eliya',
-              address: 'Nuwara Eliya, Sri Lanka',
-              coordinates: { latitude: 6.9708, longitude: 80.7580 }
-            }
-          ];
-          setAllPlaces(defaultPlaces);
-          setMapRegion({
-            latitude: 7.2936,
-            longitude: 80.6417,
-            latitudeDelta: 0.5,
-            longitudeDelta: 0.5,
+        // Set start location
+        if (itinerary.startLocation) {
+          setStartLocation({
+            latitude: itinerary.startLocation.latitude,
+            longitude: itinerary.startLocation.longitude,
           });
-          setInitialRegionSet(true);
         }
-      } catch (error) {
-        console.error('Error initializing route display:', error);
-        Alert.alert('Error', 'Failed to initialize route display');
+
+        // Extract day plans
+        if (itinerary.dayPlans && itinerary.dayPlans.length > 0) {
+          const days: DayItinerary[] = itinerary.dayPlans.map((dayPlan: any) => ({
+            dayNumber: dayPlan.dayNumber,
+            date: new Date(dayPlan.date).toISOString().split('T')[0],
+            places: dayPlan.places.map((place: any) => ({
+              id: place.placeId || place._id,
+              name: place.name,
+              address: place.address || '',
+              description: place.description,
+              coordinates: {
+                latitude: place.location.latitude,
+                longitude: place.location.longitude,
+              },
+              openingHours: place.openingHours,
+              rating: place.rating,
+            })),
+          }));
+          setDayItineraries(days);
+
+          // Extract all places
+          const places: Place[] = [];
+          days.forEach(day => {
+            places.push(...day.places);
+          });
+          setAllPlaces(places);
+          console.log('📍 Total places extracted:', places.length);
+
+          // Set initial map region based on first place
+          if (places.length > 0) {
+            const firstPlace = places[0];
+            setMapRegion({
+              latitude: firstPlace.coordinates.latitude,
+              longitude: firstPlace.coordinates.longitude,
+              latitudeDelta: 0.5,
+              longitudeDelta: 0.5,
+            });
+            setInitialRegionSet(true);
+          }
+        }
+
+        // Set selected route if previously saved
+        if (itinerary.selectedRoute) {
+          setSelectedRouteType(itinerary.selectedRoute as RouteType);
+          console.log('📍 Previously selected route:', itinerary.selectedRoute);
+        }
+
+        // Calculate/fetch routes
+        await fetchRoutes(itinerary._id);
+
+      } catch (error: any) {
+        console.error('❌ Error loading itinerary:', error);
+        Alert.alert('Error', error.message || 'Failed to load itinerary data');
+      } finally {
+        setIsLoadingItinerary(false);
       }
     };
 
-    initializeData();
-  }, [destination, startPoint, startDate, endDate, itineraryString]);
+    loadItineraryData();
+  }, [itineraryId]);
 
-  // Calculate route information based on type
+  // Fetch or calculate routes
+  const fetchRoutes = async (itineraryId: string) => {
+    console.log('🔄 Fetching routes for itinerary:', itineraryId);
+    setIsCalculatingRoutes(true);
+
+    try {
+      // First, try to get existing routes
+      let response;
+      try {
+        response = await routeApi.getItineraryRoutes(itineraryId);
+      } catch (getError) {
+        console.log('⚠️ No existing routes found (expected for new itineraries)');
+        response = null;
+      }
+      
+      // If no routes exist or fetch failed, calculate them
+      if (!response || !response.success || !response.data || response.data.length === 0) {
+        console.log('📍 Calculating new routes...');
+        try {
+          response = await routeApi.calculateRoutes(itineraryId);
+        } catch (calcError: any) {
+          console.error('❌ Error calculating routes:', calcError);
+          console.log('⚠️ Routes will use fallback data');
+          return; // Exit early, use fallback data
+        }
+      }
+
+      if (response && response.success && response.data) {
+        console.log('✅ Routes loaded successfully:', response.data.length);
+        setRoutesData(response.data);
+
+        // Find the route for the selected type
+        const currentRoute = Array.isArray(response.data)
+          ? response.data.find((r: any) => r.routeType === selectedRouteType)
+          : response.data[selectedRouteType];
+
+        if (currentRoute) {
+          updateRouteInfo(currentRoute);
+        }
+      }
+    } catch (error: any) {
+      console.error('❌ Unexpected error in fetchRoutes:', error);
+      console.log('⚠️ Routes will use fallback data');
+    } finally {
+      setIsCalculatingRoutes(false);
+    }
+  };
+
+  // Update route info from backend data
+  const updateRouteInfo = (routeData: any) => {
+    if (!routeData) return;
+
+    const info: RouteInfo = {
+      distance: routeData.totalDistance 
+        ? `${Math.round(routeData.totalDistance / 1000)} km` 
+        : '0 km',
+      duration: routeData.totalDuration
+        ? `${Math.floor(routeData.totalDuration / 3600)}h ${Math.floor((routeData.totalDuration % 3600) / 60)}m`
+        : '0h 0m',
+      estimatedCost: routeData.estimatedCosts?.total 
+        ? `LKR ${routeData.estimatedCosts.total.toLocaleString()}` 
+        : 'N/A',
+      routeType: routeData.routeType || selectedRouteType,
+    };
+
+    console.log('📊 Route info updated:', info);
+    setRouteInfo(info);
+  };
+
+  // Save selected route to database
+  const saveSelectedRoute = async (routeType: RouteType) => {
+    if (!itineraryData || !itineraryData._id) return;
+
+    try {
+      console.log('💾 Saving selected route:', routeType);
+      await itineraryApi.updateItinerary(itineraryData._id, {
+        selectedRoute: routeType,
+      });
+      console.log('✅ Route selection saved');
+    } catch (error) {
+      console.error('❌ Error saving route selection:', error);
+      // Don't show alert, non-critical error
+    }
+  };
+
+  // Calculate route information based on type (fallback if no backend data)
   const calculateRouteInfo = (routeType: RouteType): RouteInfo => {
     // Mock calculation - in real app, this would call Google Directions API
     const baseDistance = 150; // km
@@ -486,12 +569,28 @@ function RouteDisplayScreen() {
     
     console.log(`🚀 Processing route selection: ${routeType}`);
     
+    // Update selected route
+    setSelectedRouteType(routeType);
+    setModalRouteType(routeType);
+    
+    // Save to database
+    await saveSelectedRoute(routeType);
+    
+    // Update route info from backend data
+    if (routesData) {
+      const currentRoute = Array.isArray(routesData)
+        ? routesData.find((r: any) => r.routeType === routeType)
+        : routesData[routeType];
+      
+      if (currentRoute) {
+        updateRouteInfo(currentRoute);
+      }
+    }
+    
     // Set processing state immediately with iOS-friendly approach
     setIsLoadingRoute(true);
     setIsModalProcessing(true);
     setDirectionsError(null);
-    setSelectedRouteType(routeType);
-    setModalRouteType(routeType);
     
     try {
       // Fetch directions for specific route type
@@ -523,6 +622,13 @@ function RouteDisplayScreen() {
 
   // Handle route confirmation
   const handleRouteConfirm = () => {
+    if (!itineraryData) {
+      Alert.alert('Error', 'No itinerary data available');
+      return;
+    }
+
+    // Save selected route
+    saveSelectedRoute(modalRouteType);
     setSelectedRouteType(modalRouteType);
     setIsModalVisible(false);
     
@@ -539,12 +645,13 @@ function RouteDisplayScreen() {
             router.push({
               pathname: '/planning/booking',
               params: {
-                destination,
-                startPoint,
-                startDate,
-                endDate,
+                itineraryId: itineraryData._id,
+                destination: itineraryData.endLocation.name,
+                startPoint: itineraryData.startLocation.name,
+                startDate: new Date(itineraryData.startDate).toISOString().split('T')[0],
+                endDate: new Date(itineraryData.endDate).toISOString().split('T')[0],
                 destinations: JSON.stringify(allDestinations),
-                itinerary: itineraryString,
+                selectedRoute: modalRouteType,
               },
             });
           }
@@ -850,11 +957,11 @@ function RouteDisplayScreen() {
               toolbarEnabled={false}
             >
               {/* Start Location Marker */}
-              {startLocation && (
+              {startLocation && itineraryData && (
                 <Marker
                   coordinate={startLocation}
                   title="Start Point"
-                  description={startPoint as string}
+                  description={itineraryData.startLocation.name}
                   pinColor={Colors.success}
                   identifier="start"
                 >
@@ -870,7 +977,7 @@ function RouteDisplayScreen() {
                   key={place.id}
                   coordinate={place.coordinates}
                   title={index === allPlaces.length - 1 ? "Destination" : place.name}
-                  description={index === allPlaces.length - 1 ? (destination as string) : place.address}
+                  description={index === allPlaces.length - 1 && itineraryData ? itineraryData.endLocation.name : place.address}
                   identifier={`place-${index}`}
                 >
                   {/* Show flag icon for the last place (destination) */}
@@ -1086,6 +1193,35 @@ function RouteDisplayScreen() {
     }
   };
 
+  // Show loading screen while fetching itinerary
+  if (isLoadingItinerary) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <LinearGradient
+          colors={[Colors.primary600, Colors.primary700]}
+          style={styles.headerGradient}
+        >
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
+              <Ionicons name="arrow-back" size={24} color={Colors.white} />
+            </TouchableOpacity>
+            <View style={styles.headerCenter}>
+              <ThemedText style={styles.headerTitle}>Loading...</ThemedText>
+            </View>
+          </View>
+        </LinearGradient>
+        <View style={[styles.mainContent, { justifyContent: 'center', alignItems: 'center' }]}>
+          <Animated.View style={{ transform: [{ rotate: spin }] }}>
+            <Ionicons name="reload" size={48} color={Colors.primary600} />
+          </Animated.View>
+          <ThemedText style={{ marginTop: 16, fontSize: 16, color: Colors.secondary600 }}>
+            Loading itinerary data...
+          </ThemedText>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
@@ -1116,31 +1252,33 @@ function RouteDisplayScreen() {
         <View style={styles.animatedContainer}>
           
           {/* Trip Summary Card */}
-          <View style={styles.routeSummaryCard}>
-            <View style={styles.tripInfoSection}>
-              <View style={styles.tripLocation}>
-                <Ionicons name="location" size={24} color={Colors.primary600} />
-                <ThemedText style={styles.tripLocationText}>
-                  {startPoint} → {destination}
-                </ThemedText>
-              </View>
-              
-              <View style={styles.tripDetails}>
-                <View style={styles.tripDetailItem}>
-                  <Ionicons name="calendar" size={18} color={Colors.secondary500} />
-                  <ThemedText style={styles.tripDetailText}>
-                    {startDate} - {endDate}
+          {itineraryData && (
+            <View style={styles.routeSummaryCard}>
+              <View style={styles.tripInfoSection}>
+                <View style={styles.tripLocation}>
+                  <Ionicons name="location" size={24} color={Colors.primary600} />
+                  <ThemedText style={styles.tripLocationText}>
+                    {itineraryData.startLocation.name} → {itineraryData.endLocation.name}
                   </ThemedText>
                 </View>
-                <View style={styles.tripDetailItem}>
-                  <Ionicons name="location-outline" size={18} color={Colors.secondary500} />
-                  <ThemedText style={styles.tripDetailText}>
-                    {allPlaces.length} places
-                  </ThemedText>
+                
+                <View style={styles.tripDetails}>
+                  <View style={styles.tripDetailItem}>
+                    <Ionicons name="calendar" size={18} color={Colors.secondary500} />
+                    <ThemedText style={styles.tripDetailText}>
+                      {new Date(itineraryData.startDate).toISOString().split('T')[0]} - {new Date(itineraryData.endDate).toISOString().split('T')[0]}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.tripDetailItem}>
+                    <Ionicons name="location-outline" size={18} color={Colors.secondary500} />
+                    <ThemedText style={styles.tripDetailText}>
+                      {allPlaces.length} places
+                    </ThemedText>
+                  </View>
                 </View>
               </View>
             </View>
-          </View>
+          )}
 
           {/* Horizontal Route Selection */}
           <View style={styles.routeSelectionCard}>
@@ -1257,25 +1395,29 @@ function RouteDisplayScreen() {
 
             <View style={styles.journeyContainer}>
               {/* Start Point */}
-              <View style={styles.journeyItem}>
-                <View style={styles.journeyItemLeft}>
-                  <View style={[styles.journeyDot, { backgroundColor: Colors.success }]} />
-                  <View style={styles.journeyLine} />
-                </View>
-                <View style={styles.journeyItemContent}>
-                  <View style={styles.journeyItemHeader}>
-                    <ThemedText style={styles.journeyItemTitle}>Starting Point</ThemedText>
-                    <View style={styles.journeyItemBadge}>
-                      <ThemedText style={styles.journeyItemBadgeText}>START</ThemedText>
-                    </View>
+              {itineraryData && (
+                <View style={styles.journeyItem}>
+                  <View style={styles.journeyItemLeft}>
+                    <View style={[styles.journeyDot, { backgroundColor: Colors.success }]} />
+                    <View style={styles.journeyLine} />
                   </View>
-                  <ThemedText style={styles.journeyItemLocation}>{startPoint}</ThemedText>
-                  <ThemedText style={styles.journeyItemTime}>Departure: {startDate}</ThemedText>
+                  <View style={styles.journeyItemContent}>
+                    <View style={styles.journeyItemHeader}>
+                      <ThemedText style={styles.journeyItemTitle}>Starting Point</ThemedText>
+                      <View style={styles.journeyItemBadge}>
+                        <ThemedText style={styles.journeyItemBadgeText}>START</ThemedText>
+                      </View>
+                    </View>
+                    <ThemedText style={styles.journeyItemLocation}>{itineraryData.startLocation.name}</ThemedText>
+                    <ThemedText style={styles.journeyItemTime}>
+                      Departure: {new Date(itineraryData.startDate).toISOString().split('T')[0]}
+                    </ThemedText>
+                  </View>
                 </View>
-              </View>
+              )}
 
               {/* Day by Day Places */}
-              {itinerary.map((day, dayIndex) => (
+              {dayItineraries.map((day: DayItinerary, dayIndex: number) => (
                 <View key={day.dayNumber} style={styles.daySection}>
                   <View style={styles.daySectionHeader}>
                     <View style={[styles.journeyDot, { backgroundColor: Colors.primary600 }]} />
@@ -1283,7 +1425,7 @@ function RouteDisplayScreen() {
                     <ThemedText style={styles.daySectionDate}>{day.date}</ThemedText>
                   </View>
                   
-                  {day.places.map((place, placeIndex) => (
+                  {day.places.map((place: Place, placeIndex: number) => (
                     <View key={place.id} style={styles.placeItem}>
                       <View style={styles.journeyItemLeft}>
                         <View style={[styles.placeItemDot, { backgroundColor: Colors.primary300 }]} />
@@ -1314,21 +1456,25 @@ function RouteDisplayScreen() {
               ))}
 
               {/* Destination */}
-              <View style={styles.journeyItem}>
-                <View style={styles.journeyItemLeft}>
-                  <View style={[styles.journeyDot, { backgroundColor: Colors.error }]} />
-                </View>
-                <View style={styles.journeyItemContent}>
-                  <View style={styles.journeyItemHeader}>
-                    <ThemedText style={styles.journeyItemTitle}>Final Destination</ThemedText>
-                    <View style={[styles.journeyItemBadge, { backgroundColor: Colors.error }]}>
-                      <ThemedText style={styles.journeyItemBadgeText}>END</ThemedText>
-                    </View>
+              {itineraryData && (
+                <View style={styles.journeyItem}>
+                  <View style={styles.journeyItemLeft}>
+                    <View style={[styles.journeyDot, { backgroundColor: Colors.error }]} />
                   </View>
-                  <ThemedText style={styles.journeyItemLocation}>{destination}</ThemedText>
-                  <ThemedText style={styles.journeyItemTime}>Arrival: {endDate}</ThemedText>
+                  <View style={styles.journeyItemContent}>
+                    <View style={styles.journeyItemHeader}>
+                      <ThemedText style={styles.journeyItemTitle}>Final Destination</ThemedText>
+                      <View style={[styles.journeyItemBadge, { backgroundColor: Colors.error }]}>
+                        <ThemedText style={styles.journeyItemBadgeText}>END</ThemedText>
+                      </View>
+                    </View>
+                    <ThemedText style={styles.journeyItemLocation}>{itineraryData.endLocation.name}</ThemedText>
+                    <ThemedText style={styles.journeyItemTime}>
+                      Arrival: {new Date(itineraryData.endDate).toISOString().split('T')[0]}
+                    </ThemedText>
+                  </View>
                 </View>
-              </View>
+              )}
             </View>
           </View>
 
@@ -1352,22 +1498,29 @@ function RouteDisplayScreen() {
           variant="primary"
           size="large"
           onPress={() => {
+            if (!itineraryData) {
+              Alert.alert('Error', 'No itinerary data available');
+              return;
+            }
+
             // Collect all places from the itinerary
             const allDestinations = allPlaces.map(place => place.name);
             
             router.push({
               pathname: '/planning/booking',
               params: {
-                destination,
-                startPoint,
-                startDate,
-                endDate,
+                itineraryId: itineraryData._id,
+                destination: itineraryData.endLocation.name,
+                startPoint: itineraryData.startLocation.name,
+                startDate: new Date(itineraryData.startDate).toISOString().split('T')[0],
+                endDate: new Date(itineraryData.endDate).toISOString().split('T')[0],
                 destinations: JSON.stringify(allDestinations),
-                itinerary: itineraryString,
+                selectedRoute: selectedRouteType,
               },
             });
           }}
           rightIcon={<Ionicons name="arrow-forward" size={20} color={Colors.white} />}
+          disabled={isLoadingItinerary || !itineraryData}
         />
       </View>
 

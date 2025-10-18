@@ -84,7 +84,7 @@ export default function TravelerTabsLayout() {
     bottomSheetRef.current?.close();
   };
 
-  const handleStartPlanning = () => {
+  const handleStartPlanning = async () => {
     // Clear previous errors
     setErrors({});
     
@@ -107,17 +107,60 @@ export default function TravelerTabsLayout() {
       return;
     }
 
-    // Close bottom sheet and navigate to itinerary planning
-    closeBottomSheet();
-    router.push({
-      pathname: '/planning/itinerary',
-      params: {
-        destination: destination!.name,
-        startPoint: startPoint!.name,
+    try {
+      // Create basic itinerary (user will fill in day plans manually)
+      const { itineraryApi } = require('../../utils/itineraryApi');
+      
+      console.log('🚀 Creating itinerary...');
+      console.log(`📍 From: ${startPoint!.name} → To: ${destination!.name}`);
+      console.log(`📅 Duration: ${Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24) + 1)} days`);
+      
+      const response = await itineraryApi.createItinerary({
+        tripName: `${startPoint!.name} to ${destination!.name}`,
         startDate: startDate.toISOString().split('T')[0],
         endDate: endDate.toISOString().split('T')[0],
-      },
-    });
+        startLocation: {
+          name: startPoint!.name,
+          placeId: startPoint!.id,
+          latitude: startPoint!.coordinates.latitude,
+          longitude: startPoint!.coordinates.longitude
+        },
+        endLocation: {
+          name: destination!.name,
+          placeId: destination!.id,
+          latitude: destination!.coordinates.latitude,
+          longitude: destination!.coordinates.longitude
+        },
+        preferences: {
+          travelStyle: 'moderate',
+          budget: 'moderate',
+          accommodation: 'hotel',
+          transportation: 'mixed',
+          interests: ['tourist_attraction', 'museum', 'park']
+        }
+      });
+
+      if (response.success) {
+        console.log('✅ Itinerary created:', response.data._id);
+        console.log(`📝 Trip: ${response.data.tripName}`);
+        console.log(`📅 ${response.data.dayPlans.length} days planned`);
+        
+        // Close bottom sheet and navigate to itinerary with real ID
+        closeBottomSheet();
+        router.push({
+          pathname: '/planning/itinerary',
+          params: {
+            itineraryId: response.data._id,
+          },
+        });
+      } else {
+        console.error('❌ Failed to create itinerary:', response.message);
+        alert('Failed to create itinerary. Please try again.');
+      }
+    } catch (error: any) {
+      console.error('❌ Error creating itinerary:', error);
+      alert('Error: ' + (error.message || 'Failed to create itinerary'));
+    }
   };
 
   const searchLocations = async (query: string) => {
@@ -141,7 +184,7 @@ export default function TravelerTabsLayout() {
           throw new Error('Google Places API key not configured');
         }
 
-        // Text search for places in Sri Lanka
+        // Use OLD Google Places API directly (Text Search)
         const textSearchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?` +
           `query=${encodeURIComponent(query + ' Sri Lanka')}&` +
           `key=${GOOGLE_PLACES_API_KEY}&` +

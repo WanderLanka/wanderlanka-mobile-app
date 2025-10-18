@@ -62,9 +62,11 @@ const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || p
 
 export default function ItineraryPlanningScreen() {
   const params = useLocalSearchParams();
-  const { destination, startPoint, startDate, endDate } = params;
+  const { itineraryId } = params;
 
-  const [itinerary, setItinerary] = useState<DayItinerary[]>([]);
+  const [itinerary, setItinerary] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [dayItineraries, setDayItineraries] = useState<DayItinerary[]>([]);
   const [showPlaceSearch, setShowPlaceSearch] = useState(false);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -83,29 +85,72 @@ export default function ItineraryPlanningScreen() {
   const [editingChecklistDay, setEditingChecklistDay] = useState<number | null>(null);
   const [newChecklistItem, setNewChecklistItem] = useState('');
 
-  // Generate days between start and end dates
+  // Load itinerary from backend
   useEffect(() => {
-    const startDateObj = new Date(startDate as string);
-    const endDateObj = new Date(endDate as string);
-    const days: DayItinerary[] = [];
-    
-    let currentDate = new Date(startDateObj);
-    let dayNumber = 1;
-    
-    while (currentDate <= endDateObj) {
-      days.push({
-        date: currentDate.toISOString().split('T')[0],
-        dayNumber,
-        places: [],
-        notes: '',
-        checklists: [],
-      });
-      currentDate.setDate(currentDate.getDate() + 1);
-      dayNumber++;
+    loadItinerary();
+  }, [itineraryId]);
+
+  const loadItinerary = async () => {
+    if (!itineraryId) {
+      Alert.alert('Error', 'No itinerary ID provided');
+      router.back();
+      return;
     }
-    
-    setItinerary(days);
-  }, [startDate, endDate]);
+
+    try {
+      setIsLoading(true);
+      const { itineraryApi } = require('../../../utils/itineraryApi');
+      
+      console.log('📥 Loading itinerary:', itineraryId);
+      const response = await itineraryApi.getItinerary(itineraryId);
+
+      if (response.success && response.data) {
+        const itineraryData = response.data;
+        setItinerary(itineraryData);
+        
+        // Convert backend day plans to local format
+        const days: DayItinerary[] = itineraryData.dayPlans.map((dayPlan: any) => ({
+          date: new Date(dayPlan.date).toISOString().split('T')[0],
+          dayNumber: dayPlan.dayNumber,
+          places: dayPlan.places.map((place: any) => ({
+            id: place.placeId || place._id,
+            name: place.name,
+            address: place.address || '',
+            description: place.description,
+            coordinates: {
+              latitude: place.location.latitude,
+              longitude: place.location.longitude,
+            },
+            rating: place.rating,
+          })),
+          notes: dayPlan.notes || '',
+          checklists: (dayPlan.checklists || []).map((checklist: any) => ({
+            id: checklist.id,
+            title: checklist.title,
+            items: checklist.items.map((item: any) => ({
+              id: item.id,
+              title: item.title,
+              completed: item.completed || false,
+            })),
+          })),
+        }));
+        
+        setDayItineraries(days);
+        console.log(`✅ Loaded ${days.length} days of itinerary`);
+        const totalChecklists = days.reduce((sum, day) => sum + day.checklists.length, 0);
+        console.log(`📋 Loaded ${totalChecklists} checklists`);
+      } else {
+        Alert.alert('Error', 'Failed to load itinerary');
+        router.back();
+      }
+    } catch (error: any) {
+      console.error('❌ Error loading itinerary:', error);
+      Alert.alert('Error', error.message || 'Failed to load itinerary');
+      router.back();
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const searchPlaces = async (query: string) => {
     if (!query.trim() || query.length < 3) {
@@ -216,7 +261,7 @@ export default function ItineraryPlanningScreen() {
                 
                 // Fallback description if none found
                 if (!description) {
-                  description = `A notable place in ${destination || 'Sri Lanka'}`;
+                  description = `A notable place in ${itinerary?.endLocation?.name || 'Sri Lanka'}`;
                 }
                 
                 return {
@@ -270,10 +315,10 @@ export default function ItineraryPlanningScreen() {
     }
   };
 
-  const addPlaceToDay = (place: Place) => {
+  const addPlaceToDay = async (place: Place) => {
     if (selectedDay === null) return;
 
-    setItinerary(prev => prev.map(day => {
+    setDayItineraries(prev => prev.map(day => {
       if (day.dayNumber === selectedDay) {
         return {
           ...day,
@@ -287,10 +332,13 @@ export default function ItineraryPlanningScreen() {
     setSearchQuery('');
     setSearchResults([]);
     setSelectedDay(null);
+
+    // Auto-save after adding place
+    setTimeout(() => saveItineraryToDatabase(), 500);
   };
 
-  const removePlaceFromDay = (dayNumber: number, placeId: string) => {
-    setItinerary(prev => prev.map(day => {
+  const removePlaceFromDay = async (dayNumber: number, placeId: string) => {
+    setDayItineraries(prev => prev.map(day => {
       if (day.dayNumber === dayNumber) {
         return {
           ...day,
@@ -299,6 +347,9 @@ export default function ItineraryPlanningScreen() {
       }
       return day;
     }));
+
+    // Auto-save after removing place
+    setTimeout(() => saveItineraryToDatabase(), 500);
   };
 
   const handleAddPlace = (dayNumber: number) => {
@@ -306,11 +357,80 @@ export default function ItineraryPlanningScreen() {
     setShowPlaceSearch(true);
   };
 
-  const handleFinalizeItinerary = () => {
-    const totalPlaces = itinerary.reduce((total, day) => total + day.places.length, 0);
+  const saveItineraryToDatabase = async () => {
+    if (!itinerary || !itineraryId) return;
+
+    try {
+      console.log('💾 Saving itinerary to database...');
+      const { itineraryApi } = require('../../../utils/itineraryApi');
+
+      // Convert dayItineraries back to backend format
+      const dayPlans = dayItineraries.map(day => ({
+        dayNumber: day.dayNumber,
+        date: day.date,
+        places: day.places.map(place => ({
+          placeId: place.id,
+          name: place.name,
+          address: place.address,
+          description: place.description,
+          location: {
+            latitude: place.coordinates.latitude,
+            longitude: place.coordinates.longitude,
+          },
+          rating: place.rating,
+        })),
+        activities: [], // Can be populated if you add activity tracking
+        meals: [], // Can be populated if you add meal planning
+        checklists: day.checklists.map(checklist => ({
+          id: checklist.id,
+          title: checklist.title,
+          items: checklist.items.map(item => ({
+            id: item.id,
+            title: item.title,
+            completed: item.completed,
+          })),
+        })),
+        notes: day.notes || '',
+      }));
+
+      const updates = {
+        dayPlans,
+        status: 'active', // Mark as active since user is planning
+      };
+
+      console.log('📦 Saving day plans:', dayPlans.length);
+      console.log('📋 Total checklists:', dayPlans.reduce((sum, day) => sum + day.checklists.length, 0));
+
+      const response = await itineraryApi.updateItinerary(itineraryId as string, updates);
+
+      if (response.success) {
+        console.log('✅ Itinerary saved successfully');
+        return true;
+      } else {
+        console.error('❌ Failed to save itinerary:', response.message);
+        return false;
+      }
+    } catch (error: any) {
+      console.error('❌ Error saving itinerary:', error);
+      Alert.alert('Save Error', 'Failed to save itinerary. Please try again.');
+      return false;
+    }
+  };
+
+  const handleFinalizeItinerary = async () => {
+    const totalPlaces = dayItineraries.reduce((total, day) => total + day.places.length, 0);
     
     if (totalPlaces === 0) {
       Alert.alert('Empty Itinerary', 'Please add at least one place to your itinerary.');
+      return;
+    }
+
+    // Save itinerary before finalizing
+    console.log('📝 Finalizing itinerary...');
+    const saved = await saveItineraryToDatabase();
+    
+    if (!saved) {
+      Alert.alert('Error', 'Failed to save itinerary. Please try again.');
       return;
     }
 
@@ -318,18 +438,20 @@ export default function ItineraryPlanningScreen() {
     router.push({
       pathname: '/planning/route-display',
       params: {
-        destination,
-        startPoint,
-        startDate,
-        endDate,
-        itinerary: JSON.stringify(itinerary),
+        itineraryId: itinerary._id,
+        tripName: itinerary.tripName,
+        startLocation: JSON.stringify(itinerary.startLocation),
+        endLocation: JSON.stringify(itinerary.endLocation),
+        startDate: itinerary.startDate,
+        endDate: itinerary.endDate,
+        dayPlans: JSON.stringify(dayItineraries),
       },
     });
   };
 
   // Notes functions
   const handleEditNotes = (dayNumber: number) => {
-    const day = itinerary.find(d => d.dayNumber === dayNumber);
+    const day = dayItineraries.find(d => d.dayNumber === dayNumber);
     setNotesText(day?.notes || '');
     setEditingNotesDay(dayNumber);
     setShowNotesModal(true);
@@ -341,7 +463,7 @@ export default function ItineraryPlanningScreen() {
     // Dismiss keyboard before saving
     Keyboard.dismiss();
 
-    setItinerary(prev => prev.map(day => {
+    setDayItineraries(prev => prev.map(day => {
       if (day.dayNumber === editingNotesDay) {
         return {
           ...day,
@@ -354,6 +476,9 @@ export default function ItineraryPlanningScreen() {
     setShowNotesModal(false);
     setNotesText('');
     setEditingNotesDay(null);
+
+    // Auto-save after updating notes
+    setTimeout(() => saveItineraryToDatabase(), 500);
   };
 
   const handleCancelNotes = () => {
@@ -373,7 +498,7 @@ export default function ItineraryPlanningScreen() {
   };
 
   const handleEditChecklist = (dayNumber: number, checklistId: string) => {
-    const day = itinerary.find(d => d.dayNumber === dayNumber);
+    const day = dayItineraries.find(d => d.dayNumber === dayNumber);
     const checklist = day?.checklists.find(c => c.id === checklistId);
     
     if (checklist) {
@@ -398,7 +523,7 @@ export default function ItineraryPlanningScreen() {
       items: checklistItems,
     };
 
-    setItinerary(prev => prev.map(day => {
+    setDayItineraries(prev => prev.map(day => {
       if (day.dayNumber === editingChecklistDay) {
         if (editingChecklistId) {
           // Update existing checklist
@@ -420,6 +545,9 @@ export default function ItineraryPlanningScreen() {
     }));
 
     handleCancelChecklist();
+    
+    // Auto-save after saving checklist
+    setTimeout(() => saveItineraryToDatabase(), 500);
   };
 
   const handleCancelChecklist = () => {
@@ -442,7 +570,7 @@ export default function ItineraryPlanningScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            setItinerary(prev => prev.map(day => {
+            setDayItineraries(prev => prev.map(day => {
               if (day.dayNumber === dayNumber) {
                 return {
                   ...day,
@@ -451,6 +579,9 @@ export default function ItineraryPlanningScreen() {
               }
               return day;
             }));
+            
+            // Auto-save after deleting checklist
+            setTimeout(() => saveItineraryToDatabase(), 500);
           },
         },
       ]
@@ -475,7 +606,7 @@ export default function ItineraryPlanningScreen() {
   };
 
   const handleToggleChecklistItem = (dayNumber: number, checklistId: string, itemId: string) => {
-    setItinerary(prev => prev.map(day => {
+    setDayItineraries(prev => prev.map(day => {
       if (day.dayNumber === dayNumber) {
         return {
           ...day,
@@ -494,6 +625,9 @@ export default function ItineraryPlanningScreen() {
       }
       return day;
     }));
+    
+    // Auto-save after toggling checklist item
+    setTimeout(() => saveItineraryToDatabase(), 500);
   };
 
   const formatDate = (dateString: string) => {
@@ -563,15 +697,21 @@ export default function ItineraryPlanningScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.tripSummary}>
-        <ThemedText style={styles.tripTitle}>Trip to {destination}</ThemedText>
-        <ThemedText style={styles.tripSubtitle}>
-          From {startPoint} • {itinerary.length} days
-        </ThemedText>
-      </View>
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ThemedText>Loading itinerary...</ThemedText>
+        </View>
+      ) : itinerary ? (
+        <>
+          <View style={styles.tripSummary}>
+            <ThemedText style={styles.tripTitle}>{itinerary.tripName}</ThemedText>
+            <ThemedText style={styles.tripSubtitle}>
+              From {itinerary.startLocation.name} to {itinerary.endLocation.name} • {dayItineraries.length} days
+            </ThemedText>
+          </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {itinerary.map((day, index) => (
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            {dayItineraries.map((day, index) => (
           <View key={day.date} style={styles.dayContainer}>
             <View style={styles.dayHeader}>
               <View style={styles.dayNumber}>
@@ -738,6 +878,12 @@ export default function ItineraryPlanningScreen() {
           style={styles.finalizeButton}
         />
       </View>
+        </>
+      ) : (
+        <View style={styles.loadingContainer}>
+          <ThemedText>Failed to load itinerary</ThemedText>
+        </View>
+      )}
 
       {/* Place Search Modal */}
       <Modal
@@ -758,7 +904,7 @@ export default function ItineraryPlanningScreen() {
           <View style={styles.searchContainer}>
             <TextInput
               style={styles.searchInput}
-              placeholder={`Search places in ${destination}... (e.g., temples, restaurants, attractions)`}
+              placeholder={`Search places in ${itinerary?.endLocation?.name || 'Sri Lanka'}... (e.g., temples, restaurants, attractions)`}
               placeholderTextColor={Colors.secondary400}
               value={searchQuery}
               onChangeText={(text) => {
@@ -797,7 +943,7 @@ export default function ItineraryPlanningScreen() {
                 <View style={styles.emptyContainer}>
                   <Ionicons name="search-outline" size={48} color={Colors.secondary400} />
                   <ThemedText style={styles.noResultsText}>
-                    Search for places in {destination}
+                    Search for places in {itinerary?.endLocation?.name || 'Sri Lanka'}
                   </ThemedText>
                   <ThemedText style={styles.noResultsSubtext}>
                     Try: temples, restaurants, attractions, hotels, etc.
