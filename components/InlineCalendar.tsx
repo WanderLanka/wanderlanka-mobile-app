@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 
@@ -7,15 +7,35 @@ interface InlineCalendarProps {
   onDaySelect: (day: Date) => void;
   selectedDate?: Date | null;
   unavailableDates?: string[]; // Array of dates in 'YYYY-MM-DD' format
+  packageDuration?: number; // Number of days for the package
 }
 
-export const InlineCalendar: React.FC<InlineCalendarProps> = ({ onDaySelect, selectedDate, unavailableDates = [] }) => {
+export const InlineCalendar: React.FC<InlineCalendarProps> = ({ 
+  onDaySelect, 
+  selectedDate, 
+  unavailableDates = [],
+  packageDuration = 1 
+}) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   // Create a Set for faster lookups
   const unavailableDatesSet = React.useMemo(() => {
     return new Set(unavailableDates);
   }, [unavailableDates]);
+
+  // Check if a date range conflicts with unavailable dates
+  const isDateRangeUnavailable = React.useCallback((startDate: Date): boolean => {
+    for (let i = 0; i < packageDuration; i++) {
+      const checkDate = new Date(startDate);
+      checkDate.setDate(startDate.getDate() + i);
+      const checkDateStr = checkDate.toISOString().split('T')[0];
+      
+      if (unavailableDatesSet.has(checkDateStr)) {
+        return true;
+      }
+    }
+    return false;
+  }, [packageDuration, unavailableDatesSet]);
 
   // Generate days for month view
   const getDaysInMonth = (date: Date) => {
@@ -83,6 +103,24 @@ export const InlineCalendar: React.FC<InlineCalendarProps> = ({ onDaySelect, sel
         </TouchableOpacity>
       </View>
 
+      {/* Legend */}
+      {unavailableDates.length > 0 && (
+        <View style={styles.legend}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendBox, { backgroundColor: Colors.primary600 }]} />
+            <Text style={styles.legendText}>Selected</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendBox, { backgroundColor: '#fee2e2', borderColor: '#fecaca' }]} />
+            <Text style={styles.legendText}>Unavailable</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendBox, { backgroundColor: Colors.primary100, borderColor: Colors.primary300 }]} />
+            <Text style={styles.legendText}>Today</Text>
+          </View>
+        </View>
+      )}
+
       {/* Day names header */}
       <View style={styles.dayNamesRow}>
         {dayNames.map((dayName) => (
@@ -103,7 +141,43 @@ export const InlineCalendar: React.FC<InlineCalendarProps> = ({ onDaySelect, sel
           const isSelected = selectedDate && day.toDateString() === selectedDate.toDateString();
           const isPast = day < new Date(today.getFullYear(), today.getMonth(), today.getDate());
           const dateStr = day.toISOString().split('T')[0];
-          const isUnavailable = unavailableDatesSet.has(dateStr);
+          const isUnavailable = unavailableDatesSet.has(dateStr) || isDateRangeUnavailable(day);
+
+          const onPressDay = () => {
+            if (isPast) return;
+            if (isUnavailable) {
+              // Build a helpful message depending on single-day vs range conflict
+              if (unavailableDatesSet.has(dateStr)) {
+                Alert.alert(
+                  'Date Unavailable',
+                  'The tour guide is not available on this date. Another traveler has already booked the guide. Please select a different date.',
+                  [{ text: 'OK' }]
+                );
+              } else {
+                // Range conflict - list the conflicting dates
+                const conflicting: string[] = [];
+                for (let i = 0; i < packageDuration; i++) {
+                  const cd = new Date(day);
+                  cd.setDate(day.getDate() + i);
+                  const cdStr = cd.toISOString().split('T')[0];
+                  if (unavailableDatesSet.has(cdStr)) conflicting.push(cdStr);
+                }
+                const formatted = conflicting
+                  .map(ds => {
+                    const d = new Date(ds + 'T00:00:00');
+                    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                  })
+                  .join(', ');
+                Alert.alert(
+                  'Date Range Unavailable',
+                  `This ${packageDuration}-day package includes dates when the guide is already booked:\n\n${formatted}\n\nPlease select a different start date.`,
+                  [{ text: 'OK' }]
+                );
+              }
+              return;
+            }
+            selectDay(day);
+          };
           
           return (
             <TouchableOpacity
@@ -115,9 +189,9 @@ export const InlineCalendar: React.FC<InlineCalendarProps> = ({ onDaySelect, sel
                 isPast && styles.pastDay,
                 isUnavailable && styles.unavailableDay
               ]}
-              onPress={() => !isPast && !isUnavailable && selectDay(day)}
+              onPress={onPressDay}
               activeOpacity={0.7}
-              disabled={isPast || isUnavailable}
+              disabled={isPast}
             >
               <Text style={[
                 styles.dayText,
@@ -129,7 +203,9 @@ export const InlineCalendar: React.FC<InlineCalendarProps> = ({ onDaySelect, sel
                 {day.getDate()}
               </Text>
               {isUnavailable && !isPast && (
-                <View style={styles.unavailableDot} />
+                <View style={styles.unavailableIndicator}>
+                  <Ionicons name="close-circle" size={10} color={Colors.error} />
+                </View>
               )}
             </TouchableOpacity>
           );
@@ -230,6 +306,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textDecorationLine: 'line-through',
   },
+  unavailableIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+  },
   unavailableDot: {
     position: 'absolute',
     bottom: 4,
@@ -237,5 +318,34 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: Colors.error,
+  },
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: Colors.secondary50,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendBox: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  legendText: {
+    fontSize: 11,
+    color: Colors.secondary700,
+    fontWeight: '600',
+    fontFamily: 'Inter',
   },
 });

@@ -79,6 +79,18 @@ export default function LoginScreen() {
         return;
       }
       
+      // Check for rate limiting
+      if (lower.includes('too many') || 
+          lower.includes('rate limit') || 
+          lower.includes('try again in')) {
+        Alert.alert(
+          'Too Many Attempts',
+          'You have made too many login attempts. Please wait a few minutes and try again.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
       // Check if account is suspended or rejected
       if (lower.includes('suspended')) {
         Alert.alert(

@@ -12,6 +12,21 @@ import {
 } from '../utils/networkUtils';
 // Removed automatic server detection: rely on configured BASE_URL only
 
+// Custom API Error to carry HTTP status and optional error code
+export class ApiError extends Error {
+  status?: number;
+  code?: string;
+  details?: any;
+  noRetry?: boolean;
+  constructor(message: string, status?: number, code?: string, details?: any) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+    this.details = details;
+  }
+}
+
 /**
  * API Service for making HTTP requests
  */
@@ -128,7 +143,25 @@ export class ApiService {
       }
 
       if (!response.ok) {
-        throw new Error(data.message || data.error || `HTTP ${response.status}`);
+        // Create a more descriptive error for specific status codes
+        let errorMessage = data.message || data.error || `HTTP ${response.status}`;
+        let errorCode: string | undefined = data?.code;
+
+        // Handle specific error cases
+        if (response.status === 409) {
+          // Conflict - likely a booking conflict
+          errorMessage = data.message || 'The tour guide already has a confirmed booking during your selected dates. Please choose another available date.';
+          if (!errorCode) errorCode = 'BOOKING_CONFLICT';
+        } else if (response.status === 400) {
+          // Bad request - validation error
+          errorMessage = data.message || data.error || 'Invalid request. Please check your input and try again.';
+        } else if (response.status === 404) {
+          // Not found
+          errorMessage = data.message || data.error || 'The requested resource was not found.';
+        }
+
+        const err = new ApiError(errorMessage, response.status, errorCode, data);
+        throw err;
       }
 
       return data as T;
@@ -155,7 +188,7 @@ export class ApiService {
       } catch {}
 
   // Classify error and provide user-friendly message
-  const err: any = new Error(message);
+  const err: any = new ApiError(message, undefined, errorInfo.type);
   if (errorInfo.type === 'NO_INTERNET') err.noRetry = true;
   throw err;
     }

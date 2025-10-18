@@ -166,6 +166,16 @@ export class AuthService {
         };
       }
 
+      // Handle 429 Rate Limiting as a user-friendly error
+      if (response.status === 429) {
+        return {
+          success: false,
+          message: 'Too many login attempts. Please try again in a few minutes.',
+          error: data.error || 'Rate limit exceeded',
+          code: data.code || 'RATE_LIMIT_EXCEEDED'
+        };
+      }
+
       // Handle other error responses
       if (!response.ok) {
         throw new Error(data.error || data.message || `HTTP ${response.status}`);

@@ -39,20 +39,30 @@ export default function BookingsScreen() {
     // Map backend items to calendar booking shape
     const toPrettyDate = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     const toTime = (iso: string) => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    return items.map((it): CalendarBooking => ({
-      id: String(it._id),
-      clientName: it.packageTitle, // no client name available; show packageTitle
-      clientEmail: '',
-      tourType: it.packageTitle,
-      date: toPrettyDate(it.startDate),
-      time: toTime(it.startDate),
-      duration: `${Math.max(1, Math.ceil((new Date(it.endDate).getTime() - new Date(it.startDate).getTime())/(1000*60*60*24)))} days`,
-      location: it.packageSlug || 'Tour Package',
-      amount: Number(it.pricing?.totalAmount || 0),
-      status: it.status === 'confirmed' ? 'booked' : 'pending',
-      groupSize: Number(it.peopleCount || 1),
-      specialRequests: it.notes || undefined,
-    }));
+    return items.map((it): CalendarBooking => {
+      // Map backend status to calendar status
+      let calendarStatus: 'booked' | 'pending';
+      if (it.status === 'confirmed' || it.status === 'approved') {
+        calendarStatus = 'booked';
+      } else {
+        calendarStatus = 'pending';
+      }
+      
+      return {
+        id: String(it._id),
+        clientName: it.packageTitle, // no client name available; show packageTitle
+        clientEmail: '',
+        tourType: it.packageTitle,
+        date: toPrettyDate(it.startDate),
+        time: toTime(it.startDate),
+        duration: `${Math.max(1, Math.ceil((new Date(it.endDate).getTime() - new Date(it.startDate).getTime())/(1000*60*60*24)))} days`,
+        location: it.packageSlug || 'Tour Package',
+        amount: Number(it.pricing?.totalAmount || 0),
+        status: calendarStatus,
+        groupSize: Number(it.peopleCount || 1),
+        specialRequests: it.notes || undefined,
+      };
+    });
   }, [items]);
 
   const filteredBookings = bookings.filter(booking => booking.status === activeTab);

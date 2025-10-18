@@ -107,6 +107,32 @@ export default function BookingModal({ visible, pkg, onClose, onBooked }: Bookin
       return;
     }
     
+    // Check if any dates in the package duration are unavailable
+    const conflictingDates: string[] = [];
+    for (let i = 0; i < durationDays; i++) {
+      const checkDate = new Date(d);
+      checkDate.setDate(d.getDate() + i);
+      const checkDateStr = checkDate.toISOString().split('T')[0];
+      
+      if (unavailableDates.includes(checkDateStr)) {
+        conflictingDates.push(checkDateStr);
+      }
+    }
+    
+    if (conflictingDates.length > 0) {
+      const formattedDates = conflictingDates.map(dateStr => {
+        const date = new Date(dateStr + 'T00:00:00');
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      }).join(', ');
+      
+      Alert.alert(
+        'Date Range Unavailable',
+        `This ${durationDays}-day package includes dates when the guide is already booked:\n\n${formattedDates}\n\nPlease select a different start date.`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
     setStartDate(d);
   };
 
@@ -241,7 +267,34 @@ export default function BookingModal({ visible, pkg, onClose, onBooked }: Bookin
         }
       }
     } catch (e: any) {
-      Alert.alert('Booking failed', e?.message || 'Please try again later');
+      const status = e?.status ?? e?.details?.statusCode ?? undefined;
+      const errorMessage = e?.message || 'Please try again later';
+      
+      // Check if this is a guide availability error (explicit 409 or message match)
+      if (status === 409 ||
+          errorMessage.toLowerCase().includes('not available') || 
+          errorMessage.toLowerCase().includes('selected dates') ||
+          errorMessage.toLowerCase().includes('already has a confirmed booking') ||
+          e?.code === 'BOOKING_CONFLICT') {
+        Alert.alert(
+          'Guide Unavailable',
+          'The tour guide is not available on your selected dates. Another traveler has already booked this guide during this time. Please select different dates and try again.',
+          [
+            {
+              text: 'View Calendar',
+              onPress: () => {
+                // Reload availability and go back to step 1
+                loadGuideAvailability();
+                setCurrentStep(1);
+                setStartDate(null);
+                setEndDate(null);
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Booking failed', errorMessage);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -331,7 +384,10 @@ export default function BookingModal({ visible, pkg, onClose, onBooked }: Bookin
                     <View style={styles.availabilityInfo}>
                       <Ionicons name="information-circle" size={16} color={Colors.info} />
                       <Text style={styles.availabilityInfoText}>
-                        Dates marked with a red dot are unavailable (guide already booked)
+                        {durationDays > 1 
+                          ? `Dates marked in red are unavailable. For this ${durationDays}-day package, all dates in the range must be available.`
+                          : 'Dates marked in red are unavailable (guide already booked)'
+                        }
                       </Text>
                     </View>
                   )}
@@ -340,6 +396,7 @@ export default function BookingModal({ visible, pkg, onClose, onBooked }: Bookin
                     <InlineCalendar 
                       selectedDate={startDate}
                       unavailableDates={unavailableDates}
+                      packageDuration={durationDays}
                       onDaySelect={(d: Date) => {
                         onDaySelect(d);
                       }} 
@@ -563,14 +620,34 @@ export default function BookingModal({ visible, pkg, onClose, onBooked }: Bookin
                       <Text style={styles.reviewCardTitle}>Price Summary</Text>
                     </View>
                     <View style={styles.priceBreakdown}>
-                      <View style={styles.priceBreakdownRow}>
-                        <Text style={styles.priceBreakdownLabel}>
-                          {currency} {unitAmount.toLocaleString()} × {parsedParticipants} {parsedParticipants === 1 ? 'traveler' : 'travelers'}
-                        </Text>
-                        <Text style={styles.priceBreakdownValue}>
-                          {currency} {(parsedParticipants * unitAmount).toLocaleString()}
-                        </Text>
-                      </View>
+                      {perPerson ? (
+                        <>
+                          <View style={styles.priceBreakdownRow}>
+                            <Text style={styles.priceBreakdownLabel}>
+                              {currency} {unitAmount.toLocaleString()} × {parsedParticipants} {parsedParticipants === 1 ? 'person' : 'people'}
+                            </Text>
+                            <Text style={styles.priceBreakdownValue}>
+                              {currency} {(parsedParticipants * unitAmount).toLocaleString()}
+                            </Text>
+                          </View>
+                        </>
+                      ) : (
+                        <>
+                          <View style={styles.priceBreakdownRow}>
+                            <Text style={styles.priceBreakdownLabel}>
+                              Package price (per group)
+                            </Text>
+                            <Text style={styles.priceBreakdownValue}>
+                              {currency} {unitAmount.toLocaleString()}
+                            </Text>
+                          </View>
+                          <View style={styles.priceBreakdownRow}>
+                            <Text style={styles.priceBreakdownSubtext}>
+                              For {parsedParticipants} {parsedParticipants === 1 ? 'person' : 'people'}
+                            </Text>
+                          </View>
+                        </>
+                      )}
                       <View style={styles.priceDividerLarge} />
                       <View style={styles.priceTotalRow}>
                         <Text style={styles.priceTotalLabel}>Total Amount</Text>
@@ -1126,6 +1203,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.primary800,
     fontWeight: '700',
+  },
+  priceBreakdownSubtext: {
+    fontSize: 12,
+    color: Colors.secondary500,
+    fontStyle: 'italic',
+    marginTop: 4,
   },
   priceDividerLarge: {
     height: 2,

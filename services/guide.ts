@@ -255,4 +255,20 @@ export const GuideService = {
     
     return ApiService.get<any>(`/api/guide/guide/${encodeURIComponent(guideId)}/availability${qs}`);
   },
+
+  async getFeaturedGuides(params: { limit?: number; status?: string; q?: string } = {}): Promise<{
+    success: boolean;
+    data: any[];
+    total?: number;
+    limit?: number;
+    error?: string;
+  }> {
+    const usp = new URLSearchParams();
+    if (params.limit) usp.set('limit', String(params.limit));
+    if (params.status) usp.set('status', params.status);
+    if (params.q) usp.set('q', params.q);
+    const qs = usp.toString() ? `?${usp.toString()}` : '';
+    
+    return ApiService.get<any>(`/api/guide/featuredguides${qs}`);
+  },
 };

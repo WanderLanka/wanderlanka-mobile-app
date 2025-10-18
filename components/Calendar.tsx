@@ -26,8 +26,7 @@ export default function Calendar({ bookings, onClose, onDaySelect }: CalendarPro
       return (
         bookingDate.getDate() === date.getDate() &&
         bookingDate.getMonth() === date.getMonth() &&
-        bookingDate.getFullYear() === date.getFullYear() &&
-        booking.status === 'booked'
+        bookingDate.getFullYear() === date.getFullYear()
       );
     });
   };
@@ -152,6 +151,22 @@ export default function Calendar({ bookings, onClose, onDaySelect }: CalendarPro
     
     return (
       <View style={calendarStyles.monthView}>
+        {/* Legend */}
+        <View style={calendarStyles.legend}>
+          <View style={calendarStyles.legendItem}>
+            <View style={[calendarStyles.legendDot, { backgroundColor: Colors.success }]} />
+            <Text style={calendarStyles.legendText}>Confirmed</Text>
+          </View>
+          <View style={calendarStyles.legendItem}>
+            <View style={[calendarStyles.legendDot, { backgroundColor: Colors.warning }]} />
+            <Text style={calendarStyles.legendText}>Pending</Text>
+          </View>
+          <View style={calendarStyles.legendItem}>
+            <View style={[calendarStyles.legendDot, { backgroundColor: Colors.primary100 }]} />
+            <Text style={calendarStyles.legendText}>Today</Text>
+          </View>
+        </View>
+
         {/* Day names header */}
         <View style={calendarStyles.dayNamesRow}>
           {dayNames.map((dayName) => (
@@ -171,6 +186,8 @@ export default function Calendar({ bookings, onClose, onDaySelect }: CalendarPro
             const bookingsForDay = getBookingsForDate(day);
             const isToday = day.toDateString() === new Date().toDateString();
             const hasBookings = bookingsForDay.length > 0;
+            const confirmedCount = bookingsForDay.filter(b => b.status === 'booked').length;
+            const pendingCount = bookingsForDay.filter(b => b.status === 'pending').length;
             
             return (
               <TouchableOpacity
@@ -182,6 +199,7 @@ export default function Calendar({ bookings, onClose, onDaySelect }: CalendarPro
                 ]}
                 onPress={() => selectDay(day)}
                 activeOpacity={0.7}
+                disabled={!hasBookings}
               >
                 <Text style={[
                   calendarStyles.dayText,
@@ -191,8 +209,17 @@ export default function Calendar({ bookings, onClose, onDaySelect }: CalendarPro
                   {day.getDate()}
                 </Text>
                 {hasBookings && (
-                  <View style={calendarStyles.bookingDot}>
-                    <Text style={calendarStyles.bookingDotText}>{bookingsForDay.length}</Text>
+                  <View style={calendarStyles.bookingIndicators}>
+                    {confirmedCount > 0 && (
+                      <View style={[calendarStyles.bookingDot, calendarStyles.confirmedDot]}>
+                        <Text style={calendarStyles.bookingDotText}>{confirmedCount}</Text>
+                      </View>
+                    )}
+                    {pendingCount > 0 && (
+                      <View style={[calendarStyles.bookingDot, calendarStyles.pendingDot]}>
+                        <Text style={calendarStyles.bookingDotText}>{pendingCount}</Text>
+                      </View>
+                    )}
                   </View>
                 )}
               </TouchableOpacity>
@@ -215,8 +242,7 @@ export default function Calendar({ bookings, onClose, onDaySelect }: CalendarPro
               const bookingDate = parseBookingDate(booking.date);
               return (
                 bookingDate.getMonth() === month.getMonth() && 
-                bookingDate.getFullYear() === month.getFullYear() &&
-                booking.status === 'booked'
+                bookingDate.getFullYear() === month.getFullYear()
               );
             });
             
@@ -355,6 +381,36 @@ const calendarStyles = StyleSheet.create({
     paddingTop: 20,
   },
 
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: Colors.secondary50,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
+  legendDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+
+  legendText: {
+    fontSize: 12,
+    color: Colors.secondary700,
+    fontWeight: '500',
+  },
+
   dayNamesRow: {
     flexDirection: 'row',
     marginBottom: 16,
@@ -417,9 +473,6 @@ const calendarStyles = StyleSheet.create({
   },
 
   bookingDot: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
     backgroundColor: Colors.success,
     borderRadius: 8,
     minWidth: 16,
@@ -427,6 +480,21 @@ const calendarStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 2,
+  },
+
+  bookingIndicators: {
+    flexDirection: 'row',
+    position: 'absolute',
+    bottom: 2,
+    gap: 2,
+  },
+
+  confirmedDot: {
+    backgroundColor: Colors.success,
+  },
+
+  pendingDot: {
+    backgroundColor: Colors.warning,
   },
 
   bookingDotText: {
