@@ -1,5 +1,5 @@
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import React, { useMemo, useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 
@@ -7,6 +7,7 @@ import { Colors } from '../../constants/Colors';
 import { CustomButton } from '../../components/CustomButton';
 import { CustomTextInput } from '../../components';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '../../components/ThemedText';
 import { UserReview } from '../../components/UserReview';
 

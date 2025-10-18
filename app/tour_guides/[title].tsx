@@ -1,15 +1,15 @@
-import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import React, { useEffect, useState } from 'react';
-import { Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, RefreshControl } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+
 import { Calendar } from 'react-native-calendars';
+import { Colors } from '../../constants/Colors';
 import { CustomButton } from '../../components/CustomButton';
+import { Ionicons } from '@expo/vector-icons';
+import { ListingService } from '../../services';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '../../components/ThemedText';
 import { UserReview } from '../../components/UserReview';
-import { Colors } from '../../constants/Colors';
-import { ListingService } from '../../services';
-import { GuideService, PackageListItem } from '../../services/guide';
-import { toAbsoluteImageUrl } from '../../utils/imageUrl';
 
 // Placeholder values if server does not have these fields yet
 const defaultReviews = [

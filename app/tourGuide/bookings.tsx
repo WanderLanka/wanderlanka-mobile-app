@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/Colors';
-import { ThemedText } from '../../components';
-import Calendar from '../../components/Calendar';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
 import { Booking } from '../../types/Calendar.types';
+import Calendar from '../../components/Calendar';
+import { Colors } from '../../constants/Colors';
+import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { ThemedText } from '../../components';
 
 export default function BookingsScreen() {
   const [activeTab, setActiveTab] = useState<'booked' | 'pending'>('booked');

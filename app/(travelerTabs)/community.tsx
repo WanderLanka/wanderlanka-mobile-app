@@ -1,13 +1,13 @@
-
-import { StatusBar } from 'expo-status-bar';
-import React, { useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
+  RefreshControl,
   ScrollView,
   Share,
   StyleSheet,
@@ -16,13 +16,20 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { formatTimeShort, getTimestampAgo } from '../../utils/timeFormat';
-
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText, TopBar } from '../../components';
+import { formatTimeShort, getTimestampAgo } from '../../utils/timeFormat';
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants/Colors';
+import CommentSection from '../../components/CommentSection';
+import { Ionicons } from '@expo/vector-icons';
+import { NetworkDetection } from '../../utils/serverDetection';
+import { StatusBar } from 'expo-status-bar';
+import { router } from 'expo-router';
+import { useAuth } from '../../context/AuthContext';
+import { useFocusEffect } from '@react-navigation/native';
 
 // Mock data - easily replaceable with backend API calls
 const MOCK_TRAVEL_POSTS = [
@@ -255,6 +262,25 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onShare, o
       {/* Post Content */}
       <Text style={styles.postContent}>{post.content}</Text>
 
+      {/* Post Images */}
+      {post.images && post.images.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.imagesContainer}
+          contentContainerStyle={styles.imagesContent}
+        >
+          {post.images.map((imageUrl: string, index: number) => (
+            <Image
+              key={index}
+              source={{ uri: imageUrl }}
+              style={styles.postImage}
+              resizeMode="cover"
+            />
+          ))}
+        </ScrollView>
+      )}
+
       {/* Post Actions */}
       <View style={styles.postActions}>
         <TouchableOpacity style={styles.actionButton} onPress={handleLikePress}>
@@ -285,13 +311,26 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment, onShare, o
 
 export default function CommunityScreen() {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('blog');
-  const [posts, setPosts] = useState(MOCK_TRAVEL_POSTS);
+  const [posts, setPosts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showPostOptions, setShowPostOptions] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [showComments, setShowComments] = useState(false);
   const [currentComments, setCurrentComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
+  
+  // Hide & Report states
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedReportReason, setSelectedReportReason] = useState<string | null>(null);
+  const [reportDescription, setReportDescription] = useState('');
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+
+  // User questions state
+  const [userQuestions, setUserQuestions] = useState<any[]>([]);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
 
   const tabs = [
     { id: 'blog', title: 'Travel Blog', icon: 'newspaper-outline' as const },
@@ -301,24 +340,174 @@ export default function CommunityScreen() {
     { id: 'social', title: 'Connect', icon: 'people-outline' as const },
   ];
 
+  // Fetch posts from backend
+  const fetchPosts = async (showLoader = true) => {
+    if (showLoader) setIsLoading(true);
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      const baseURL = await NetworkDetection.detectServer();
+      const apiURL = `${baseURL}/api/community/posts?limit=20&sort=recent`;
+
+      console.log('📥 Fetching posts from:', apiURL);
+
+      const response = await fetch(apiURL, {
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        console.log(`✅ Fetched ${data.data.posts.length} posts`);
+        
+        // Transform backend data to match UI format
+        const transformedPosts = data.data.posts.map((post: any) => ({
+          id: post._id,
+          author: {
+            id: post.author.userId,
+            name: post.author.username,
+            avatar: post.author.avatar,
+            verified: post.author.role === 'guide',
+          },
+          title: post.title,
+          content: post.content,
+          images: post.images.map((img: any) => img.largeUrl || img.url),
+          location: post.location?.name || 'Unknown Location',
+          timestamp: post.createdAt,
+          likes: post.likesCount,
+          comments: post.commentsCount,
+          shares: 0,
+          liked: post.isLikedByUser || false,
+          category: post.tags[0] || 'experience',
+        }));
+
+        setPosts(transformedPosts);
+      } else {
+        console.error('❌ Failed to fetch posts:', data);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching posts:', error);
+    } finally {
+      if (showLoader) setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  // Fetch user's questions
+  const fetchUserQuestions = async () => {
+    if (!user?.id) return;
+    
+    setIsLoadingQuestions(true);
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      const baseURL = await NetworkDetection.detectServer();
+      
+      // Fetch questions asked by the current user
+      const apiURL = `${baseURL}/api/community/questions?sort=recent&limit=5`;
+      console.log('📥 Fetching user questions from:', apiURL);
+
+      const response = await fetch(apiURL, {
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Filter to show only user's questions
+        const myQuestions = data.data.questions.filter(
+          (q: any) => q.askedBy.userId === user.id
+        );
+        console.log(`✅ Fetched ${myQuestions.length} user questions`);
+        setUserQuestions(myQuestions);
+      } else {
+        console.error('❌ Failed to fetch user questions:', data);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching user questions:', error);
+    } finally {
+      setIsLoadingQuestions(false);
+    }
+  };
+
+  // Load posts and questions on mount
+  useEffect(() => {
+    fetchPosts();
+    fetchUserQuestions();
+  }, [user?.id]);
+
+  // Refresh questions when screen comes into focus (real-time updates)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('🔄 Community screen focused - refreshing questions');
+      if (user?.id) {
+        fetchUserQuestions();
+      }
+    }, [user?.id])
+  );
+
+  // Refresh handler
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    fetchPosts(false);
+    fetchUserQuestions();
+  };
+
   // Post action handlers
-  const handleLike = (postId: string) => {
-    setPosts(prevPosts => 
-      prevPosts.map(post => 
-        post.id === postId 
-          ? { 
-              ...post, 
-              liked: !post.liked, 
-              likes: post.liked ? post.likes - 1 : post.likes + 1 
-            }
-          : post
-      )
-    );
+  const handleLike = async (postId: string) => {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      const baseURL = await NetworkDetection.detectServer();
+      const post = posts.find(p => p.id === postId);
+      
+      if (!post) return;
+
+      // Optimistic update
+      setPosts(prevPosts => 
+        prevPosts.map(p => 
+          p.id === postId 
+            ? { 
+                ...p, 
+                liked: !p.liked, 
+                likes: p.liked ? p.likes - 1 : p.likes + 1 
+              }
+            : p
+        )
+      );
+
+      // Make API call
+      const method = post.liked ? 'DELETE' : 'POST';
+      const apiURL = `${baseURL}/api/community/posts/${postId}/like`;
+
+      const response = await fetch(apiURL, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        // Revert on error
+        setPosts(prevPosts => 
+          prevPosts.map(p => 
+            p.id === postId 
+              ? { 
+                  ...p, 
+                  liked: post.liked, 
+                  likes: post.likes 
+                }
+              : p
+          )
+        );
+      }
+    } catch (error) {
+      console.error('❌ Error liking post:', error);
+    }
   };
 
   const handleComment = (postId: string) => {
-    const comments = MOCK_COMMENTS[postId as keyof typeof MOCK_COMMENTS] || [];
-    setCurrentComments(comments);
     setSelectedPostId(postId);
     setShowComments(true);
   };
@@ -327,7 +516,6 @@ export default function CommunityScreen() {
     console.log('Closing comments modal');
     setShowComments(false);
     setSelectedPostId(null);
-    setCurrentComments([]);
   };
 
   const handleShare = async (postId: string) => {
@@ -352,8 +540,162 @@ export default function CommunityScreen() {
   };
 
   const handlePostOptions = (postId: string) => {
+    console.log('🎯 handlePostOptions called with postId:', postId);
     setSelectedPostId(postId);
     setShowPostOptions(true);
+  };
+
+  const handleHidePost = async (postId: string) => {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        Alert.alert('Error', 'Please login to hide posts');
+        return;
+      }
+
+      const post = posts.find(p => p.id === postId);
+      if (post?.author.name === user?.username) {
+        Alert.alert('Error', 'You cannot hide your own post');
+        return;
+      }
+
+      const baseURL = await NetworkDetection.detectServer();
+      const response = await fetch(`${baseURL}/api/community/posts/${postId}/hide`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Remove post from feed
+        setPosts(prevPosts => prevPosts.filter(p => p.id !== postId));
+        Alert.alert('Hidden', 'Post hidden from your feed', [
+          {
+            text: 'Undo',
+            onPress: () => handleUnhidePost(postId)
+          },
+          { text: 'OK' }
+        ]);
+      } else {
+        Alert.alert('Error', data.message || 'Failed to hide post');
+      }
+    } catch (error) {
+      console.error('Error hiding post:', error);
+      Alert.alert('Error', 'Failed to hide post. Please try again.');
+    }
+  };
+
+  const handleUnhidePost = async (postId: string) => {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      const baseURL = await NetworkDetection.detectServer();
+      
+      const response = await fetch(`${baseURL}/api/community/posts/${postId}/unhide`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Refresh feed to show the post again
+        await fetchPosts(false);
+        Alert.alert('Success', 'Post restored to your feed');
+      } else {
+        Alert.alert('Error', data.message || 'Failed to unhide post');
+      }
+    } catch (error) {
+      console.error('Error unhiding post:', error);
+      Alert.alert('Error', 'Failed to unhide post');
+    }
+  };
+
+  const handleReportPost = () => {
+    console.log('🔍 handleReportPost called, selectedPostId:', selectedPostId);
+    if (!selectedPostId) {
+      Alert.alert('Error', 'Please select a post to report');
+      return;
+    }
+    const post = posts.find(p => p.id === selectedPostId);
+    console.log('📝 Found post:', post?.id, 'Author:', post?.author.name);
+    if (post?.author.name === user?.username) {
+      Alert.alert('Error', 'You cannot report your own post');
+      return;
+    }
+    console.log('✅ Opening report modal for post:', selectedPostId);
+    setShowReportModal(true);
+  };
+
+  const handleSubmitReport = async () => {
+    console.log('📤 handleSubmitReport called');
+    console.log('📋 Selected Post ID:', selectedPostId);
+    console.log('📋 Selected Reason:', selectedReportReason);
+    console.log('📋 Description:', reportDescription);
+    
+    if (!selectedReportReason) {
+      Alert.alert('Required', 'Please select a reason for reporting');
+      return;
+    }
+
+    setIsSubmittingReport(true);
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      if (!token) {
+        Alert.alert('Error', 'Please login to report posts');
+        setIsSubmittingReport(false);
+        return;
+      }
+
+      const baseURL = await NetworkDetection.detectServer();
+      const apiUrl = `${baseURL}/api/community/posts/${selectedPostId}/report`;
+      console.log('🌐 API URL:', apiUrl);
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          reason: selectedReportReason,
+          description: reportDescription.trim()
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setShowReportModal(false);
+        setSelectedReportReason(null);
+        setReportDescription('');
+        setSelectedPostId(null); // Clear after successful report
+        
+        Alert.alert(
+          'Report Submitted',
+          'Thank you for reporting. We will review this post.',
+          [{ text: 'OK' }]
+        );
+
+        // Optionally show if post was auto-flagged
+        if (data.data.autoFlagged) {
+          console.log('⚠️ Post was auto-flagged:', data.data.post.flagSeverity);
+        }
+      } else {
+        Alert.alert('Error', data.message || 'Failed to submit report');
+      }
+    } catch (error) {
+      console.error('Error reporting post:', error);
+      Alert.alert('Error', 'Failed to submit report. Please try again.');
+    } finally {
+      setIsSubmittingReport(false);
+    }
   };
 
   const handlePostOption = (option: string) => {
@@ -365,10 +707,14 @@ export default function CommunityScreen() {
         Alert.alert('Saved', 'Post saved to your collection');
         break;
       case 'report':
-        Alert.alert('Report', 'Thank you for reporting. We will review this post.');
+        if (selectedPostId) {
+          handleReportPost();
+        }
         break;
       case 'hide':
-        Alert.alert('Hidden', 'Post hidden from your feed');
+        if (selectedPostId) {
+          handleHidePost(selectedPostId);
+        }
         break;
       case 'follow':
         Alert.alert('Following', `You are now following ${post?.author.name}`);
@@ -380,7 +726,13 @@ export default function CommunityScreen() {
       default:
         break;
     }
-    setSelectedPostId(null);
+    
+    // Don't clear selectedPostId for report/hide actions - they need it later
+    // For report: modal needs it when submitting
+    // For hide: already cleared after API call completes
+    if (option !== 'report' && option !== 'hide') {
+      setSelectedPostId(null);
+    }
   };
 
   const handleAddComment = () => {
@@ -444,21 +796,47 @@ export default function CommunityScreen() {
       </TouchableOpacity>
 
       {/* Posts Feed */}
-      <FlatList
-        data={posts}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <PostCard 
-            post={item} 
-            onLike={handleLike}
-            onComment={handleComment}
-            onShare={handleShare}
-            onPostOptions={handlePostOptions}
-          />
-        )}
-        showsVerticalScrollIndicator={false}
-        scrollEnabled={false}
-      />
+      {isLoading && posts.length === 0 ? (
+        <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={Colors.primary600} />
+          <Text style={{ marginTop: 12, color: Colors.secondary500 }}>Loading posts...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={posts}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <PostCard 
+              post={item} 
+              onLike={handleLike}
+              onComment={handleComment}
+              onShare={handleShare}
+              onPostOptions={handlePostOptions}
+            />
+          )}
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={[Colors.primary600]}
+              tintColor={Colors.primary600}
+            />
+          }
+          ListEmptyComponent={
+            <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+              <Ionicons name="document-text-outline" size={48} color={Colors.secondary400} />
+              <Text style={{ marginTop: 12, color: Colors.secondary500, fontSize: 16 }}>
+                No posts yet
+              </Text>
+              <Text style={{ marginTop: 4, color: Colors.secondary400, fontSize: 14 }}>
+                Be the first to share your travel experience!
+              </Text>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 
@@ -504,24 +882,62 @@ export default function CommunityScreen() {
         <Text style={styles.askQuestionText}>Ask a Question</Text>
       </TouchableOpacity>
 
-      {MOCK_QUESTIONS.map((question) => (
-        <TouchableOpacity key={question.id} style={styles.questionCard}>
-          <View style={styles.questionHeader}>
-            <Text style={styles.questionText}>{question.question}</Text>
-            {question.featured && (
-              <View style={styles.featuredBadge}>
-                <Text style={styles.featuredText}>Featured</Text>
+      {/* My Questions Section */}
+      {isLoadingQuestions ? (
+        <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+          <ActivityIndicator size="small" color={Colors.primary600} />
+          <Text style={{ marginTop: 8, color: Colors.secondary500, fontSize: 12 }}>
+            Loading your questions...
+          </Text>
+        </View>
+      ) : userQuestions.length > 0 ? (
+        <>
+          <Text style={styles.sectionHeader}>My Questions</Text>
+          {userQuestions.map((question: any) => (
+            <TouchableOpacity 
+              key={question._id} 
+              style={styles.questionCard}
+              onPress={() => router.push(`/community/question-detail?id=${question._id}` as any)}
+            >
+              <View style={styles.questionHeader}>
+                <Text style={styles.questionText}>{question.title}</Text>
+                {question.isFeatured && (
+                  <View style={styles.featuredBadge}>
+                    <Text style={styles.featuredText}>Featured</Text>
+                  </View>
+                )}
               </View>
-            )}
-          </View>
-          <View style={styles.questionFooter}>
-            <Text style={styles.questionMeta}>
-              by {question.askedBy} • {question.answers} answers • {formatTimeShort(question.askedDate)}
-            </Text>
-            <Text style={styles.categoryText}>{question.category}</Text>
-          </View>
-        </TouchableOpacity>
-      ))}
+              <View style={styles.questionFooter}>
+                <View style={styles.questionStats}>
+                  <View style={styles.statItem}>
+                    <Ionicons name="arrow-up" size={14} color={Colors.secondary500} />
+                    <Text style={styles.statText}>{question.votes.score}</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Ionicons name="chatbubble-outline" size={14} color={Colors.secondary500} />
+                    <Text style={styles.statText}>{question.answersCount}</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Ionicons name="eye-outline" size={14} color={Colors.secondary500} />
+                    <Text style={styles.statText}>{question.views.total}</Text>
+                  </View>
+                </View>
+                <Text style={styles.questionTime}>{formatTimeShort(question.createdAt)}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </>
+      ) : (
+        <View style={{ paddingVertical: 30, alignItems: 'center' }}>
+          <Ionicons name="help-circle-outline" size={48} color={Colors.secondary400} />
+          <Text style={{ marginTop: 12, color: Colors.secondary500, fontSize: 14 }}>
+            You haven't asked any questions yet
+          </Text>
+          <Text style={{ marginTop: 4, color: Colors.secondary400, fontSize: 12 }}>
+            Tap "Ask a Question" to get started
+          </Text>
+        </View>
+      )}
     </View>
   );
 
@@ -719,7 +1135,14 @@ export default function CommunityScreen() {
             title={tab.title}
             icon={tab.icon}
             isActive={activeTab === tab.id}
-            onPress={() => setActiveTab(tab.id)}
+            onPress={() => {
+              setActiveTab(tab.id);
+              // Refresh questions when switching to Q&A tab
+              if (tab.id === 'discussions' && user?.id) {
+                console.log('🔄 Switching to Q&A tab - refreshing questions');
+                fetchUserQuestions();
+              }
+            }}
           />
         ))}
       </ScrollView>
@@ -797,81 +1220,230 @@ export default function CommunityScreen() {
         supportedOrientations={['portrait']}
         statusBarTranslucent={false}
       >
-        <SafeAreaView style={styles.commentsHeaderSafeArea}>
-          <View style={styles.commentsHeader}>
-            <TouchableOpacity 
-              onPress={handleCloseComments}
-              style={styles.backButton}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              accessibilityLabel="Close comments"
-              accessibilityRole="button"
-            >
-              <Ionicons name="arrow-back" size={24} color={Colors.black} />
-            </TouchableOpacity>
-            <Text style={styles.commentsTitle}>Comments</Text>
-            <View style={{ width: 24 }} />
-          </View>
-        </SafeAreaView>
-        
-        <KeyboardAvoidingView 
-          style={styles.commentsModal}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <ScrollView style={styles.commentsList}>
-            {currentComments.map((comment) => (
-              <View key={comment.id} style={styles.commentItem}>
-                <View style={styles.commentAvatar}>
-                  <Ionicons name="person" size={16} color={Colors.secondary400} />
-                </View>
-                <View style={styles.commentContent}>
-                  <View style={styles.commentHeader}>
-                    <Text style={styles.commentAuthor}>{comment.author.name}</Text>
-                    <Text style={styles.commentTime}>
-                      {formatTimeShort(comment.timestamp)}
-                    </Text>
-                  </View>
-                  <Text style={styles.commentText}>{comment.content}</Text>
-                  <TouchableOpacity 
-                    style={styles.commentLikeButton}
-                    onPress={() => handleCommentLike(comment.id)}
-                  >
-                    <Ionicons 
-                      name={comment.liked ? "heart" : "heart-outline"} 
-                      size={14} 
-                      color={comment.liked ? Colors.error : Colors.secondary400} 
-                    />
-                    <Text style={styles.commentLikes}>{comment.likes}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-          </ScrollView>
-          
-          <View style={styles.commentInput}>
-            <View style={styles.commentInputAvatar}>
-              <Ionicons name="person" size={16} color={Colors.secondary400} />
+        {selectedPostId && (
+          <CommentSection
+            postId={selectedPostId}
+            onClose={handleCloseComments}
+          />
+        )}
+      </Modal>
+
+      {/* Report Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showReportModal}
+        onRequestClose={() => {
+          setShowReportModal(false);
+          setSelectedPostId(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.reportModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Report Post</Text>
+              <TouchableOpacity onPress={() => {
+                setShowReportModal(false);
+                setSelectedPostId(null);
+              }}>
+                <Ionicons name="close" size={24} color={Colors.secondary400} />
+              </TouchableOpacity>
             </View>
-            <TextInput
-              style={styles.commentInputField}
-              placeholder="Add a comment..."
-              placeholderTextColor={Colors.secondary400}
-              value={newComment}
-              onChangeText={setNewComment}
-              multiline
-            />
-            <TouchableOpacity 
-              style={[styles.commentSendButton, !newComment.trim() && styles.commentSendButtonDisabled]}
-              onPress={handleAddComment}
-              disabled={!newComment.trim()}
-            >
-              <Ionicons 
-                name="send" 
-                size={16} 
-                color={newComment.trim() ? Colors.primary600 : Colors.secondary400} 
+
+            <ScrollView style={styles.reportContent}>
+              <Text style={styles.reportDescription}>
+                Please select a reason for reporting this post:
+              </Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.reasonOption,
+                  selectedReportReason === 'SPAM' && styles.reasonOptionSelected
+                ]}
+                onPress={() => setSelectedReportReason('SPAM')}
+              >
+                <View style={styles.reasonOptionContent}>
+                  <Ionicons name="mail-outline" size={20} color={Colors.secondary600} />
+                  <Text style={styles.reasonText}>Spam</Text>
+                </View>
+                {selectedReportReason === 'SPAM' && (
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.primary600} />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.reasonOption,
+                  selectedReportReason === 'INAPPROPRIATE_CONTENT' && styles.reasonOptionSelected
+                ]}
+                onPress={() => setSelectedReportReason('INAPPROPRIATE_CONTENT')}
+              >
+                <View style={styles.reasonOptionContent}>
+                  <Ionicons name="warning-outline" size={20} color={Colors.secondary600} />
+                  <Text style={styles.reasonText}>Inappropriate Content</Text>
+                </View>
+                {selectedReportReason === 'INAPPROPRIATE_CONTENT' && (
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.primary600} />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.reasonOption,
+                  selectedReportReason === 'HARASSMENT' && styles.reasonOptionSelected
+                ]}
+                onPress={() => setSelectedReportReason('HARASSMENT')}
+              >
+                <View style={styles.reasonOptionContent}>
+                  <Ionicons name="person-remove-outline" size={20} color={Colors.secondary600} />
+                  <Text style={styles.reasonText}>Harassment or Bullying</Text>
+                </View>
+                {selectedReportReason === 'HARASSMENT' && (
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.primary600} />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.reasonOption,
+                  selectedReportReason === 'MISINFORMATION' && styles.reasonOptionSelected
+                ]}
+                onPress={() => setSelectedReportReason('MISINFORMATION')}
+              >
+                <View style={styles.reasonOptionContent}>
+                  <Ionicons name="information-circle-outline" size={20} color={Colors.secondary600} />
+                  <Text style={styles.reasonText}>Misinformation</Text>
+                </View>
+                {selectedReportReason === 'MISINFORMATION' && (
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.primary600} />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.reasonOption,
+                  selectedReportReason === 'SCAM_OR_FRAUD' && styles.reasonOptionSelected
+                ]}
+                onPress={() => setSelectedReportReason('SCAM_OR_FRAUD')}
+              >
+                <View style={styles.reasonOptionContent}>
+                  <Ionicons name="shield-outline" size={20} color={Colors.secondary600} />
+                  <Text style={styles.reasonText}>Scam or Fraud</Text>
+                </View>
+                {selectedReportReason === 'SCAM_OR_FRAUD' && (
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.primary600} />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.reasonOption,
+                  selectedReportReason === 'HATE_SPEECH' && styles.reasonOptionSelected
+                ]}
+                onPress={() => setSelectedReportReason('HATE_SPEECH')}
+              >
+                <View style={styles.reasonOptionContent}>
+                  <Ionicons name="ban-outline" size={20} color={Colors.secondary600} />
+                  <Text style={styles.reasonText}>Hate Speech</Text>
+                </View>
+                {selectedReportReason === 'HATE_SPEECH' && (
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.primary600} />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.reasonOption,
+                  selectedReportReason === 'VIOLENCE' && styles.reasonOptionSelected
+                ]}
+                onPress={() => setSelectedReportReason('VIOLENCE')}
+              >
+                <View style={styles.reasonOptionContent}>
+                  <Ionicons name="alert-circle-outline" size={20} color={Colors.secondary600} />
+                  <Text style={styles.reasonText}>Violence or Dangerous Content</Text>
+                </View>
+                {selectedReportReason === 'VIOLENCE' && (
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.primary600} />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.reasonOption,
+                  selectedReportReason === 'COPYRIGHT' && styles.reasonOptionSelected
+                ]}
+                onPress={() => setSelectedReportReason('COPYRIGHT')}
+              >
+                <View style={styles.reasonOptionContent}>
+                  <Ionicons name="document-text-outline" size={20} color={Colors.secondary600} />
+                  <Text style={styles.reasonText}>Copyright Violation</Text>
+                </View>
+                {selectedReportReason === 'COPYRIGHT' && (
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.primary600} />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.reasonOption,
+                  selectedReportReason === 'OTHER' && styles.reasonOptionSelected
+                ]}
+                onPress={() => setSelectedReportReason('OTHER')}
+              >
+                <View style={styles.reasonOptionContent}>
+                  <Ionicons name="ellipsis-horizontal-circle-outline" size={20} color={Colors.secondary600} />
+                  <Text style={styles.reasonText}>Other</Text>
+                </View>
+                {selectedReportReason === 'OTHER' && (
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.primary600} />
+                )}
+              </TouchableOpacity>
+
+              <Text style={[styles.reportDescription, { marginTop: 16 }]}>
+                Additional details (optional):
+              </Text>
+              <TextInput
+                style={styles.reportTextInput}
+                multiline
+                numberOfLines={4}
+                placeholder="Please provide any additional information..."
+                placeholderTextColor={Colors.secondary400}
+                value={reportDescription}
+                onChangeText={setReportDescription}
+                maxLength={500}
               />
-            </TouchableOpacity>
+              <Text style={styles.charCount}>{reportDescription.length}/500</Text>
+            </ScrollView>
+
+            <View style={styles.reportActions}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setShowReportModal(false);
+                  setSelectedReportReason(null);
+                  setReportDescription('');
+                  setSelectedPostId(null); // Clear when canceling
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.submitButton,
+                  !selectedReportReason && styles.submitButtonDisabled
+                ]}
+                onPress={handleSubmitReport}
+                disabled={!selectedReportReason || isSubmittingReport}
+              >
+                {isSubmittingReport ? (
+                  <ActivityIndicator size="small" color={Colors.white} />
+                ) : (
+                  <Text style={styles.submitButtonText}>Submit Report</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -1355,6 +1927,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  questionStats: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statText: {
+    fontSize: 12,
+    color: Colors.secondary500,
+    fontWeight: '500',
+  },
+  questionTime: {
+    fontSize: 12,
+    color: Colors.secondary400,
+  },
   questionMeta: {
     fontSize: 12,
     color: Colors.secondary500,
@@ -1523,5 +2113,113 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: Colors.primary600,
     marginTop: 6,
+  },
+  // Post Images Styles
+  imagesContainer: {
+    marginVertical: 12,
+  },
+  imagesContent: {
+    paddingRight: 12,
+  },
+  postImage: {
+    width: 280,
+    height: 200,
+    borderRadius: 12,
+    marginRight: 12,
+    backgroundColor: Colors.light100,
+  },
+  // Report Modal Styles
+  reportModal: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+    paddingBottom: 20,
+  },
+  reportContent: {
+    paddingHorizontal: 20,
+    maxHeight: 500,
+  },
+  reportDescription: {
+    fontSize: 14,
+    color: Colors.secondary600,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  reasonOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light200,
+    marginBottom: 12,
+    backgroundColor: Colors.white,
+  },
+  reasonOptionSelected: {
+    borderColor: Colors.primary600,
+    backgroundColor: Colors.primary100,
+  },
+  reasonOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  reasonText: {
+    fontSize: 15,
+    color: Colors.secondary700,
+    fontWeight: '500',
+  },
+  reportTextInput: {
+    borderWidth: 1,
+    borderColor: Colors.light200,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    color: Colors.black,
+    textAlignVertical: 'top',
+    minHeight: 100,
+    marginTop: 8,
+  },
+  charCount: {
+    fontSize: 12,
+    color: Colors.secondary400,
+    textAlign: 'right',
+    marginTop: 4,
+  },
+  reportActions: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light200,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.secondary600,
+  },
+  submitButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: Colors.primary600,
+    alignItems: 'center',
+  },
+  submitButtonDisabled: {
+    backgroundColor: Colors.secondary200,
+  },
+  submitButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.white,
   },
 });
