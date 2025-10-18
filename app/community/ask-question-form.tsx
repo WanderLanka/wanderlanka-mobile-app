@@ -15,7 +15,7 @@ import React, { useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
-import { NetworkDetection } from '../../utils/serverDetection';
+import { API_CONFIG } from '../../services/config';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
@@ -100,7 +100,7 @@ export default function AskQuestionFormScreen() {
       }
 
       // Get base URL
-      const baseURL = await NetworkDetection.detectServer();
+      const baseURL = API_CONFIG.BASE_URL;
 
       // Prepare question data
       const questionData = {

@@ -24,7 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { API_CONFIG } from '../../services/config';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-// import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 
 // const { width } = Dimensions.get('window');
 
@@ -55,7 +55,7 @@ interface LocationSuggestion {
 }
 
 export default function CreatePostScreen() {
-  // const { user } = useAuth();
+  const { user } = useAuth();
   const [postContent, setPostContent] = useState('');
   const [postTitle, setPostTitle] = useState('');
   const [location, setLocation] = useState('');

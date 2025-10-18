@@ -14,7 +14,7 @@ import React, { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
-import { NetworkDetection } from '../../utils/serverDetection';
+import { API_CONFIG } from '../../services/config';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatTimeAgo } from '../../utils/timeFormat';
 import { router } from 'expo-router';
@@ -214,7 +214,7 @@ export default function AskQuestionScreen() {
         setUserId(userIdStored);
       }
 
-      const baseURL = await NetworkDetection.detectServer();
+      const baseURL = API_CONFIG.BASE_URL;
       
       // Build query params
       const params = new URLSearchParams({
@@ -275,7 +275,7 @@ export default function AskQuestionScreen() {
         return;
       }
 
-      const baseURL = await NetworkDetection.detectServer();
+      const baseURL = API_CONFIG.BASE_URL;
       const response = await fetch(`${baseURL}/api/community/questions/${questionId}/vote`, {
         method: 'POST',
         headers: {

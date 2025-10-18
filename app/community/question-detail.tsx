@@ -16,7 +16,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
-import { NetworkDetection } from '../../utils/serverDetection';
+import { API_CONFIG } from '../../services/config';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatTimeAgo } from '../../utils/timeFormat';
 
@@ -205,10 +205,10 @@ export default function QuestionDetailScreen() {
       setUserId(storedUserId);
       const token = await AsyncStorage.getItem('accessToken');
 
-      // Detect server URL
-      console.log('🔍 🌐 Smart WiFi-adaptive server detection starting...');
-      const baseURL = await NetworkDetection.detectServer();
-      console.log('📱 Using Expo host server:', baseURL);
+      // Get server URL
+      console.log('🔍 🌐 Using configured server...');
+      const baseURL = API_CONFIG.BASE_URL;
+      console.log('📱 Using server:', baseURL);
 
       // Fetch question with userId for vote status
       const questionUrl = `${baseURL}/api/community/questions/${id}${storedUserId ? `?userId=${storedUserId}` : ''}`;
@@ -259,15 +259,15 @@ export default function QuestionDetailScreen() {
     }
   };
 
-  const handleQuestionVote = async (voteType: 'up' | 'down') => {
-    if (!question || !userId) {
+  const handleQuestionVote = async (voteType: 'upvote' | 'downvote') => {
+    if (!userId) {
       Alert.alert('Login Required', 'Please log in to vote');
       return;
     }
 
     try {
       const token = await AsyncStorage.getItem('accessToken');
-      const baseURL = await NetworkDetection.detectServer();
+      const baseURL = API_CONFIG.BASE_URL;
 
       const response = await fetch(`${baseURL}/api/community/questions/${question._id}/vote`, {
         method: 'POST',
@@ -294,7 +294,7 @@ export default function QuestionDetailScreen() {
     }
   };
 
-  const handleAnswerVote = async (answerId: string, voteType: 'up' | 'down') => {
+  const handleAnswerVote = async (answerId: string, voteType: 'upvote' | 'downvote') => {
     if (!userId) {
       Alert.alert('Login Required', 'Please log in to vote');
       return;
@@ -302,7 +302,7 @@ export default function QuestionDetailScreen() {
 
     try {
       const token = await AsyncStorage.getItem('accessToken');
-      const baseURL = await NetworkDetection.detectServer();
+      const baseURL = API_CONFIG.BASE_URL;
 
       console.log('🗳️ Voting on answer:', answerId, 'Type:', voteType);
       console.log('🔑 Token:', token ? 'Present' : 'Missing');
@@ -352,7 +352,7 @@ export default function QuestionDetailScreen() {
 
     try {
       const token = await AsyncStorage.getItem('accessToken');
-      const baseURL = await NetworkDetection.detectServer();
+      const baseURL = API_CONFIG.BASE_URL;
 
       const response = await fetch(`${baseURL}/api/community/answers/${answerId}/helpful`, {
         method: 'POST',
@@ -406,7 +406,7 @@ export default function QuestionDetailScreen() {
     
     try {
       const token = await AsyncStorage.getItem('accessToken');
-      const baseURL = await NetworkDetection.detectServer();
+      const baseURL = API_CONFIG.BASE_URL;
 
       console.log('📤 Submitting answer to:', `${baseURL}/api/community/questions/${question._id}/answers`);
 

@@ -4,9 +4,7 @@ import {
   Animated,
   FlatList,
   Image,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   RefreshControl,
   ScrollView,
   Share,
@@ -25,14 +23,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants/Colors';
 import CommentSection from '../../components/CommentSection';
 import { Ionicons } from '@expo/vector-icons';
-import { NetworkDetection } from '../../utils/serverDetection';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
+import { API_CONFIG } from '../../services/config';
 
 // Mock data - easily replaceable with backend API calls
-const MOCK_TRAVEL_POSTS = [
+const MOCK_TRAVEL_POSTS: any[] = [
   {
     id: 'post1',
     author: {
@@ -73,7 +71,8 @@ const MOCK_TRAVEL_POSTS = [
   },
 ];
 
-const MOCK_COMMENTS = {
+// Removed unused MOCK_COMMENTS constant
+const _MOCK_COMMENTS = {
   post1: [
     {
       id: 'comment1',
@@ -163,7 +162,8 @@ const MOCK_REVIEWS = [
   },
 ];
 
-const MOCK_QUESTIONS = [
+// Removed unused MOCK_QUESTIONS constant
+const _MOCK_QUESTIONS = [
   {
     id: 'q1',
     question: 'Best time to visit Sigiriya Rock?',
@@ -319,7 +319,7 @@ export default function CommunityScreen() {
   const [showPostOptions, setShowPostOptions] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [showComments, setShowComments] = useState(false);
-  const [currentComments, setCurrentComments] = useState<any[]>([]);
+  const [_currentComments, _setCurrentComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
   
   // Hide & Report states
@@ -341,11 +341,11 @@ export default function CommunityScreen() {
   ];
 
   // Fetch posts from backend
-  const fetchPosts = async (showLoader = true) => {
+  const fetchPosts = useCallback(async (showLoader = true) => {
     if (showLoader) setIsLoading(true);
     try {
       const token = await AsyncStorage.getItem('accessToken');
-      const baseURL = await NetworkDetection.detectServer();
+      const baseURL = API_CONFIG.BASE_URL;
       const apiURL = `${baseURL}/api/community/posts?limit=20&sort=recent`;
 
       console.log('📥 Fetching posts from:', apiURL);
@@ -392,16 +392,16 @@ export default function CommunityScreen() {
       if (showLoader) setIsLoading(false);
       setIsRefreshing(false);
     }
-  };
+  }, []);
 
   // Fetch user's questions
-  const fetchUserQuestions = async () => {
+  const fetchUserQuestions = useCallback(async () => {
     if (!user?.id) return;
     
     setIsLoadingQuestions(true);
     try {
       const token = await AsyncStorage.getItem('accessToken');
-      const baseURL = await NetworkDetection.detectServer();
+      const baseURL = API_CONFIG.BASE_URL;
       
       // Fetch questions asked by the current user
       const apiURL = `${baseURL}/api/community/questions?sort=recent&limit=5`;
@@ -430,13 +430,13 @@ export default function CommunityScreen() {
     } finally {
       setIsLoadingQuestions(false);
     }
-  };
+  }, [user?.id]);
 
   // Load posts and questions on mount
   useEffect(() => {
     fetchPosts();
     fetchUserQuestions();
-  }, [user?.id]);
+  }, [fetchPosts, fetchUserQuestions]);
 
   // Refresh questions when screen comes into focus (real-time updates)
   useFocusEffect(
@@ -445,7 +445,7 @@ export default function CommunityScreen() {
       if (user?.id) {
         fetchUserQuestions();
       }
-    }, [user?.id])
+    }, [user?.id, fetchUserQuestions])
   );
 
   // Refresh handler
@@ -459,7 +459,7 @@ export default function CommunityScreen() {
   const handleLike = async (postId: string) => {
     try {
       const token = await AsyncStorage.getItem('accessToken');
-      const baseURL = await NetworkDetection.detectServer();
+      const baseURL = API_CONFIG.BASE_URL;
       const post = posts.find(p => p.id === postId);
       
       if (!post) return;
@@ -559,7 +559,7 @@ export default function CommunityScreen() {
         return;
       }
 
-      const baseURL = await NetworkDetection.detectServer();
+      const baseURL = API_CONFIG.BASE_URL;
       const response = await fetch(`${baseURL}/api/community/posts/${postId}/hide`, {
         method: 'POST',
         headers: {
@@ -592,7 +592,7 @@ export default function CommunityScreen() {
   const handleUnhidePost = async (postId: string) => {
     try {
       const token = await AsyncStorage.getItem('accessToken');
-      const baseURL = await NetworkDetection.detectServer();
+      const baseURL = API_CONFIG.BASE_URL;
       
       const response = await fetch(`${baseURL}/api/community/posts/${postId}/unhide`, {
         method: 'POST',
@@ -653,7 +653,7 @@ export default function CommunityScreen() {
         return;
       }
 
-      const baseURL = await NetworkDetection.detectServer();
+      const baseURL = API_CONFIG.BASE_URL;
       const apiUrl = `${baseURL}/api/community/posts/${selectedPostId}/report`;
       console.log('🌐 API URL:', apiUrl);
       
@@ -735,7 +735,7 @@ export default function CommunityScreen() {
     }
   };
 
-  const handleAddComment = () => {
+  const _handleAddComment = () => {
     if (newComment.trim() && selectedPostId) {
       const comment = {
         id: `comment_${Date.now()}`,
@@ -750,7 +750,7 @@ export default function CommunityScreen() {
         liked: false,
       };
 
-      setCurrentComments(prev => [...prev, comment]);
+      _setCurrentComments(prev => [...prev, comment]);
       
       // Update comment count in posts
       setPosts(prevPosts => 
@@ -765,8 +765,8 @@ export default function CommunityScreen() {
     }
   };
 
-  const handleCommentLike = (commentId: string) => {
-    setCurrentComments(prev => 
+  const _handleCommentLike = (commentId: string) => {
+    _setCurrentComments(prev => 
       prev.map(comment => 
         comment.id === commentId 
           ? { 
@@ -931,10 +931,10 @@ export default function CommunityScreen() {
         <View style={{ paddingVertical: 30, alignItems: 'center' }}>
           <Ionicons name="help-circle-outline" size={48} color={Colors.secondary400} />
           <Text style={{ marginTop: 12, color: Colors.secondary500, fontSize: 14 }}>
-            You haven't asked any questions yet
+            You haven&apos;t asked any questions yet
           </Text>
           <Text style={{ marginTop: 4, color: Colors.secondary400, fontSize: 12 }}>
-            Tap "Ask a Question" to get started
+            Tap &quot;Ask a Question&quot; to get started
           </Text>
         </View>
       )}
