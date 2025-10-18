@@ -17,6 +17,8 @@ export type PackageListItem = {
   coverImage?: string;
   includes?: string[];
   excludes?: string[];
+  highlights?: string[];
+  requirements?: string[];
   pricing?: { currency?: string; amount: number; perPerson?: boolean };
   isActive?: boolean;
   itinerary?: { day: number; title: string; description?: string }[];
