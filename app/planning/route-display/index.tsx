@@ -13,6 +13,7 @@ import {
 import { CustomButton, ThemedText } from '../../../components';
 import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 import React, { useEffect, useRef, useState } from 'react';
+import { itineraryApi, routeApi } from '../../../utils/itineraryApi';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import { Colors } from '../../../constants/Colors';
@@ -20,7 +21,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import MapViewDirections from 'react-native-maps-directions';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { itineraryApi, routeApi } from '../../../utils/itineraryApi';
 
 const { width, height } = Dimensions.get('window');
 
