@@ -15,7 +15,9 @@
       },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app needs location access for navigation.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs location access for navigation."
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs location access for navigation.",
+        "NSPhotoLibraryUsageDescription": "We need access to your photo library to let you choose a cover image for your package.",
+        "NSPhotoLibraryAddUsageDescription": "We need permission to save images if required."
       }
     },
     "android": {
@@ -28,7 +30,10 @@
         "googleMaps": {
           "apiKey": "AIzaSyBPAjLGZlFyzwIRo60j3HlhR7Qp0pmqQQ8"
         }
-      }
+      },
+      "permissions": [
+        "READ_MEDIA_IMAGES"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -52,7 +57,8 @@
         {
           "locationAlwaysAndWhenInUsePermission": "This app uses location to show nearby places and help with navigation."
         }
-      ]
+      ],
+      "expo-image-picker"
     ],
     "experiments": {
       "typedRoutes": true
