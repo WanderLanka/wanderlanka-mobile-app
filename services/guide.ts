@@ -17,6 +17,8 @@ export type PackageListItem = {
   coverImage?: string;
   includes?: string[];
   excludes?: string[];
+  highlights?: string[];
+  requirements?: string[];
   pricing?: { currency?: string; amount: number; perPerson?: boolean };
   isActive?: boolean;
   itinerary?: { day: number; title: string; description?: string }[];
@@ -233,5 +235,40 @@ export const GuideService = {
   async deleteGuide(idOrUsername: string, hard = false): Promise<any> {
     const qs = hard ? '?hard=true' : '';
     return ApiService.delete<any>(`/api/guide/guide/delete/${encodeURIComponent(idOrUsername)}${qs}`);
+  },
+  
+  async getGuideAvailability(guideId: string, startDate?: string, endDate?: string): Promise<{
+    success: boolean;
+    data?: {
+      guideId: string;
+      dateRange: { start: string; end: string };
+      availableDates: string[];
+      unavailableDates: string[];
+      confirmedBookings: number;
+    };
+    error?: string;
+  }> {
+    const params = new URLSearchParams();
+    if (startDate) params.set('startDate', startDate);
+    if (endDate) params.set('endDate', endDate);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    
+    return ApiService.get<any>(`/api/guide/guide/${encodeURIComponent(guideId)}/availability${qs}`);
+  },
+
+  async getFeaturedGuides(params: { limit?: number; status?: string; q?: string } = {}): Promise<{
+    success: boolean;
+    data: any[];
+    total?: number;
+    limit?: number;
+    error?: string;
+  }> {
+    const usp = new URLSearchParams();
+    if (params.limit) usp.set('limit', String(params.limit));
+    if (params.status) usp.set('status', params.status);
+    if (params.q) usp.set('q', params.q);
+    const qs = usp.toString() ? `?${usp.toString()}` : '';
+    
+    return ApiService.get<any>(`/api/guide/featuredguides${qs}`);
   },
 };

@@ -20,6 +20,9 @@ export class AuthService {
    */
   static async signUp(userData: SignUpRequest): Promise<AuthResponse> {
     try {
+      // Ensure server connection before signup
+      // Proceed without automatic server detection
+      
       console.log('🔗 Signup request:', { ...userData, password: '[HIDDEN]' });
       
       // Use direct fetch for signup to match login implementation
@@ -27,7 +30,8 @@ export class AuthService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-platform': 'mobile',
+          'x-client-type': 'mobile', // Server expects x-client-type, not x-platform
+          'x-platform': 'mobile', // Keep for backwards compatibility
         },
         body: JSON.stringify(userData),
       });
@@ -109,12 +113,16 @@ export class AuthService {
    */
   static async login(credentials: LoginRequest): Promise<AuthResponse> {
     try {
+      // Ensure server connection before login
+      // Proceed without automatic server detection
+      
       // Use direct fetch for login to handle 403 responses properly
   const response = await fetch(`${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-platform': 'mobile',
+          'x-client-type': 'mobile', // Server expects x-client-type, not x-platform
+          'x-platform': 'mobile', // Keep for backwards compatibility
         },
         body: JSON.stringify(credentials),
       });
@@ -155,6 +163,16 @@ export class AuthService {
           success: false,
           message: data.message || 'Account status issue',
           error: data.error || data.message || 'Account access restricted'
+        };
+      }
+
+      // Handle 429 Rate Limiting as a user-friendly error
+      if (response.status === 429) {
+        return {
+          success: false,
+          message: 'Too many login attempts. Please try again in a few minutes.',
+          error: data.error || 'Rate limit exceeded',
+          code: data.code || 'RATE_LIMIT_EXCEEDED'
         };
       }
 
@@ -218,34 +236,45 @@ export class AuthService {
     };
   }): Promise<void> {
     try {
+      // Ensure server connection before critical operation
+      // Proceed without automatic server detection
+      
       // Backend expects unified /register endpoint (with platform-aware handling)
       // For mobile guide registration, we must send role: 'guide' and guideDetails block
-      const payload = {
-        username: data.username,
-        email: data.email,
-        password: data.password,
-        role: data.role, // 'guide'
-        guideDetails: {
-          firstName: data.guideDetails.firstName,
-          lastName: data.guideDetails.lastName,
-          nicNumber: data.guideDetails.nicNumber,
-          dateOfBirth: data.guideDetails.dateOfBirth,
-        },
-      };
+      // Use FormData to upload the document file
+      const formData = new FormData();
+      formData.append('username', data.username);
+      formData.append('email', data.email);
+      formData.append('password', data.password);
+      formData.append('role', data.role);
+      formData.append('firstName', data.guideDetails.firstName);
+      formData.append('lastName', data.guideDetails.lastName);
+      formData.append('nicNumber', data.guideDetails.nicNumber);
+      formData.append('dateOfBirth', data.guideDetails.dateOfBirth);
+      
+      // Upload document file - the multer middleware in user-service expects 'document' field
+      // and will save it to uploads/docs/ directory
+      const document = data.guideDetails.proofDocument;
+      formData.append('document', {
+        uri: document.uri,
+        name: document.name,
+        type: document.type,
+      } as any);
 
       // Primary endpoint: unified register
   const primaryUrl = `${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/register`;
       console.log('🔗 Guide registration primary URL:', primaryUrl);
-      console.log('📤 Guide registration payload:', payload);
+      console.log('📤 Guide registration with document upload');
       
-      // Make API call with JSON data; include platform header for backend logic
+      // Make API call with FormData; don't set Content-Type header (let FormData set it with boundary)
       let response = await fetch(primaryUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'x-platform': 'mobile',
+          'x-client-type': 'mobile', // Server expects x-client-type, not x-platform
+          'x-platform': 'mobile', // Keep for backwards compatibility
+          // Note: Don't set Content-Type for FormData - browser/RN will set it with boundary
         },
-        body: JSON.stringify(payload),
+        body: formData,
       });
 
       console.log('📡 Guide registration response status:', response.status);
@@ -260,23 +289,32 @@ export class AuthService {
         console.warn('⚠️ /register returned 404. Retrying with legacy /api/auth/guide-registration');
   const legacyUrl = `${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/guide-registration`;
         console.log('🔗 Guide registration legacy URL:', legacyUrl);
+        
+        // Re-create FormData for legacy endpoint
+        const legacyFormData = new FormData();
+        legacyFormData.append('username', data.username);
+        legacyFormData.append('email', data.email);
+        legacyFormData.append('password', data.password);
+        legacyFormData.append('role', data.role);
+        legacyFormData.append('firstName', data.guideDetails.firstName);
+        legacyFormData.append('lastName', data.guideDetails.lastName);
+        legacyFormData.append('nicNumber', data.guideDetails.nicNumber);
+        legacyFormData.append('dateOfBirth', data.guideDetails.dateOfBirth);
+        
+        const document = data.guideDetails.proofDocument;
+        legacyFormData.append('document', {
+          uri: document.uri,
+          name: document.name,
+          type: document.type,
+        } as any);
+        
         response = await fetch(legacyUrl, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
+            'x-client-type': 'mobile',
             'x-platform': 'mobile',
           },
-          // Legacy endpoint maps fields to guideDetails server-side
-          body: JSON.stringify({
-            username: data.username,
-            email: data.email,
-            password: data.password,
-            role: data.role,
-            firstName: data.guideDetails.firstName,
-            lastName: data.guideDetails.lastName,
-            nicNumber: data.guideDetails.nicNumber,
-            dateOfBirth: data.guideDetails.dateOfBirth,
-          }),
+          body: legacyFormData,
         });
 
         console.log('📡 Legacy guide registration status:', response.status);
@@ -284,14 +322,26 @@ export class AuthService {
 
       // After potential retry, handle non-OK statuses
       if (!response.ok) {
+        // Provide user-friendly network error messages
+        if (response.status === 0) {
+          throw new Error('Network connection failed. Please check your WiFi connection and server.');
+        }
+        
         if (contentType && contentType.includes('application/json')) {
           const errorResult = await response.json();
           console.error('❌ JSON error response:', errorResult);
-          throw new Error(errorResult.message || errorResult.error || `Server error: ${response.status}`);
+          
+          // Map common error messages to user-friendly versions
+          const errorMsg = errorResult.message || errorResult.error || `Server error: ${response.status}`;
+          if (errorMsg === 'Registration failed' || errorMsg.includes('Registration failed')) {
+            throw new Error('Registration failed. Please check all required fields and try again.');
+          }
+          
+          throw new Error(errorMsg);
         } else {
           const errorText = await response.text();
           console.error('❌ Non-JSON error response:', errorText);
-          throw new Error(`Server error: ${response.status} - ${response.statusText}`);
+          throw new Error(`Server error: ${response.status} - ${response.statusText || 'Unknown error'}`);
         }
       }
 
@@ -312,18 +362,33 @@ export class AuthService {
       // Registration successful - the user will need to wait for approval
     } catch (error) {
       console.error('Guide registration error:', error);
+      console.error('Current API_CONFIG.BASE_URL:', API_CONFIG.BASE_URL);
+      
       // Normalize common errors for better UX
       if (error instanceof Error) {
         const msg = error.message.toLowerCase();
+        
+        // Network connection errors
+        if (msg.includes('network request failed') || msg.includes('failed to fetch')) {
+          throw new Error(`Cannot connect to server at ${API_CONFIG.BASE_URL}. Please check:\n1. Your WiFi connection\n2. Server is running\n3. You're on the same network as the server`);
+        }
+        
         if (msg.includes('route not found') || msg.includes('404')) {
           throw new Error('Registration endpoint not available. Please ensure the user-service is running and accessible on your network.');
         }
-        if (msg.includes('network') || msg.includes('timeout') || msg.includes('fetch')) {
-          throw new Error('Network error during registration. Please check your connection and try again.');
+        
+        if (msg.includes('network') || msg.includes('timeout')) {
+          throw new Error(`Network timeout. Current server: ${API_CONFIG.BASE_URL}. Please try again or restart the app if you changed WiFi networks.`);
         }
+        
+        // If error message looks like it's from the server, pass it through
+        if (msg.includes('required') || msg.includes('invalid') || msg.includes('already exists')) {
+          throw error;
+        }
+        
         throw error;
       }
-      throw new Error('Guide registration failed');
+      throw new Error('Guide registration failed. Please try again.');
     }
   }
 

@@ -5,6 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Colors } from '../../constants/Colors';
 import { ThemedText } from '../../components/ThemedText';
 import { GuideService, PackageListItem } from '../../services/guide';
+import BookingModal from '../../components/BookingModal';
 import { toAbsoluteImageUrl } from '../../utils/imageUrl';
 
 export default function PackageDetailScreen() {
@@ -15,6 +16,9 @@ export default function PackageDetailScreen() {
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const [viewerVisible, setViewerVisible] = useState<boolean>(false);
   const scrollY = new Animated.Value(0);
+  // Booking UI state
+  const [bookingVisible, setBookingVisible] = useState<boolean>(false);
+  // state moved into BookingModal; keep only modal visibility here
 
   useEffect(() => {
     let isMounted = true;
@@ -33,6 +37,18 @@ export default function PackageDetailScreen() {
     load();
     return () => { isMounted = false; };
   }, [slug]);
+
+  // contact prefill handled inside BookingModal
+
+  // Derived booking helpers
+  const perPerson = !!pkg?.pricing?.perPerson;
+  const unitAmount = pkg?.pricing?.amount || 0;
+  const currency = pkg?.pricing?.currency || 'LKR';
+
+  // Compute end date from start date and duration
+  // end date calculation moved into BookingModal
+
+  // booking logic handled inside BookingModal
 
   const imagesAbs: string[] = (() => {
     const raw: string[] = [];
@@ -294,7 +310,7 @@ export default function PackageDetailScreen() {
         </Animated.ScrollView>
       )}
 
-      {/* Image Viewer Modal */}
+  {/* Image Viewer Modal */}
       <Modal visible={viewerVisible} transparent animationType="fade" onRequestClose={() => setViewerVisible(false)}>
         <View style={styles.viewerOverlay}>
           <TouchableOpacity style={styles.viewerClose} onPress={() => setViewerVisible(false)}>
@@ -323,21 +339,33 @@ export default function PackageDetailScreen() {
         </View>
       </Modal>
 
+      {/* Calendar is handled within BookingModal */}
+
       {/* Floating Footer */}
       {pkg && (
         <View style={styles.footer}>
           <View style={styles.footerContent}>
             <View style={styles.footerPriceSection}>
-              <Text style={styles.footerPriceLabel}>Total Price</Text>
-              <Text style={styles.footerPrice}>{(pkg.pricing?.currency || 'LKR')} {(pkg.pricing?.amount || 0).toLocaleString()}</Text>
-              <Text style={styles.footerUnit}>{pkg.pricing?.perPerson ? 'per person' : 'per group'}</Text>
+              <Text style={styles.footerPriceLabel}>Price</Text>
+              <Text style={styles.footerPrice}>{currency} {unitAmount.toLocaleString()}</Text>
+              <Text style={styles.footerUnit}>{perPerson ? 'per person' : 'per group'}</Text>
             </View>
-            <TouchableOpacity style={styles.bookBtn}>
+            <TouchableOpacity style={styles.bookBtn} onPress={() => setBookingVisible(true)}>
               <Text style={styles.bookText}>Book Now</Text>
               <Ionicons name="arrow-forward" size={18} color={Colors.white} />
             </TouchableOpacity>
           </View>
         </View>
+      )}
+
+      {/* Booking Modal */}
+      {pkg && (
+        <BookingModal
+          visible={bookingVisible}
+          pkg={pkg}
+          onClose={() => setBookingVisible(false)}
+          onBooked={() => { /* could navigate to a booking screen later */ }}
+        />
       )}
     </SafeAreaView>
   );
@@ -612,6 +640,79 @@ const styles = StyleSheet.create({
   },
   bookText: { color: Colors.white, fontWeight: '700', fontSize: 16 },
   
+  // Booking Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  bookingSheet: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '85%',
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: Colors.primary800,
+    marginBottom: 12,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    color: Colors.secondary600,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  input: {
+    height: 44,
+    borderWidth: 1,
+    borderColor: Colors.secondary200,
+    backgroundColor: Colors.secondary50,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  flex1: { flex: 1 },
+  chip: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    backgroundColor: Colors.secondary100,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: Colors.secondary200,
+  },
+  chipText: {
+    fontSize: 12,
+    color: Colors.secondary700,
+    fontWeight: '600',
+  },
+  submitBtn: {
+    backgroundColor: Colors.primary600,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+    shadowColor: Colors.primary600,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  submitText: {
+    color: Colors.white,
+    fontWeight: '700',
+    fontSize: 16,
+  },
+
   // Viewer
   viewerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.97)' },
   viewerClose: { position: 'absolute', top: 50, right: 16, zIndex: 2 },

@@ -100,6 +100,10 @@ export const retryWithBackoff = async <T>(
       return await fn();
     } catch (error) {
       lastError = error as Error;
+      // Do not retry on explicitly non-retryable errors (e.g., auth/session)
+      if ((lastError as any)?.noRetry) {
+        break;
+      }
       
       // Don't retry on the last attempt
       if (attempt === maxRetries) {

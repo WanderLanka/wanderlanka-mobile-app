@@ -15,7 +15,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { NetworkDetection } from '../utils/serverDetection';
+import { API_CONFIG } from '../services/config';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 
@@ -70,7 +70,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ postId, onClose }) => {
   const fetchComments = useCallback(async (pageNum = 1) => {
     try {
       const token = await AsyncStorage.getItem('accessToken');
-      const baseUrl = await NetworkDetection.detectServer();
+      const baseUrl = API_CONFIG.BASE_URL;
       
       const headers: any = {
         'Content-Type': 'application/json',
@@ -142,7 +142,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ postId, onClose }) => {
         return;
       }
       
-      const baseUrl = await NetworkDetection.detectServer();
+      const baseUrl = API_CONFIG.BASE_URL;
 
       const body: any = {
         content: commentText.trim(),
@@ -207,7 +207,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ postId, onClose }) => {
 
     try {
       const token = await AsyncStorage.getItem('accessToken');
-      const baseUrl = await NetworkDetection.detectServer();
+      const baseUrl = API_CONFIG.BASE_URL;
 
       const method = isLiked ? 'DELETE' : 'POST';
 

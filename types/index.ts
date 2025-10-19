@@ -36,6 +36,7 @@ export interface AuthResponse {
     refreshToken?: string; // Optional for pending users
   };
   error?: string;
+  code?: string; // Error code (e.g., 'RATE_LIMIT_EXCEEDED', 'INVALID_CREDENTIALS')
 }
 
 export interface RefreshTokenRequest {

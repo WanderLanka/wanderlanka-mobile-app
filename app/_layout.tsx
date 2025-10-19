@@ -11,8 +11,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Stack } from "expo-router";
 import { View } from 'react-native';
-import { initializeNetworkMonitoring } from '../utils/networkMonitor';
-import { initializeServerConnection } from '../utils/serverDetection';
+// Removed automatic server detection & network monitoring
 import useFontLoader from '../hooks/useFontLoader';
 
 // Keep the splash screen visible while we fetch resources
@@ -25,11 +24,8 @@ export default function RootLayout() {
   useEffect(() => {
     const initializeApp = async () => {
       if (fontsLoaded) {
-        // Initialize server connection and network monitoring
-        await initializeServerConnection();
-        initializeNetworkMonitoring();
-        
-        console.log('🚀 WanderLanka app initialized with smart WiFi-adaptive networking');
+  // Proceed without automatic server detection/monitoring
+  console.log('🚀 WanderLanka app initialized');
         setServerReady(true);
         SplashScreen.hideAsync();
       }

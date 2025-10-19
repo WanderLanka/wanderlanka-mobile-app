@@ -4,7 +4,7 @@ import * as Location from 'expo-location';
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
+  // Dimensions,
   Image,
   Platform,
   ScrollView,
@@ -17,16 +17,16 @@ import {
 import React, { useState } from 'react';
 import { getLocationIcon, getMockLocationSuggestions } from '../../utils/locationService';
 
-import { ApiService } from '../../services/api';
+// import { ApiService } from '../../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
-import { NetworkDetection } from '../../utils/serverDetection';
+import { API_CONFIG } from '../../services/config';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 
-const { width } = Dimensions.get('window');
+// const { width } = Dimensions.get('window');
 
 // Travel-specific post categories for WanderLanka
 const POST_CATEGORIES = [
@@ -117,7 +117,7 @@ export default function CreatePostScreen() {
         };
         setSelectedImages(prev => [...prev, newImage]);
       }
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to take photo. Please try again.');
     }
   };
@@ -141,7 +141,7 @@ export default function CreatePostScreen() {
         }));
         setSelectedImages(prev => [...prev, ...newImages].slice(0, 10)); // Max 10 images
       }
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to select photos. Please try again.');
     }
   };
@@ -167,7 +167,7 @@ export default function CreatePostScreen() {
         const locationString = `${address.city || address.district || address.region}, ${address.country || 'Sri Lanka'}`;
         setLocation(locationString);
       }
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Could not get your current location. Please enter manually.');
     } finally {
       setIsLocationLoading(false);
@@ -296,10 +296,8 @@ export default function CreatePostScreen() {
 
       console.log('📤 Posting to community service via API Gateway...');
 
-      // Get the correct base URL from API_CONFIG (updated by NetworkDetection)
-      const baseURL = await NetworkDetection.detectServer();
-      // Use API Gateway - it will route to community service
-      const apiGatewayURL = `${baseURL}/api/community/posts`;
+  // Use configured BASE_URL directly
+  const apiGatewayURL = `${API_CONFIG.BASE_URL}/api/community/posts`;
 
       console.log('🌐 Using API Gateway URL:', apiGatewayURL);
 
@@ -548,7 +546,7 @@ export default function CreatePostScreen() {
                   <View style={styles.suggestionsFooter}>
                     <Ionicons name="information-circle-outline" size={12} color={Colors.secondary400} />
                     <Text style={styles.suggestionsFooterText}>
-                      Can't find your location? Just type it manually
+                      Can&apos;t find your location? Just type it manually
                     </Text>
                   </View>
                 </>
