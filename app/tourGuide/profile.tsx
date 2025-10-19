@@ -1,28 +1,28 @@
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { DeleteAccountModal, ProfileAvatar } from '../../components';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { GuideService } from '../../services/guide';
-import { AuthService } from '../../services/auth';
 import * as ImagePicker from 'expo-image-picker';
 import { toAbsoluteImageUrl } from '../../utils/imageUrl';
-
-// Hardcoded user data - easily replaceable with backend calls
-// REMOVED: Mock data replaced with real API calls
+import { API_CONFIG } from '../../services/config';
+import { StorageService } from '../../services/storage';
 
 interface ProfileSectionProps {
   title: string;
@@ -32,7 +32,7 @@ interface ProfileSectionProps {
 const ProfileSection: React.FC<ProfileSectionProps> = ({ title, children }) => (
   <View style={styles.section}>
     <Text style={styles.sectionTitle}>{title}</Text>
-    {children}
+    <View style={styles.sectionContent}>{children}</View>
   </View>
 );
 
@@ -43,6 +43,7 @@ interface ProfileItemProps {
   onPress?: () => void;
   showArrow?: boolean;
   rightComponent?: React.ReactNode;
+  danger?: boolean;
 }
 
 const ProfileItem: React.FC<ProfileItemProps> = ({ 
@@ -51,23 +52,37 @@ const ProfileItem: React.FC<ProfileItemProps> = ({
   value, 
   onPress, 
   showArrow = true,
-  rightComponent 
+  rightComponent,
+  danger = false
 }) => (
   <TouchableOpacity 
     style={styles.profileItem} 
     onPress={onPress}
     disabled={!onPress}
+    activeOpacity={onPress ? 0.7 : 1}
   >
     <View style={styles.profileItemLeft}>
-      <Ionicons name={icon} size={20} color={Colors.primary600} />
-      <Text style={styles.profileItemLabel}>{label}</Text>
+      <View style={[styles.iconContainer, danger && styles.iconContainerDanger]}>
+        <Ionicons 
+          name={icon} 
+          size={20} 
+          color={danger ? Colors.error : Colors.primary600} 
+        />
+      </View>
+      <Text style={[styles.profileItemLabel, danger && styles.profileItemLabelDanger]}>
+        {label}
+      </Text>
     </View>
     <View style={styles.profileItemRight}>
       {rightComponent || (
         <>
           {value && <Text style={styles.profileItemValue}>{value}</Text>}
           {showArrow && onPress && (
-            <Ionicons name="chevron-forward" size={16} color={Colors.secondary400} />
+            <Ionicons 
+              name="chevron-forward" 
+              size={20} 
+              color={Colors.secondary400} 
+            />
           )}
         </>
       )}
@@ -77,41 +92,126 @@ const ProfileItem: React.FC<ProfileItemProps> = ({
 
 export default function ProfileScreen() {
   const { logout } = useAuth();
-  const [darkMode, setDarkMode] = useState(false);
-  const [notifications, setNotifications] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [notifications, setNotifications] = useState(true);
   
   // Real data states
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [userData, setUserData] = useState<any>(null);
   const [guideData, setGuideData] = useState<any>(null);
+  const fetchingRef = useRef(false);
+  
+  // Edit modal states
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editField, setEditField] = useState<'contact' | 'languages' | 'bio' | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [languagesList, setLanguagesList] = useState<string[]>([]);
+  const [tempLanguage, setTempLanguage] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  // Fetch user and guide data
-  const fetchProfileData = async () => {
+  // Fetch user and guide data from listing-service (combines both services)
+  const fetchProfileData = useCallback(async () => {
+    // Prevent multiple simultaneous fetches using ref
+    if (fetchingRef.current) {
+      console.log('Already fetching data, skipping...');
+      return;
+    }
+
     try {
+      fetchingRef.current = true;
       setLoading(true);
       
-      // Fetch user data (for email verification status)
-  const userResponse = await AuthService.getProfile();
-  setUserData(userResponse);
+      // Get user data from storage to get userId
+      const user = await StorageService.getUserData();
       
-      // Fetch guide data (for profile details)
-  const guideResponse = await GuideService.getGuideProfile();
-  // Service returns { success, data }; map to data for simpler usage
-  setGuideData(guideResponse?.data ?? guideResponse ?? null);
-    } catch (error) {
+      if (!user) {
+        throw new Error('User not logged in');
+      }
+
+      // Use userId (ObjectId) to fetch profile
+      const userId = user.id || user._id;
+      const username = user.username;
+      
+      if (!userId && !username) {
+        throw new Error('User identifier not found');
+      }
+
+      // Fetch combined profile from listing-service with ONE request
+      // Use userId as query param if available, otherwise use username in path
+      const accessToken = await StorageService.getAccessToken();
+      const endpoint = userId 
+        ? `${API_CONFIG.BASE_URL}/api/listing/service/tourguide-listing/guide/me?userId=${encodeURIComponent(userId)}`
+        : `${API_CONFIG.BASE_URL}/api/listing/service/tourguide-listing/guide/${encodeURIComponent(username)}`;
+      
+      const response = await fetch(endpoint, {
+        headers: {
+          'Accept': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        const profileData = result.data;
+        
+        // Set combined data
+        setGuideData(profileData);
+        // Fallback to stored user email if missing from combined response
+        const storedUser = await StorageService.getUserData();
+        setUserData({
+          email: profileData.email || storedUser?.email || '',
+          emailVerified: typeof profileData.emailVerified === 'boolean' ? profileData.emailVerified : !!storedUser?.emailVerified,
+          username: profileData.username || storedUser?.username,
+          createdAt: profileData.createdAt || storedUser?.createdAt,
+        });
+      } else {
+        throw new Error('Failed to load profile data');
+      }
+    } catch (error: any) {
       console.error('Failed to fetch profile data:', error);
-      Alert.alert('Error', 'Failed to load profile data');
+      
+      // Handle rate limiting error specifically
+      if (error?.status === 429 || error?.message?.includes('Too many requests')) {
+        Alert.alert(
+          'Too Many Requests',
+          'Please wait a moment before refreshing your profile.',
+          [{ text: 'OK' }]
+        );
+      } else if (error?.message?.includes('authentication') || error?.message?.includes('401')) {
+        Alert.alert(
+          'Authentication Error',
+          'There was an issue with your session. Please try logging in again.',
+          [
+            {
+              text: 'OK',
+              onPress: () => router.replace('/auth/login')
+            }
+          ]
+        );
+      } else {
+        // Only show error if we don't have cached data
+        if (!guideData) {
+          Alert.alert('Error', 'Failed to load profile. Please try again later.');
+        }
+      }
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
-  };
+  }, []); // Empty dependencies - only create once
 
-  // Load data on mount and when screen is focused
+  // Load data on mount only
   useEffect(() => {
     fetchProfileData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependencies - run only once on mount
 
   const handleAvatarEdit = async () => {
     try {
@@ -169,15 +269,95 @@ export default function ProfileScreen() {
   };
 
   const handleEditProfile = () => {
-    router.push('/profile/edit-profile');
+    router.push('/guideProfile/edit-profile');
   };
 
-  const handleTravelHistory = () => {
-    router.push('/profile/trip-timeline');
+  const handleEditField = (field: 'contact' | 'languages' | 'bio') => {
+    setEditField(field);
+    
+    if (field === 'contact') {
+      setEditValue(guideData?.details?.contactNumber || '');
+    } else if (field === 'bio') {
+      setEditValue(guideData?.details?.bio || '');
+    } else if (field === 'languages') {
+      setLanguagesList(guideData?.details?.languages || []);
+      setTempLanguage('');
+    }
+    
+    setEditModalVisible(true);
   };
 
-  const handleTripMemories = () => {
-    router.push('/profile/trip-memories');
+  const handleSaveField = async () => {
+    try {
+      setSaving(true);
+      
+      const guideId = guideData?._id || guideData?.username;
+      if (!guideId) {
+        Alert.alert('Error', 'Guide profile not found');
+        return;
+      }
+
+      let updateData: any = {};
+
+      if (editField === 'contact') {
+        if (!editValue.trim()) {
+          Alert.alert('Error', 'Contact number cannot be empty');
+          return;
+        }
+        updateData = {
+          details: {
+            ...guideData.details,
+            contactNumber: editValue.trim(),
+          },
+        };
+      } else if (editField === 'bio') {
+        updateData = {
+          details: {
+            ...guideData.details,
+            bio: editValue.trim(),
+          },
+        };
+      } else if (editField === 'languages') {
+        if (languagesList.length === 0) {
+          Alert.alert('Error', 'Please add at least one language');
+          return;
+        }
+        updateData = {
+          details: {
+            ...guideData.details,
+            languages: languagesList,
+          },
+        };
+      }
+
+      await GuideService.updateGuideProfile(guideId, updateData);
+      
+      // Refresh profile data
+      await fetchProfileData();
+      
+      setEditModalVisible(false);
+      setEditField(null);
+      setEditValue('');
+      setLanguagesList([]);
+      
+      Alert.alert('Success', 'Profile updated successfully');
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      Alert.alert('Error', 'Failed to update profile. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddLanguage = () => {
+    if (tempLanguage.trim() && !languagesList.includes(tempLanguage.trim())) {
+      setLanguagesList([...languagesList, tempLanguage.trim()]);
+      setTempLanguage('');
+    }
+  };
+
+  const handleRemoveLanguage = (language: string) => {
+    setLanguagesList(languagesList.filter(lang => lang !== language));
   };
 
   const handleSettings = () => {
@@ -185,17 +365,9 @@ export default function ProfileScreen() {
   };
 
   const handleSupport = () => {
-    router.push('/profile/faq-help');
-  };
-
-  const handleRateApp = () => {
-    router.push('/profile/rate-app');
-  };
-
-  const handleLanguage = () => {
     Alert.alert(
-      'Language Settings',
-      'App is currently available in English only. More languages will be added in upcoming versions.',
+      'Support',
+      'For assistance, please email us at support@wanderlanka.com',
       [{ text: 'OK' }]
     );
   };
@@ -255,130 +427,156 @@ export default function ProfileScreen() {
         </View>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false}>
-          {/* Header */}
+          {/* Profile Header */}
           <View style={styles.header}>
-            <ProfileAvatar
-              imageUri={guideData?.details?.avatar ? toAbsoluteImageUrl(guideData.details.avatar) : null}
-              size={80}
-              onEdit={handleAvatarEdit}
-            />
+            <View style={styles.headerTop}>
+              <Text style={styles.headerTitle}>Profile</Text>
+            </View>
             
-            {uploading && (
-              <View style={styles.uploadingOverlay}>
-                <ActivityIndicator size="small" color={Colors.primary600} />
-              </View>
-            )}
-            
-            <View style={styles.profileInfo}>
-              <Text style={styles.userName}>
-                {(
-                  (guideData?.details?.firstName || '') +
-                  (guideData?.details?.lastName ? ` ${guideData.details.lastName}` : '')
-                ).trim() || userData?.username || 'Guide'}
-              </Text>
-              <View style={styles.emailRow}>
-                <Text style={styles.userEmail}>{userData?.email || 'N/A'}</Text>
-                {!userData?.emailVerified && (
-                  <View style={styles.unverifiedBadge}>
-                    <Ionicons name="alert-circle" size={14} color={Colors.warning} />
-                    <Text style={styles.unverifiedText}>Not Verified</Text>
+            <View style={styles.profileCard}>
+              <View style={styles.avatarSection}>
+                <ProfileAvatar
+                  imageUri={guideData?.details?.avatar ? toAbsoluteImageUrl(guideData.details.avatar) : null}
+                  size={100}
+                  onEdit={handleAvatarEdit}
+                />
+                
+                {uploading && (
+                  <View style={styles.uploadingOverlay}>
+                    <ActivityIndicator size="small" color={Colors.white} />
                   </View>
                 )}
               </View>
-              {userData?.emailVerified && (
-                <View style={styles.verifiedBadge}>
-                  <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
-                  <Text style={styles.verifiedText}>Email Verified</Text>
+              
+              <View style={styles.profileDetails}>
+                <Text style={styles.userName}>
+                  {(
+                    (guideData?.details?.firstName || '') +
+                    (guideData?.details?.lastName ? ` ${guideData.details.lastName}` : '')
+                  ).trim() || userData?.username || 'Guide'}
+                </Text>
+                
+                <View style={styles.emailContainer}>
+                  <Ionicons name="mail-outline" size={16} color={Colors.secondary500} />
+                  <Text style={styles.userEmail}>
+                    {userData?.email || guideData?.email || 'No email'}
+                  </Text>
+                  {userData?.emailVerified && (
+                    <View style={styles.verifiedBadge}>
+                      <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
+                    </View>
+                  )}
                 </View>
-              )}
+                
+                {guideData?.username && (
+                  <View style={styles.usernameContainer}>
+                    <Ionicons name="at" size={16} color={Colors.secondary500} />
+                    <Text style={styles.usernameText}>{guideData.username}</Text>
+                  </View>
+                )}
+                
+                {/* Status Badge */}
+                <View style={styles.statusBadgeContainer}>
+                  <View style={[
+                    styles.statusBadge,
+                    guideData?.status === 'active' && styles.statusBadgeActive,
+                    guideData?.status === 'pending' && styles.statusBadgePending
+                  ]}>
+                    <Ionicons 
+                      name={guideData?.status === 'active' ? "checkmark-circle" : "time-outline"} 
+                      size={14} 
+                      color={guideData?.status === 'active' ? Colors.success : Colors.warning} 
+                    />
+                    <Text style={[
+                      styles.statusText,
+                      guideData?.status === 'active' && styles.statusTextActive,
+                      guideData?.status === 'pending' && styles.statusTextPending
+                    ]}>
+                      {guideData?.status === 'active' ? 'Active' : 
+                       guideData?.status === 'pending' ? 'Pending Approval' : 
+                       guideData?.status || 'Inactive'}
+                    </Text>
+                  </View>
+                  {guideData?.featured && (
+                    <View style={styles.featuredBadge}>
+                      <Ionicons name="star" size={14} color={Colors.primary600} />
+                      <Text style={styles.featuredText}>Featured</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+              
+              <TouchableOpacity 
+                style={styles.editProfileButton} 
+                onPress={handleEditProfile}
+              >
+                <Ionicons name="create-outline" size={20} color={Colors.primary600} />
+                <Text style={styles.editProfileText}>Edit Profile</Text>
+              </TouchableOpacity>
             </View>
           </View>
 
-          {/* Personal Information */}
-          <ProfileSection title="Personal Information">
-            <ProfileItem
-              icon="person-outline"
-              label="Username"
-              value={guideData?.username || 'N/A'}
-              onPress={handleEditProfile}
-            />
+          {/* Guide Information */}
+          <ProfileSection title="Guide Information">
             <ProfileItem
               icon="call-outline"
               label="Contact Number"
-              value={(guideData?.details?.contactNumber || userData?.phone || userData?.contactNumber || '').toString() || 'Not set'}
-              onPress={handleEditProfile}
+              value={guideData?.details?.contactNumber || 'Add contact'}
+              onPress={() => handleEditField('contact')}
             />
             <ProfileItem
               icon="globe-outline"
               label="Languages"
               value={Array.isArray(guideData?.details?.languages) && guideData.details.languages.length
                 ? guideData.details.languages.join(', ')
-                : 'Not set'}
-              onPress={handleEditProfile}
+                : 'Add languages'}
+              onPress={() => handleEditField('languages')}
             />
             <ProfileItem
               icon="document-text-outline"
               label="Bio"
-              value={guideData?.details?.bio ? 'View bio' : 'Add bio'}
-              onPress={handleEditProfile}
+              value={guideData?.details?.bio 
+                ? (guideData.details.bio.length > 40 
+                  ? guideData.details.bio.substring(0, 40) + '...' 
+                  : guideData.details.bio)
+                : 'Add your bio'}
+              onPress={() => handleEditField('bio')}
             />
           </ProfileSection>
 
-          {/* Guide Status */}
-          <ProfileSection title="Guide Status">
-            <ProfileItem
-              icon="shield-checkmark-outline"
-              label="Account Status"
-              value={guideData?.status || 'N/A'}
-              showArrow={false}
-              rightComponent={
-                <View style={styles.verifiedBadge}>
-                  <Ionicons 
-                    name={guideData?.status === 'approved' ? "checkmark-circle" : "time-outline"} 
-                    size={16} 
-                    color={guideData?.status === 'approved' ? Colors.success : Colors.warning} 
-                  />
-                  <Text style={[styles.verifiedText, { 
-                    color: guideData?.status === 'approved' ? Colors.success : Colors.warning 
-                  }]}>
-                    {guideData?.status || 'Pending'}
+          {/* Guide Stats */}
+          {(guideData?.metrics?.rating || guideData?.metrics?.totalBookings) && (
+            <ProfileSection title="Statistics">
+              <View style={styles.statsRow}>
+                <View style={styles.statBox}>
+                  <Ionicons name="star" size={24} color={Colors.primary600} />
+                  <Text style={styles.statValue}>
+                    {guideData?.metrics?.rating?.toFixed(1) || '0.0'}
                   </Text>
+                  <Text style={styles.statLabel}>Rating</Text>
                 </View>
-              }
-            />
-            {guideData?.featured && (
-              <ProfileItem
-                icon="star"
-                label="Featured Guide"
-                showArrow={false}
-                rightComponent={
-                  <View style={styles.featuredBadge}>
-                    <Ionicons name="star" size={16} color={Colors.primary600} />
-                    <Text style={styles.featuredText}>Featured</Text>
-                  </View>
-                }
-              />
-            )}
-          </ProfileSection>
+                <View style={styles.statDivider} />
+                <View style={styles.statBox}>
+                  <Ionicons name="briefcase" size={24} color={Colors.primary600} />
+                  <Text style={styles.statValue}>
+                    {guideData?.metrics?.totalBookings || 0}
+                  </Text>
+                  <Text style={styles.statLabel}>Bookings</Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statBox}>
+                  <Ionicons name="people" size={24} color={Colors.primary600} />
+                  <Text style={styles.statValue}>
+                    {guideData?.metrics?.totalReviews || 0}
+                  </Text>
+                  <Text style={styles.statLabel}>Reviews</Text>
+                </View>
+              </View>
+            </ProfileSection>
+          )}
 
-          {/* Travel History */}
-          <ProfileSection title="Travel History">
-            <ProfileItem
-              icon="map-outline"
-              label="Trip Timeline"
-              value="View history"
-              onPress={handleTravelHistory}
-            />
-            <ProfileItem
-              icon="images-outline"
-              label="Trip Memories"
-              value="Photos & Videos"
-              onPress={handleTripMemories}
-            />
-          </ProfileSection>
-
-          {/* App Settings */}
-          <ProfileSection title="Preferences & Settings">
+          {/* Settings */}
+          <ProfileSection title="Settings">
             <ProfileItem
               icon="notifications-outline"
               label="Notifications"
@@ -387,75 +585,44 @@ export default function ProfileScreen() {
                 <Switch
                   value={notifications}
                   onValueChange={setNotifications}
-                  trackColor={{ false: Colors.secondary200, true: Colors.primary100 }}
+                  trackColor={{ false: Colors.secondary200, true: Colors.primary300 }}
                   thumbColor={notifications ? Colors.primary600 : Colors.secondary400}
+                  ios_backgroundColor={Colors.secondary200}
                 />
               }
-            />
-            <ProfileItem
-              icon="moon-outline"
-              label="Dark Mode"
-              showArrow={false}
-              rightComponent={
-                <Switch
-                  value={darkMode}
-                  onValueChange={setDarkMode}
-                  trackColor={{ false: Colors.secondary200, true: Colors.primary100 }}
-                  thumbColor={darkMode ? Colors.primary600 : Colors.secondary400}
-                />
-              }
-            />
-            <ProfileItem
-              icon="language-outline"
-              label="Language"
-              value="English"
-              onPress={handleLanguage}
             />
             <ProfileItem
               icon="shield-outline"
               label="Privacy & Security"
               onPress={handleSettings}
             />
-          </ProfileSection>
-
-          {/* Support & Help */}
-          <ProfileSection title="Support & Help">
-            <ProfileItem
-              icon="chatbubble-outline"
-              label="Customer Support"
-              onPress={handleSupport}
-            />
             <ProfileItem
               icon="help-circle-outline"
-              label="FAQ & Help"
+              label="Help & Support"
               onPress={handleSupport}
-            />
-            <ProfileItem
-              icon="star-outline"
-              label="Rate App"
-              onPress={handleRateApp}
             />
           </ProfileSection>
 
-          {/* Account Management */}
-          <ProfileSection title="Account Management">
+          {/* Account Actions */}
+          <ProfileSection title="Account">
+            <ProfileItem
+              icon="log-out-outline"
+              label="Logout"
+              onPress={handleLogout}
+              showArrow={false}
+            />
             <ProfileItem
               icon="trash-outline"
               label="Delete Account"
-              value="Permanently delete"
               onPress={handleDeleteAccount}
+              showArrow={false}
+              danger
             />
           </ProfileSection>
 
-          {/* Logout Button */}
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={20} color={Colors.error} />
-            <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
-
           <View style={styles.footer}>
             <Text style={styles.footerText}>
-              Member since {userData?.createdAt ? new Date(userData.createdAt).getFullYear() : 'N/A'}
+              Member since {userData?.createdAt ? new Date(userData.createdAt).getFullYear() : new Date().getFullYear()}
             </Text>
             <Text style={styles.versionText}>WanderLanka v1.0.0</Text>
           </View>
@@ -468,6 +635,132 @@ export default function ProfileScreen() {
         onClose={() => setShowDeleteModal(false)}
         onConfirm={confirmDeleteAccount}
       />
+
+      {/* Edit Field Modal */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {editField === 'contact' ? 'Edit Contact Number' :
+                 editField === 'languages' ? 'Edit Languages' :
+                 editField === 'bio' ? 'Edit Bio' : ''}
+              </Text>
+              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                <Ionicons name="close" size={24} color={Colors.secondary600} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              {editField === 'contact' && (
+                <View>
+                  <Text style={styles.modalLabel}>Contact Number</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={editValue}
+                    onChangeText={setEditValue}
+                    placeholder="Enter contact number"
+                    keyboardType="phone-pad"
+                    placeholderTextColor={Colors.secondary400}
+                  />
+                  <Text style={styles.modalHint}>
+                    Enter your phone number with country code (e.g., +94771234567)
+                  </Text>
+                </View>
+              )}
+
+              {editField === 'bio' && (
+                <View>
+                  <Text style={styles.modalLabel}>Bio</Text>
+                  <TextInput
+                    style={[styles.modalInput, styles.modalTextArea]}
+                    value={editValue}
+                    onChangeText={setEditValue}
+                    placeholder="Tell tourists about yourself..."
+                    multiline
+                    numberOfLines={6}
+                    maxLength={500}
+                    placeholderTextColor={Colors.secondary400}
+                  />
+                  <Text style={styles.modalHint}>
+                    {editValue.length}/500 characters
+                  </Text>
+                </View>
+              )}
+
+              {editField === 'languages' && (
+                <View>
+                  <Text style={styles.modalLabel}>Languages You Speak</Text>
+                  
+                  {/* Add Language Input */}
+                  <View style={styles.addLanguageContainer}>
+                    <TextInput
+                      style={[styles.modalInput, styles.languageInput]}
+                      value={tempLanguage}
+                      onChangeText={setTempLanguage}
+                      placeholder="Add a language"
+                      placeholderTextColor={Colors.secondary400}
+                      onSubmitEditing={handleAddLanguage}
+                    />
+                    <TouchableOpacity 
+                      style={styles.addLanguageButton}
+                      onPress={handleAddLanguage}
+                    >
+                      <Ionicons name="add" size={24} color={Colors.white} />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Languages List */}
+                  <View style={styles.languagesList}>
+                    {languagesList.map((language, index) => (
+                      <View key={index} style={styles.languageChip}>
+                        <Text style={styles.languageChipText}>{language}</Text>
+                        <TouchableOpacity
+                          onPress={() => handleRemoveLanguage(language)}
+                          style={styles.removeLanguageButton}
+                        >
+                          <Ionicons name="close-circle" size={20} color={Colors.error} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    {languagesList.length === 0 && (
+                      <Text style={styles.emptyLanguagesText}>
+                        No languages added yet. Add at least one language.
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setEditModalVisible(false)}
+                disabled={saving}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalSaveButton, saving && styles.modalSaveButtonDisabled]}
+                onPress={handleSaveField}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator size="small" color={Colors.white} />
+                ) : (
+                  <Text style={styles.modalSaveButtonText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -488,162 +781,200 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
     backgroundColor: Colors.white,
-    marginBottom: 10,
-  },
-  uploadingOverlay: {
-    position: 'absolute',
-    left: 20,
-    top: 20,
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  profileInfo: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  userName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.black,
-    marginBottom: 4,
-  },
-  emailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  userEmail: {
-    fontSize: 14,
-    color: Colors.secondary500,
-    marginRight: 8,
-  },
-  verifiedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  verifiedText: {
-    fontSize: 12,
-    color: Colors.success,
-    marginLeft: 4,
-    fontWeight: '500',
-  },
-  unverifiedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.warning + '20',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  unverifiedText: {
-    fontSize: 10,
-    color: Colors.warning,
-    marginLeft: 2,
-    fontWeight: '500',
-  },
-  featuredBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  featuredText: {
-    fontSize: 12,
-    color: Colors.primary600,
-    marginLeft: 4,
-    fontWeight: '500',
-  },
-  statsScrollView: {
-    marginBottom: 10,
-  },
-  statsContainer: {
-    paddingHorizontal: 20,
-    alignItems: 'center',
-  },
-  statCard: {
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    width: 120,
-    marginRight: 12,
+    paddingBottom: 20,
+    marginBottom: 16,
     shadowColor: Colors.black,
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 4,
-    elevation: 5,
-    minHeight: 120,
-    justifyContent: 'space-between',
+    elevation: 2,
   },
-  statIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.primary100,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
+  headerTop: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
-  statContent: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  statNumber: {
-    fontSize: 18,
+  headerTitle: {
+    fontSize: 28,
     fontWeight: '700',
-    color: Colors.primary600,
-    marginBottom: 4,
-    textAlign: 'center',
-    lineHeight: 22,
+    color: Colors.black,
   },
-  statLabel: {
-    fontSize: 11,
-    color: Colors.secondary500,
+  profileCard: {
+    paddingHorizontal: 20,
+  },
+  avatarSection: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  profileDetails: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  userName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Colors.black,
+    marginBottom: 8,
     textAlign: 'center',
-    lineHeight: 14,
-    fontWeight: '500',
+  },
+  emailContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  userEmail: {
+    fontSize: 14,
+    color: Colors.secondary500,
+    marginLeft: 6,
+    marginRight: 6,
+  },
+  usernameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  usernameText: {
+    fontSize: 14,
+    color: Colors.secondary500,
+    marginLeft: 4,
+  },
+  statusBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: Colors.secondary100,
+  },
+  statusBadgeActive: {
+    backgroundColor: Colors.success + '15',
+  },
+  statusBadgePending: {
+    backgroundColor: Colors.warning + '15',
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+    color: Colors.secondary600,
+  },
+  statusTextActive: {
+    color: Colors.success,
+  },
+  statusTextPending: {
+    color: Colors.warning,
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  featuredBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: Colors.primary100,
+  },
+  featuredText: {
+    fontSize: 12,
+    color: Colors.primary600,
+    marginLeft: 4,
+    fontWeight: '600',
+  },
+  editProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary100,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.primary300,
+  },
+  editProfileText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.primary600,
+    marginLeft: 8,
   },
   section: {
     backgroundColor: Colors.white,
-    marginBottom: 10,
-    paddingVertical: 10,
+    marginBottom: 12,
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    shadowColor: Colors.black,
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: Colors.black,
     paddingHorizontal: 20,
-    paddingBottom: 10,
+    marginBottom: 12,
+  },
+  sectionContent: {
+    gap: 0,
   },
   profileItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.light200,
+    borderBottomColor: Colors.secondary100,
   },
   profileItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
+  iconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Colors.primary100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconContainerDanger: {
+    backgroundColor: Colors.error + '10',
+  },
   profileItemLabel: {
-    fontSize: 14,
+    fontSize: 15,
     color: Colors.black,
     marginLeft: 12,
+    fontWeight: '500',
+  },
+  profileItemLabelDanger: {
+    color: Colors.error,
   },
   profileItemRight: {
     flexDirection: 'row',
@@ -653,75 +984,184 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.secondary500,
     marginRight: 8,
+    maxWidth: 150,
   },
-  tripItem: {
+  statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-around',
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.light200,
   },
-  tripIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.primary100,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  tripInfo: {
+  statBox: {
     flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
   },
-  tripDestination: {
-    fontSize: 14,
-    fontWeight: '500',
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: Colors.secondary200,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '700',
     color: Colors.black,
-    marginBottom: 2,
+    marginTop: 8,
+    marginBottom: 4,
   },
-  tripDate: {
+  statLabel: {
     fontSize: 12,
     color: Colors.secondary500,
-  },
-  tripRating: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  tripRatingText: {
-    fontSize: 12,
-    color: Colors.secondary600,
-    marginLeft: 2,
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.white,
-    marginHorizontal: 20,
-    marginVertical: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.error,
-  },
-  logoutText: {
-    fontSize: 14,
-    color: Colors.error,
     fontWeight: '500',
-    marginLeft: 8,
   },
   footer: {
     alignItems: 'center',
-    paddingBottom: 40,
+    paddingVertical: 30,
   },
   footerText: {
-    fontSize: 12,
+    fontSize: 13,
     color: Colors.secondary400,
     marginBottom: 4,
   },
   versionText: {
-    fontSize: 10,
+    fontSize: 11,
     color: Colors.secondary400,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.secondary100,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.black,
+  },
+  modalBody: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  modalLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.black,
+    marginBottom: 8,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: Colors.secondary200,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: Colors.black,
+    backgroundColor: Colors.white,
+  },
+  modalTextArea: {
+    height: 120,
+    textAlignVertical: 'top',
+  },
+  modalHint: {
+    fontSize: 13,
+    color: Colors.secondary400,
+    marginTop: 8,
+  },
+  addLanguageContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  languageInput: {
+    flex: 1,
+  },
+  addLanguageButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: Colors.primary600,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  languagesList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  languageChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary100,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 8,
+  },
+  languageChipText: {
+    fontSize: 14,
+    color: Colors.primary600,
+    fontWeight: '500',
+  },
+  removeLanguageButton: {
+    padding: 2,
+  },
+  emptyLanguagesText: {
+    fontSize: 14,
+    color: Colors.secondary400,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    gap: 12,
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.secondary200,
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+  },
+  modalCancelButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.secondary600,
+  },
+  modalSaveButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: Colors.primary600,
+    alignItems: 'center',
+  },
+  modalSaveButtonDisabled: {
+    opacity: 0.6,
+  },
+  modalSaveButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.white,
   },
 });
