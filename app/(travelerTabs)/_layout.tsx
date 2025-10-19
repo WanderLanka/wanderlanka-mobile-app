@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Tabs, router } from 'expo-router';
+import { itineraryApi, routeApi } from '../../utils/itineraryApi';
 
 import { Calendar } from 'react-native-calendars';
 import { Colors } from '../../constants/Colors';
@@ -108,9 +109,6 @@ export default function TravelerTabsLayout() {
     }
 
     try {
-      // Create basic itinerary (user will fill in day plans manually)
-      const { itineraryApi } = require('../../utils/itineraryApi');
-      
       console.log('🚀 Creating itinerary...');
       console.log(`📍 From: ${startPoint!.name} → To: ${destination!.name}`);
       console.log(`📅 Duration: ${Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24) + 1)} days`);
@@ -144,6 +142,21 @@ export default function TravelerTabsLayout() {
         console.log('✅ Itinerary created:', response.data._id);
         console.log(`📝 Trip: ${response.data.tripName}`);
         console.log(`📅 ${response.data.dayPlans.length} days planned`);
+        
+        // Calculate routes for the itinerary
+        console.log('🗺️  Calculating routes...');
+        try {
+          const routeResponse = await routeApi.calculateRoutes(response.data._id);
+          if (routeResponse.success) {
+            console.log('✅ Routes calculated successfully');
+            console.log(`📊 Route types: ${Object.keys(routeResponse.data).join(', ')}`);
+          } else {
+            console.warn('⚠️  Route calculation failed:', routeResponse.message);
+          }
+        } catch (routeError: any) {
+          console.error('❌ Route calculation error:', routeError.message);
+          // Don't block navigation if route calculation fails
+        }
         
         // Close bottom sheet and navigate to itinerary with real ID
         closeBottomSheet();

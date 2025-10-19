@@ -1,4 +1,5 @@
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   FlatList,
@@ -14,57 +15,42 @@ import React, { useState } from 'react';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { myTripsApi } from '../../utils/itineraryApi';
 
 const { width } = Dimensions.get('window');
 
-// Mock data for unfinished drafts
-const DRAFT_TRIPS = [
-  {
-    id: 'draft1',
-    title: 'Western Province Explorer',
-    destination: 'Colombo & Negombo',
-    progress: 65,
-    lastEdited: '2024-07-22',
-    startDate: '2024-08-15',
-    endDate: '2024-08-18',
-    thumbnail: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400',
-    completedSteps: ['destination', 'dates', 'accommodation'],
-    nextStep: 'transport',
-    totalSteps: ['destination', 'dates', 'accommodation', 'transport', 'guides'],
-    description: 'Urban adventure and beach relaxation combo',
-    estimatedBudget: '$320',
-    peopleCount: 2,
-    autoSaved: true,
-    draftType: 'planning',
-  },
-  {
-    id: 'draft2',
-    title: 'Northern Cultural Journey',
-    destination: 'Jaffna & Mannar',
-    progress: 30,
-    lastEdited: '2024-07-20',
-    startDate: '2024-09-10',
-    endDate: '2024-09-14',
-    thumbnail: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=400',
-    completedSteps: ['destination', 'dates'],
-    nextStep: 'accommodation',
-    totalSteps: ['destination', 'dates', 'accommodation', 'transport', 'guides'],
-    description: 'Explore the unique Tamil culture and heritage',
-    estimatedBudget: 'Not calculated',
-    peopleCount: 4,
-    autoSaved: false,
-    draftType: 'planning',
-  },
-];
-
 export default function UnfinishedTripsScreen() {
   const [sortBy, setSortBy] = useState<'recent' | 'progress' | 'date'>('recent');
+  const [unfinishedTrips, setUnfinishedTrips] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const sortedDrafts = [...DRAFT_TRIPS].sort((a, b) => {
+  // Fetch unfinished trips on component mount and when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchUnfinishedTrips();
+    }, [])
+  );
+
+  const fetchUnfinishedTrips = async () => {
+    try {
+      setIsLoading(true);
+      const response = await myTripsApi.getTripsByCategory('unfinished');
+      
+      if (response.success && response.data) {
+        setUnfinishedTrips(response.data.trips || []);
+      }
+    } catch (error) {
+      console.error('Error fetching unfinished trips:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const sortedDrafts = [...unfinishedTrips].sort((a, b) => {
     switch (sortBy) {
       case 'recent':
-        return new Date(b.lastEdited).getTime() - new Date(a.lastEdited).getTime();
+        return new Date(b.lastEdited || b.updatedAt).getTime() - new Date(a.lastEdited || a.updatedAt).getTime();
       case 'progress':
         return b.progress - a.progress;
       case 'date':
@@ -75,24 +61,13 @@ export default function UnfinishedTripsScreen() {
   });
 
   const handleContinueDraft = (draft: any) => {
-    const nextStepRoutes: { [key: string]: string } = {
-      'accommodation': '/planning/booking',
-      'transport': '/planning/booking',
-      'activities': '/planning/itinerary',
-      'guides': '/planning/booking',
-    };
-
-    const route = nextStepRoutes[draft.nextStep] || '/planning';
-    
+    // Navigate to itinerary editing with the draft ID
     router.push({
-      pathname: route as any,
+      pathname: '/planning/itinerary',
       params: {
-        draftId: draft.id,
-        destination: draft.destination,
-        startDate: draft.startDate,
-        endDate: draft.endDate,
+        itineraryId: draft._id,
+        mode: 'edit',
         resumeMode: 'true',
-        activeTab: draft.nextStep,
       }
     });
   };
@@ -224,41 +199,62 @@ export default function UnfinishedTripsScreen() {
           {draft.description}
         </ThemedText>
 
-        {/* Progress Steps */}
-        <View style={styles.stepsContainer}>
-          <ThemedText style={styles.stepsTitle}>Planning Progress</ThemedText>
-          <View style={styles.stepsRow}>
-            {draft.totalSteps.map((step: string, index: number) => {
-              const isCompleted = draft.completedSteps.includes(step);
-              const isNext = step === draft.nextStep;
-              
-              return (
-                <View key={step} style={styles.stepItem}>
-                  <View style={[
-                    styles.stepIcon,
-                    isCompleted && styles.stepIconCompleted,
-                    isNext && styles.stepIconNext,
-                  ]}>
-                    <Ionicons 
-                      name={isCompleted ? "checkmark" : getStepIcon(step) as any} 
-                      size={12} 
-                      color={
-                        isCompleted ? Colors.white : 
-                        isNext ? Colors.primary600 : 
-                        Colors.secondary400
-                      } 
-                    />
-                  </View>
-                  <ThemedText style={[
-                    styles.stepLabel,
-                    isNext && styles.stepLabelNext
-                  ]}>
-                    {step}
-                  </ThemedText>
-                </View>
-              );
-            })}
+        {/* Progress Info */}
+        <View style={styles.progressInfo}>
+          <View style={styles.progressHeader}>
+            <ThemedText style={styles.progressLabel}>Trip Planning Progress</ThemedText>
+            <ThemedText style={styles.progressPercentage}>{draft.progress}%</ThemedText>
           </View>
+          
+          {/* Stats Row */}
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Ionicons name="location" size={14} color={Colors.primary600} />
+              <ThemedText style={styles.statText}>
+                {draft.placesCount || 0} places
+              </ThemedText>
+            </View>
+            <View style={styles.statItem}>
+              <Ionicons name="calendar" size={14} color={Colors.success} />
+              <ThemedText style={styles.statText}>
+                {draft.dayPlansCount || 0} days planned
+              </ThemedText>
+            </View>
+            {draft.hasRoute && (
+              <View style={styles.statItem}>
+                <Ionicons name="navigate" size={14} color={Colors.success} />
+                <ThemedText style={styles.statText}>Route set</ThemedText>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Next Step Badge */}
+        <View style={styles.nextStepContainer}>
+          <View style={styles.nextStepBadge}>
+            <Ionicons name="arrow-forward-circle" size={16} color={Colors.primary600} />
+            <ThemedText style={styles.nextStepText}>
+              Continue editing to complete this trip
+            </ThemedText>
+          </View>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.draftActions}>
+          <TouchableOpacity 
+            style={styles.continueButton}
+            onPress={() => handleContinueDraft(draft)}
+          >
+            <Ionicons name="create" size={18} color={Colors.white} />
+            <ThemedText style={styles.continueButtonText}>Continue</ThemedText>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => handleDuplicateDraft(draft)}
+          >
+            <Ionicons name="copy-outline" size={18} color={Colors.primary600} />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.draftFooter}>
@@ -342,29 +338,36 @@ export default function UnfinishedTripsScreen() {
       </ScrollView>
 
       {/* Drafts List */}
-      <FlatList
-        data={sortedDrafts}
-        renderItem={renderDraftCard}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.draftsList}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="document-outline" size={64} color={Colors.secondary400} />
-            <ThemedText style={styles.emptyStateTitle}>No Unfinished Trips</ThemedText>
-            <ThemedText style={styles.emptyStateDescription}>
-              All your planning sessions are complete! Start a new trip to see drafts here.
-            </ThemedText>
-            <CustomButton
-              title="Start Planning"
-              variant="primary"
-              size="medium"
-              onPress={() => router.push('/planning')}
-              style={styles.emptyStateButton}
-            />
-          </View>
-        }
-      />
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary600} />
+          <ThemedText style={styles.loadingText}>Loading your drafts...</ThemedText>
+        </View>
+      ) : (
+        <FlatList
+          data={sortedDrafts}
+          renderItem={renderDraftCard}
+          keyExtractor={(item) => item._id}
+          contentContainerStyle={styles.draftsList}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="document-outline" size={64} color={Colors.secondary400} />
+              <ThemedText style={styles.emptyStateTitle}>No Unfinished Trips</ThemedText>
+              <ThemedText style={styles.emptyStateDescription}>
+                All your planning sessions are complete! Start a new trip to see drafts here.
+              </ThemedText>
+              <CustomButton
+                title="Start Planning"
+                variant="primary"
+                size="medium"
+                onPress={() => router.push('/planning')}
+                style={styles.emptyStateButton}
+              />
+            </View>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -554,49 +557,59 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  // Steps
-  stepsContainer: {
+  // Progress Info
+  progressInfo: {
     marginBottom: 16,
   },
-  stepsTitle: {
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  progressLabel: {
     fontSize: 12,
     fontWeight: '600',
     color: Colors.secondary700,
-    marginBottom: 8,
   },
-  stepsRow: {
+  progressPercentage: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.primary600,
+  },
+  statsRow: {
     flexDirection: 'row',
     gap: 12,
+    flexWrap: 'wrap',
   },
-  stepItem: {
+  statItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    gap: 4,
   },
-  stepIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: Colors.secondary200,
+  statText: {
+    fontSize: 12,
+    color: Colors.secondary600,
+  },
+
+  // Next Step
+  nextStepContainer: {
+    marginBottom: 16,
+  },
+  nextStepBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
-  stepIconCompleted: {
-    backgroundColor: Colors.success,
-  },
-  stepIconNext: {
+    gap: 8,
+    padding: 8,
     backgroundColor: Colors.primary100,
-    borderWidth: 2,
-    borderColor: Colors.primary600,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primary600,
   },
-  stepLabel: {
-    fontSize: 10,
-    color: Colors.secondary400,
-    textAlign: 'center',
-  },
-  stepLabelNext: {
-    color: Colors.primary600,
-    fontWeight: '600',
+  nextStepText: {
+    fontSize: 12,
+    color: Colors.primary700,
+    flex: 1,
   },
 
   // Footer
@@ -620,16 +633,50 @@ const styles = StyleSheet.create({
   },
   draftActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 12,
+  },
+  continueButton: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: Colors.primary600,
+    borderRadius: 8,
+  },
+  continueButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.white,
+  },
+  actionButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.primary600,
+    backgroundColor: Colors.white,
   },
   lastEdited: {
     fontSize: 12,
     color: Colors.secondary400,
   },
-  continueButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+
+  // Loading State
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: Colors.secondary600,
   },
 
   // Empty State

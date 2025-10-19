@@ -1,22 +1,68 @@
 import * as React from 'react';
 
-import { Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { CustomButton, CustomTextInput, ThemedText } from '../../components';
-import { DestinationCard } from '../../components/DestinationCard';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 
-import { TopBar } from '@/components/TopBar';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
 import { Colors } from '../../constants/Colors';
+import { DestinationCard } from '../../components/DestinationCard';
+import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
+import { TopBar } from '@/components/TopBar';
+import { myTripsApi } from '../../utils/itineraryApi';
+
+interface MyTripsData {
+  savedPlans: {
+    count: number;
+    trips: any[];
+  };
+  unfinished: {
+    count: number;
+    trips: any[];
+  };
+  upcoming: {
+    count: number;
+    trips: any[];
+  };
+}
 
 export default function TravelerHomeScreen() {
   const [destination, setDestination] = useState('');
   const [isSearchModalVisible, setIsSearchModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [myTripsData, setMyTripsData] = useState<MyTripsData | null>(null);
+  const [isLoadingTrips, setIsLoadingTrips] = useState(true);
   const insets = useSafeAreaInsets(); // 👈 to handle status bar space
+
+  // Fetch my trips data when screen focuses
+  useFocusEffect(
+    useCallback(() => {
+      fetchMyTrips();
+    }, [])
+  );
+
+  const fetchMyTrips = async () => {
+    try {
+      setIsLoadingTrips(true);
+      console.log('🔄 Fetching my trips...');
+      const response = await myTripsApi.getMyTrips();
+      
+      if (response.success && response.data) {
+        console.log('✅ My trips loaded:', response.data.summary);
+        setMyTripsData(response.data);
+      }
+    } catch (error: any) {
+      console.error('❌ Error fetching my trips:', error);
+      // Don't show alert for auth errors, user might not be logged in
+      if (error.message && !error.message.includes('auth')) {
+        Alert.alert('Error', 'Failed to load your trips');
+      }
+    } finally {
+      setIsLoadingTrips(false);
+    }
+  };
 
   const handleStartPlanning = () => {
     if (destination.trim()) {
@@ -99,13 +145,13 @@ export default function TravelerHomeScreen() {
               </Pressable>
             </View>
             
-            <CustomButton
+            {/* <CustomButton
               variant='primary'
               size='medium'
               title="Start Planning"
               style={styles.searchButton}
               onPress={handleStartPlanning}
-            />
+            /> */}
           </View>
         </View>
 
@@ -345,58 +391,89 @@ export default function TravelerHomeScreen() {
           </View>
         </View>
         
-        {/* Personalized Elements (mocked as logged in) */}
+        {/* Personalized Elements - My Trips */}
         <View style={styles.personalSection}>
           <View style={styles.sectionHeaderWithDescription}>
             <ThemedText variant="subtitle" style={styles.sectionTitle}>My Trips</ThemedText>
             <ThemedText style={styles.sectionDescription}>Your travel memories and plans</ThemedText>
           </View>
-          <View style={styles.personalContainer}>
-            <TouchableOpacity 
-              style={styles.personalCard}
-              onPress={() => router.push('/myTrips/saved-plans' as any)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.personalIconContainer, { backgroundColor: Colors.primary100 }]}>
-                <Ionicons name="bookmark" size={28} color={Colors.primary600} />
-              </View>
-              <ThemedText style={styles.personalTitle}>Saved Plans</ThemedText>
-              <ThemedText style={styles.personalDesc}>3 itineraries</ThemedText>
-              <View style={styles.personalBadge}>
-                <ThemedText style={styles.personalBadgeText}>Ready to use</ThemedText>
-              </View>
-            </TouchableOpacity>
+          
+          {isLoadingTrips ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.primary600} />
+              <ThemedText style={styles.loadingText}>Loading your trips...</ThemedText>
+            </View>
+          ) : myTripsData ? (
+            <View style={styles.personalContainer}>
+              {/* Saved Plans Card */}
+              <TouchableOpacity 
+                style={styles.personalCard}
+                onPress={() => router.push('/myTrips/saved-plans' as any)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.personalIconContainer, { backgroundColor: Colors.primary100 }]}>
+                  <Ionicons name="bookmark" size={28} color={Colors.primary600} />
+                </View>
+                <ThemedText style={styles.personalTitle}>Saved Plans</ThemedText>
+                <ThemedText style={styles.personalDesc}>
+                  {myTripsData.savedPlans.count} {myTripsData.savedPlans.count === 1 ? 'itinerary' : 'itineraries'}
+                </ThemedText>
+                <View style={styles.personalBadge}>
+                  <ThemedText style={styles.personalBadgeText}>Ready to use</ThemedText>
+                </View>
+              </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.personalCard}
-              onPress={() => router.push('/myTrips/unfinished' as any)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.personalIconContainer, { backgroundColor: Colors.warning + '20' }]}>
-                <Ionicons name="document" size={28} color={Colors.warning} />
-              </View>
-              <ThemedText style={styles.personalTitle}>Unfinished</ThemedText>
-              <ThemedText style={styles.personalDesc}>2 drafts</ThemedText>
-              <View style={[styles.personalBadge, { backgroundColor: Colors.warning + '20' }]}>
-                <ThemedText style={[styles.personalBadgeText, { color: Colors.warning }]}>Continue</ThemedText>
-              </View>
-            </TouchableOpacity>
+              {/* Unfinished Trips Card */}
+              <TouchableOpacity 
+                style={styles.personalCard}
+                onPress={() => router.push('/myTrips/unfinished' as any)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.personalIconContainer, { backgroundColor: Colors.warning + '20' }]}>
+                  <Ionicons name="document" size={28} color={Colors.warning} />
+                </View>
+                <ThemedText style={styles.personalTitle}>Unfinished</ThemedText>
+                <ThemedText style={styles.personalDesc}>
+                  {myTripsData.unfinished.count} {myTripsData.unfinished.count === 1 ? 'draft' : 'drafts'}
+                </ThemedText>
+                <View style={[styles.personalBadge, { backgroundColor: Colors.warning + '20' }]}>
+                  <ThemedText style={[styles.personalBadgeText, { color: Colors.warning }]}>
+                    {myTripsData.unfinished.count > 0 && myTripsData.unfinished.trips[0]
+                      ? `${myTripsData.unfinished.trips[0].completionPercentage}%`
+                      : 'Continue'}
+                  </ThemedText>
+                </View>
+              </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.personalCard}
-              onPress={() => router.push('/myTrips/upcoming' as any)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.personalIconContainer, { backgroundColor: Colors.success + '20' }]}>
-                <Ionicons name="airplane" size={28} color={Colors.success} />
-              </View>
-              <ThemedText style={styles.personalTitle}>Upcoming</ThemedText>
-              <ThemedText style={styles.personalDesc}>1 trip</ThemedText>
-              <View style={[styles.personalBadge, { backgroundColor: Colors.success + '20' }]}>
-                <ThemedText style={[styles.personalBadgeText, { color: Colors.success }]}>22 days</ThemedText>
-              </View>
-            </TouchableOpacity>
-          </View>
+              {/* Upcoming Trips Card */}
+              <TouchableOpacity 
+                style={styles.personalCard}
+                onPress={() => router.push('/myTrips/upcoming' as any)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.personalIconContainer, { backgroundColor: Colors.success + '20' }]}>
+                  <Ionicons name="airplane" size={28} color={Colors.success} />
+                </View>
+                <ThemedText style={styles.personalTitle}>Upcoming</ThemedText>
+                <ThemedText style={styles.personalDesc}>
+                  {myTripsData.upcoming.count} {myTripsData.upcoming.count === 1 ? 'trip' : 'trips'}
+                </ThemedText>
+                <View style={[styles.personalBadge, { backgroundColor: Colors.success + '20' }]}>
+                  <ThemedText style={[styles.personalBadgeText, { color: Colors.success }]}>
+                    {myTripsData.upcoming.count > 0 && myTripsData.upcoming.trips[0]
+                      ? `${myTripsData.upcoming.trips[0].daysUntilStart} days`
+                      : 'None'}
+                  </ThemedText>
+                </View>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="map-outline" size={48} color={Colors.secondary400} />
+              <ThemedText style={styles.emptyText}>No trips yet</ThemedText>
+              <ThemedText style={styles.emptySubtext}>Start planning your adventure!</ThemedText>
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -849,6 +926,43 @@ const styles = StyleSheet.create({
   searchPlaceholder: {
     flex: 1,
     fontSize: 16,
+  },
+
+  // Loading state styles
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: Colors.primary600,
+  },
+
+  // Empty state styles
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    marginHorizontal: 20,
+  },
+
+  emptyText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.primary700,
+  },
+
+  emptySubtext: {
+    marginTop: 4,
+    fontSize: 14,
+    color: Colors.secondary400,
   },
 });
 
