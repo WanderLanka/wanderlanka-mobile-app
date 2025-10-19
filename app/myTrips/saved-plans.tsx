@@ -1,4 +1,5 @@
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   FlatList,
@@ -9,86 +10,49 @@ import {
   View,
 } from 'react-native';
 import { CustomButton, ThemedText } from '../../components';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
 
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { myTripsApi } from '../../utils/itineraryApi';
 
 const { width } = Dimensions.get('window');
-
-// Mock data for saved trip plans
-const SAVED_PLANS = [
-  {
-    id: 'plan1',
-    title: 'Cultural Triangle Adventure',
-    destination: 'Anuradhapura, Polonnaruwa & Sigiriya',
-    duration: '5 Days, 4 Nights',
-    created: '2024-07-15',
-    lastModified: '2024-07-20',
-    thumbnail: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?w=400',
-    description: 'Explore ancient kingdoms and UNESCO World Heritage sites',
-    places: ['Anuradhapura', 'Polonnaruwa', 'Sigiriya', 'Dambulla'],
-    estimatedBudget: '$450',
-    difficulty: 'Moderate',
-    tags: ['History', 'Culture', 'Adventure'],
-    isPublic: true,
-    likes: 24,
-    saves: 156,
-  },
-  {
-    id: 'plan2',
-    title: 'Hill Country Tea Trail',
-    destination: 'Kandy, Nuwara Eliya & Ella',
-    duration: '4 Days, 3 Nights',
-    created: '2024-07-10',
-    lastModified: '2024-07-18',
-    thumbnail: 'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?w=400',
-    description: 'Journey through misty mountains and tea plantations',
-    places: ['Kandy', 'Nuwara Eliya', 'Ella', 'Haputale'],
-    estimatedBudget: '$380',
-    difficulty: 'Easy',
-    tags: ['Nature', 'Tea', 'Scenic'],
-    isPublic: false,
-    likes: 18,
-    saves: 89,
-  },
-  {
-    id: 'plan3',
-    title: 'Southern Coast Paradise',
-    destination: 'Galle, Mirissa & Tangalle',
-    duration: '6 Days, 5 Nights',
-    created: '2024-07-05',
-    lastModified: '2024-07-16',
-    thumbnail: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=400',
-    description: 'Beach relaxation and whale watching adventure',
-    places: ['Galle', 'Mirissa', 'Tangalle', 'Weligama'],
-    estimatedBudget: '$520',
-    difficulty: 'Easy',
-    tags: ['Beach', 'Wildlife', 'Relaxation'],
-    isPublic: true,
-    likes: 31,
-    saves: 203,
-  },
-];
 
 export default function SavedPlansScreen() {
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [savedPlans, setSavedPlans] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch saved plans on component mount and when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchSavedPlans();
+    }, [])
+  );
+
+  const fetchSavedPlans = async () => {
+    try {
+      setIsLoading(true);
+      const response = await myTripsApi.getTripsByCategory('saved');
+      
+      if (response.success && response.data) {
+        setSavedPlans(response.data.trips || []);
+      }
+    } catch (error) {
+      console.error('Error fetching saved plans:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filters = [
-    { id: 'all', label: 'All Plans', count: 3 },
-    { id: 'public', label: 'Public', count: 2 },
-    { id: 'private', label: 'Private', count: 1 },
+    { id: 'all', label: 'All Plans', count: savedPlans.length },
   ];
 
-  const filteredPlans = SAVED_PLANS.filter(plan => {
-    if (selectedFilter === 'all') return true;
-    if (selectedFilter === 'public') return plan.isPublic;
-    if (selectedFilter === 'private') return !plan.isPublic;
-    return true;
-  });
+  const filteredPlans = savedPlans;
 
   const handlePlanPress = (plan: any) => {
     Alert.alert(
@@ -102,7 +66,7 @@ export default function SavedPlansScreen() {
             // Navigate to itinerary editing
             router.push({
               pathname: '/planning/itinerary',
-              params: { planId: plan.id, mode: 'edit' }
+              params: { itineraryId: plan._id, mode: 'edit' }
             });
           }
         },
@@ -113,8 +77,7 @@ export default function SavedPlansScreen() {
             router.push({
               pathname: '/planning/route-selection',
               params: { 
-                destination: plan.destination,
-                planId: plan.id 
+                itineraryId: plan._id 
               }
             });
           }
@@ -189,32 +152,30 @@ export default function SavedPlansScreen() {
           {plan.description}
         </ThemedText>
 
-        <View style={styles.planTags}>
-          {plan.tags.slice(0, 3).map((tag: string, index: number) => (
-            <View key={index} style={styles.planTag}>
-              <ThemedText style={styles.planTagText}>{tag}</ThemedText>
-            </View>
-          ))}
-        </View>
-
         <View style={styles.planFooter}>
           <View style={styles.planStats}>
             <View style={styles.planStat}>
-              <Ionicons name="heart" size={14} color={Colors.error} />
-              <ThemedText style={styles.planStatText}>{plan.likes}</ThemedText>
+              <Ionicons name="location" size={14} color={Colors.primary600} />
+              <ThemedText style={styles.planStatText}>
+                {plan.placesCount || 0} places
+              </ThemedText>
             </View>
             <View style={styles.planStat}>
-              <Ionicons name="bookmark" size={14} color={Colors.primary600} />
-              <ThemedText style={styles.planStatText}>{plan.saves}</ThemedText>
+              <Ionicons name="calendar" size={14} color={Colors.success} />
+              <ThemedText style={styles.planStatText}>
+                {plan.dayPlansCount || 0} days
+              </ThemedText>
             </View>
-            <View style={styles.planStat}>
-              <Ionicons name="wallet" size={14} color={Colors.success} />
-              <ThemedText style={styles.planStatText}>{plan.estimatedBudget}</ThemedText>
-            </View>
+            {plan.hasRoute && (
+              <View style={styles.planStat}>
+                <Ionicons name="navigate" size={14} color={Colors.success} />
+                <ThemedText style={styles.planStatText}>Route Ready</ThemedText>
+              </View>
+            )}
           </View>
           
           <ThemedText style={styles.planLastModified}>
-            Updated {new Date(plan.lastModified).toLocaleDateString()}
+            Updated {new Date(plan.lastModified || plan.updatedAt).toLocaleDateString()}
           </ThemedText>
         </View>
       </View>
@@ -269,29 +230,36 @@ export default function SavedPlansScreen() {
       </ScrollView>
 
       {/* Plans List */}
-      <FlatList
-        data={filteredPlans}
-        renderItem={renderPlanCard}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.plansList}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="bookmark-outline" size={64} color={Colors.secondary400} />
-            <ThemedText style={styles.emptyStateTitle}>No Saved Plans</ThemedText>
-            <ThemedText style={styles.emptyStateDescription}>
-              Start planning your next adventure and save your itineraries here
-            </ThemedText>
-            <CustomButton
-              title="Create New Plan"
-              variant="primary"
-              size="medium"
-              onPress={() => router.push('/planning')}
-              style={styles.emptyStateButton}
-            />
-          </View>
-        }
-      />
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary600} />
+          <ThemedText style={styles.loadingText}>Loading your saved plans...</ThemedText>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredPlans}
+          renderItem={renderPlanCard}
+          keyExtractor={(item) => item._id}
+          contentContainerStyle={styles.plansList}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="bookmark-outline" size={64} color={Colors.secondary400} />
+              <ThemedText style={styles.emptyStateTitle}>No Saved Plans</ThemedText>
+              <ThemedText style={styles.emptyStateDescription}>
+                Start planning your next adventure and save your itineraries here
+              </ThemedText>
+              <CustomButton
+                title="Create New Plan"
+                variant="primary"
+                size="medium"
+                onPress={() => router.push('/planning')}
+                style={styles.emptyStateButton}
+              />
+            </View>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -501,6 +469,19 @@ const styles = StyleSheet.create({
   planLastModified: {
     fontSize: 12,
     color: Colors.secondary400,
+  },
+
+  // Loading State
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: Colors.secondary600,
   },
 
   // Empty State

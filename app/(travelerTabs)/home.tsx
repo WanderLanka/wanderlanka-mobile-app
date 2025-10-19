@@ -1,22 +1,225 @@
 import * as React from 'react';
 
-import { Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { CustomButton, CustomTextInput, ThemedText } from '../../components';
-import { DestinationCard } from '../../components/DestinationCard';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 
-import { TopBar } from '@/components/TopBar';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
 import { Colors } from '../../constants/Colors';
+import { DestinationCard } from '../../components/DestinationCard';
+import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
+import { TopBar } from '@/components/TopBar';
+import { myTripsApi } from '../../utils/itineraryApi';
+
+const GOOGLE_PLACES_API_KEY = 'AIzaSyDEi9t8bE0Jq1sMlkLpwIL7MrHH02XxVrM';
+
+interface MyTripsData {
+  savedPlans: {
+    count: number;
+    trips: any[];
+  };
+  unfinished: {
+    count: number;
+    trips: any[];
+  };
+  upcoming: {
+    count: number;
+    trips: any[];
+  };
+}
+
+interface Place {
+  type: 'place' | 'activity' | 'guide';
+  name: string;
+  category: string;
+  icon: string;
+  placeId?: string;
+  rating?: number;
+  address?: string;
+}
+
+interface PlaceDetails {
+  name: string;
+  address?: string;
+  rating?: number;
+  types?: string[];
+  photos?: string[];
+  description?: string;
+}
 
 export default function TravelerHomeScreen() {
   const [destination, setDestination] = useState('');
   const [isSearchModalVisible, setIsSearchModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [myTripsData, setMyTripsData] = useState<MyTripsData | null>(null);
+  const [isLoadingTrips, setIsLoadingTrips] = useState(true);
+  const [popularPlaces, setPopularPlaces] = useState<Place[]>([]);
+  const [activities, setActivities] = useState<Place[]>([]);
+  const [isLoadingPlaces, setIsLoadingPlaces] = useState(false);
+  const [selectedPlaceDetails, setSelectedPlaceDetails] = useState<PlaceDetails | null>(null);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const insets = useSafeAreaInsets(); // 👈 to handle status bar space
+
+  // Fetch my trips data when screen focuses
+  useFocusEffect(
+    useCallback(() => {
+      fetchMyTrips();
+    }, [])
+  );
+
+  // Fetch popular places when search modal opens
+  useEffect(() => {
+    if (isSearchModalVisible && popularPlaces.length === 0) {
+      fetchPopularPlaces();
+    }
+  }, [isSearchModalVisible]);
+
+  const fetchMyTrips = async () => {
+    try {
+      setIsLoadingTrips(true);
+      console.log('🔄 Fetching my trips...');
+      const response = await myTripsApi.getMyTrips();
+      
+      if (response.success && response.data) {
+        console.log('✅ My trips loaded:', response.data.summary);
+        setMyTripsData(response.data);
+      }
+    } catch (error: any) {
+      console.error('❌ Error fetching my trips:', error);
+      // Don't show alert for auth errors, user might not be logged in
+      if (error.message && !error.message.includes('auth')) {
+        Alert.alert('Error', 'Failed to load your trips');
+      }
+    } finally {
+      setIsLoadingTrips(false);
+    }
+  };
+
+  const fetchPopularPlaces = async () => {
+    try {
+      setIsLoadingPlaces(true);
+      console.log('🔍 Fetching popular places...');
+      
+      // Use fallback data instead of API for now (API key issue)
+      // TODO: Configure proper Google Places API key or use backend proxy
+      setPopularPlaces([
+        { type: 'place', name: 'Galle Fort', category: 'Historic Site', icon: 'location', placeId: 'galle_fort' },
+        { type: 'place', name: 'Temple of the Tooth', category: 'Religious Site', icon: 'location', placeId: 'kandy_temple' },
+        { type: 'place', name: 'Ella Rock', category: 'Hiking Spot', icon: 'location', placeId: 'ella_rock' },
+        { type: 'place', name: 'Sigiriya Rock Fortress', category: 'Ancient Wonder', icon: 'location', placeId: 'sigiriya' },
+        { type: 'place', name: 'Mirissa Beach', category: 'Beach', icon: 'location', placeId: 'mirissa' },
+        { type: 'place', name: 'Yala National Park', category: 'Wildlife', icon: 'location', placeId: 'yala' },
+      ]);
+      setActivities([
+        { type: 'activity', name: 'Whale Watching', category: 'Adventure', icon: 'boat', placeId: 'whale_watching' },
+        { type: 'activity', name: 'Safari Tour', category: 'Wildlife', icon: 'paw', placeId: 'safari' },
+        { type: 'activity', name: 'Tea Plantation Tours', category: 'Cultural', icon: 'leaf', placeId: 'tea_tours' },
+        { type: 'activity', name: 'Mountain Hiking', category: 'Adventure', icon: 'walk', placeId: 'hiking' },
+        { type: 'activity', name: 'Surfing Lessons', category: 'Water Sports', icon: 'water', placeId: 'surfing' },
+        { type: 'activity', name: 'Photography Tours', category: 'Creative', icon: 'camera', placeId: 'photography' },
+      ]);
+      console.log('✅ Loaded popular places and activities');
+      
+    } catch (error: any) {
+      console.error('❌ Error fetching places:', error);
+    } finally {
+      setIsLoadingPlaces(false);
+    }
+  };
+
+  const fetchPlaceDetails = async (placeName: string, placeId?: string) => {
+    try {
+      setIsLoadingDetails(true);
+      console.log('🔍 Fetching details for:', placeName);
+      
+      // Mock place details - in production, this would call Google Places Details API
+      // or your backend service
+      const mockDetails: { [key: string]: PlaceDetails } = {
+        'galle_fort': {
+          name: 'Galle Fort',
+          address: 'Church Street, Galle 80000, Sri Lanka',
+          rating: 4.6,
+          types: ['Historic Site', 'UNESCO World Heritage'],
+          description: 'A historic fortification first built by the Portuguese, then extensively fortified by the Dutch.',
+        },
+        'kandy_temple': {
+          name: 'Temple of the Tooth',
+          address: 'Sri Dalada Veediya, Kandy 20000, Sri Lanka',
+          rating: 4.7,
+          types: ['Religious Site', 'UNESCO World Heritage'],
+          description: 'Sacred Buddhist temple housing a relic of the tooth of Buddha.',
+        },
+        'sigiriya': {
+          name: 'Sigiriya Rock Fortress',
+          address: 'Sigiriya, Sri Lanka',
+          rating: 4.8,
+          types: ['Ancient Wonder', 'UNESCO World Heritage'],
+          description: 'Ancient rock fortress and palace ruins with stunning frescoes and gardens.',
+        },
+        'mirissa': {
+          name: 'Mirissa Beach',
+          address: 'Mirissa, Sri Lanka',
+          rating: 4.5,
+          types: ['Beach', 'Water Sports'],
+          description: 'Beautiful crescent-shaped beach perfect for swimming, surfing, and whale watching.',
+        },
+        'yala': {
+          name: 'Yala National Park',
+          address: 'Yala, Sri Lanka',
+          rating: 4.6,
+          types: ['Wildlife', 'National Park'],
+          description: 'Sri Lanka\'s most visited national park, known for leopards and elephants.',
+        },
+        'ella_rock': {
+          name: 'Ella Rock',
+          address: 'Ella, Sri Lanka',
+          rating: 4.7,
+          types: ['Hiking', 'Mountain'],
+          description: 'Scenic hiking trail offering panoramic views of tea plantations and valleys.',
+        },
+        'whale_watching': {
+          name: 'Whale Watching Tours',
+          address: 'Mirissa & Trincomalee, Sri Lanka',
+          rating: 4.6,
+          types: ['Adventure', 'Wildlife'],
+          description: 'Experience blue whales and dolphins in their natural habitat.',
+        },
+        'safari': {
+          name: 'Safari Tours',
+          address: 'Yala & Udawalawe National Parks',
+          rating: 4.7,
+          types: ['Wildlife', 'Adventure'],
+          description: 'Guided safari tours to spot leopards, elephants, and diverse wildlife.',
+        },
+        'tea_tours': {
+          name: 'Tea Plantation Tours',
+          address: 'Nuwara Eliya & Ella, Sri Lanka',
+          rating: 4.5,
+          types: ['Cultural', 'Nature'],
+          description: 'Visit working tea estates and learn about Ceylon tea production.',
+        },
+      };
+      
+      // Get details from mock data or create generic details
+      const details = mockDetails[placeId || ''] || {
+        name: placeName,
+        description: `Discover the beauty and culture of ${placeName}. A must-visit destination in Sri Lanka.`,
+        rating: 4.5,
+        types: ['Tourist Attraction'],
+      };
+      
+      setSelectedPlaceDetails(details);
+      console.log('✅ Loaded place details:', details.name);
+      
+    } catch (error: any) {
+      console.error('❌ Error fetching place details:', error);
+      setSelectedPlaceDetails(null);
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
 
   const handleStartPlanning = () => {
     if (destination.trim()) {
@@ -27,6 +230,11 @@ export default function TravelerHomeScreen() {
     } else {
       router.push('/planning/route-selection' as any);
     }
+  };
+
+  const handlePlaceSelect = (placeName: string, placeId?: string) => {
+    setDestination(placeName);
+    fetchPlaceDetails(placeName, placeId);
   };
 
   const openSearchModal = () => {
@@ -99,14 +307,67 @@ export default function TravelerHomeScreen() {
               </Pressable>
             </View>
             
-            <CustomButton
+            {/* <CustomButton
               variant='primary'
               size='medium'
               title="Start Planning"
               style={styles.searchButton}
               onPress={handleStartPlanning}
-            />
+            /> */}
           </View>
+
+          {/* Place Details Section */}
+          {selectedPlaceDetails && (
+            <View style={styles.placeDetailsCard}>
+              <View style={styles.placeDetailsHeader}>
+                <View style={styles.placeDetailsHeaderLeft}>
+                  <Ionicons name="location" size={24} color={Colors.primary600} />
+                  <ThemedText variant="subtitle" style={styles.placeDetailsName}>
+                    {selectedPlaceDetails.name}
+                  </ThemedText>
+                </View>
+                <TouchableOpacity onPress={() => setSelectedPlaceDetails(null)}>
+                  <Ionicons name="close-circle" size={24} color={Colors.secondary400} />
+                </TouchableOpacity>
+              </View>
+
+              {selectedPlaceDetails.rating && (
+                <View style={styles.placeDetailsRating}>
+                  <Ionicons name="star" size={16} color={Colors.warning} />
+                  <ThemedText style={styles.ratingText}>
+                    {selectedPlaceDetails.rating.toFixed(1)}
+                  </ThemedText>
+                </View>
+              )}
+
+              {selectedPlaceDetails.address && (
+                <View style={styles.placeDetailsRow}>
+                  <Ionicons name="pin" size={16} color={Colors.primary600} />
+                  <ThemedText style={styles.placeDetailsAddress}>
+                    {selectedPlaceDetails.address}
+                  </ThemedText>
+                </View>
+              )}
+
+              {selectedPlaceDetails.types && selectedPlaceDetails.types.length > 0 && (
+                <View style={styles.placeDetailsTypes}>
+                  {selectedPlaceDetails.types.map((type, index) => (
+                    <View key={index} style={styles.typeChip}>
+                      <ThemedText style={styles.typeChipText}>{type}</ThemedText>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {selectedPlaceDetails.description && (
+                <ThemedText style={styles.placeDetailsDescription}>
+                  {selectedPlaceDetails.description}
+                </ThemedText>
+              )}
+
+              {/* without */}
+            </View>
+          )}
         </View>
 
         {/* Search Modal */}
@@ -115,9 +376,11 @@ export default function TravelerHomeScreen() {
           animationType="slide"
           presentationStyle="fullScreen"
           onRequestClose={closeSearchModal}
-          statusBarTranslucent={true}
+          statusBarTranslucent={false}
         >
-          <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalContainer}>
+            <StatusBar style="dark" />
+            <View style={[styles.modalStatusBar, { height: insets.top }]} />
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={closeSearchModal} style={styles.closeButton}>
                 <Ionicons name="arrow-back" size={24} color={Colors.primary700} />
@@ -156,8 +419,7 @@ export default function TravelerHomeScreen() {
                       key={index}
                       style={styles.suggestionItem}
                       onPress={() => {
-                        setSearchQuery(suggestion.name);
-                        setDestination(suggestion.name);
+                        handlePlaceSelect(suggestion.name, suggestion.type);
                         closeSearchModal();
                       }}
                     >
@@ -183,40 +445,50 @@ export default function TravelerHomeScreen() {
                 
                 <View style={styles.categorySection}>
                   <ThemedText style={styles.categoryTitle}>Popular Places</ThemedText>
-                  <View style={styles.popularGrid}>
-                    {['Galle', 'Kandy', 'Ella', 'Sigiriya', 'Mirissa', 'Yala'].map((place, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        style={styles.popularItem}
-                        onPress={() => {
-                          setSearchQuery(place);
-                          setDestination(place);
-                          closeSearchModal();
-                        }}
-                      >
-                        <ThemedText style={styles.popularItemText}>{place}</ThemedText>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+                  {isLoadingPlaces ? (
+                    <View style={styles.loadingContainer}>
+                      <ThemedText style={styles.loadingText}>Loading places...</ThemedText>
+                    </View>
+                  ) : (
+                    <View style={styles.popularGrid}>
+                      {popularPlaces.map((place, index) => (
+                        <TouchableOpacity
+                          key={index}
+                          style={styles.popularItem}
+                          onPress={() => {
+                            handlePlaceSelect(place.name, place.placeId);
+                            closeSearchModal();
+                          }}
+                        >
+                          <ThemedText style={styles.popularItemText}>{place.name}</ThemedText>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
                 </View>
 
                 <View style={styles.categorySection}>
                   <ThemedText style={styles.categoryTitle}>Activities</ThemedText>
-                  <View style={styles.popularGrid}>
-                    {['Whale Watching', 'Safari', 'Tea Tours', 'Hiking', 'Surfing', 'Photography'].map((activity, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        style={[styles.popularItem, {backgroundColor: Colors.secondary100}]}
-                        onPress={() => {
-                          setSearchQuery(activity);
-                          setDestination(activity);
-                          closeSearchModal();
-                        }}
-                      >
-                        <ThemedText style={styles.popularItemText}>{activity}</ThemedText>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+                  {isLoadingPlaces ? (
+                    <View style={styles.loadingContainer}>
+                      <ThemedText style={styles.loadingText}>Loading activities...</ThemedText>
+                    </View>
+                  ) : (
+                    <View style={styles.popularGrid}>
+                      {activities.map((activity, index) => (
+                        <TouchableOpacity
+                          key={index}
+                          style={[styles.popularItem, {backgroundColor: Colors.secondary100}]}
+                          onPress={() => {
+                            handlePlaceSelect(activity.name, activity.placeId);
+                            closeSearchModal();
+                          }}
+                        >
+                          <ThemedText style={styles.popularItemText}>{activity.name}</ThemedText>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
                 </View>
 
                 <View style={styles.categorySection}>
@@ -239,7 +511,7 @@ export default function TravelerHomeScreen() {
                 </View>
               </View>
             </ScrollView>
-          </SafeAreaView>
+          </View>
         </Modal>
 
         {/* Destination Discovery Carousels */}
@@ -345,58 +617,89 @@ export default function TravelerHomeScreen() {
           </View>
         </View>
         
-        {/* Personalized Elements (mocked as logged in) */}
+        {/* Personalized Elements - My Trips */}
         <View style={styles.personalSection}>
           <View style={styles.sectionHeaderWithDescription}>
             <ThemedText variant="subtitle" style={styles.sectionTitle}>My Trips</ThemedText>
             <ThemedText style={styles.sectionDescription}>Your travel memories and plans</ThemedText>
           </View>
-          <View style={styles.personalContainer}>
-            <TouchableOpacity 
-              style={styles.personalCard}
-              onPress={() => router.push('/myTrips/saved-plans' as any)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.personalIconContainer, { backgroundColor: Colors.primary100 }]}>
-                <Ionicons name="bookmark" size={28} color={Colors.primary600} />
-              </View>
-              <ThemedText style={styles.personalTitle}>Saved Plans</ThemedText>
-              <ThemedText style={styles.personalDesc}>3 itineraries</ThemedText>
-              <View style={styles.personalBadge}>
-                <ThemedText style={styles.personalBadgeText}>Ready to use</ThemedText>
-              </View>
-            </TouchableOpacity>
+          
+          {isLoadingTrips ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.primary600} />
+              <ThemedText style={styles.loadingText}>Loading your trips...</ThemedText>
+            </View>
+          ) : myTripsData ? (
+            <View style={styles.personalContainer}>
+              {/* Saved Plans Card */}
+              <TouchableOpacity 
+                style={styles.personalCard}
+                onPress={() => router.push('/myTrips/saved-plans' as any)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.personalIconContainer, { backgroundColor: Colors.primary100 }]}>
+                  <Ionicons name="bookmark" size={28} color={Colors.primary600} />
+                </View>
+                <ThemedText style={styles.personalTitle}>Saved Plans</ThemedText>
+                <ThemedText style={styles.personalDesc}>
+                  {myTripsData.savedPlans.count} {myTripsData.savedPlans.count === 1 ? 'itinerary' : 'itineraries'}
+                </ThemedText>
+                <View style={styles.personalBadge}>
+                  <ThemedText style={styles.personalBadgeText}>Ready to use</ThemedText>
+                </View>
+              </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.personalCard}
-              onPress={() => router.push('/myTrips/unfinished' as any)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.personalIconContainer, { backgroundColor: Colors.warning + '20' }]}>
-                <Ionicons name="document" size={28} color={Colors.warning} />
-              </View>
-              <ThemedText style={styles.personalTitle}>Unfinished</ThemedText>
-              <ThemedText style={styles.personalDesc}>2 drafts</ThemedText>
-              <View style={[styles.personalBadge, { backgroundColor: Colors.warning + '20' }]}>
-                <ThemedText style={[styles.personalBadgeText, { color: Colors.warning }]}>Continue</ThemedText>
-              </View>
-            </TouchableOpacity>
+              {/* Unfinished Trips Card */}
+              <TouchableOpacity 
+                style={styles.personalCard}
+                onPress={() => router.push('/myTrips/unfinished' as any)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.personalIconContainer, { backgroundColor: Colors.warning + '20' }]}>
+                  <Ionicons name="document" size={28} color={Colors.warning} />
+                </View>
+                <ThemedText style={styles.personalTitle}>Unfinished</ThemedText>
+                <ThemedText style={styles.personalDesc}>
+                  {myTripsData.unfinished.count} {myTripsData.unfinished.count === 1 ? 'draft' : 'drafts'}
+                </ThemedText>
+                <View style={[styles.personalBadge, { backgroundColor: Colors.warning + '20' }]}>
+                  <ThemedText style={[styles.personalBadgeText, { color: Colors.warning }]}>
+                    {myTripsData.unfinished.count > 0 && myTripsData.unfinished.trips[0]
+                      ? `${myTripsData.unfinished.trips[0].completionPercentage}%`
+                      : 'Continue'}
+                  </ThemedText>
+                </View>
+              </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.personalCard}
-              onPress={() => router.push('/myTrips/upcoming' as any)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.personalIconContainer, { backgroundColor: Colors.success + '20' }]}>
-                <Ionicons name="airplane" size={28} color={Colors.success} />
-              </View>
-              <ThemedText style={styles.personalTitle}>Upcoming</ThemedText>
-              <ThemedText style={styles.personalDesc}>1 trip</ThemedText>
-              <View style={[styles.personalBadge, { backgroundColor: Colors.success + '20' }]}>
-                <ThemedText style={[styles.personalBadgeText, { color: Colors.success }]}>22 days</ThemedText>
-              </View>
-            </TouchableOpacity>
-          </View>
+              {/* Upcoming Trips Card */}
+              <TouchableOpacity 
+                style={styles.personalCard}
+                onPress={() => router.push('/myTrips/upcoming' as any)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.personalIconContainer, { backgroundColor: Colors.success + '20' }]}>
+                  <Ionicons name="airplane" size={28} color={Colors.success} />
+                </View>
+                <ThemedText style={styles.personalTitle}>Upcoming</ThemedText>
+                <ThemedText style={styles.personalDesc}>
+                  {myTripsData.upcoming.count} {myTripsData.upcoming.count === 1 ? 'trip' : 'trips'}
+                </ThemedText>
+                <View style={[styles.personalBadge, { backgroundColor: Colors.success + '20' }]}>
+                  <ThemedText style={[styles.personalBadgeText, { color: Colors.success }]}>
+                    {myTripsData.upcoming.count > 0 && myTripsData.upcoming.trips[0]
+                      ? `${myTripsData.upcoming.trips[0].daysUntilStart} days`
+                      : 'None'}
+                  </ThemedText>
+                </View>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="map-outline" size={48} color={Colors.secondary400} />
+              <ThemedText style={styles.emptyText}>No trips yet</ThemedText>
+              <ThemedText style={styles.emptySubtext}>Start planning your adventure!</ThemedText>
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -704,6 +1007,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.secondary50,
   },
 
+  modalStatusBar: {
+    backgroundColor: Colors.white,
+  },
+
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -849,6 +1156,137 @@ const styles = StyleSheet.create({
   searchPlaceholder: {
     flex: 1,
     fontSize: 16,
+  },
+
+  // Loading state styles
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: Colors.primary600,
+  },
+
+  // Empty state styles
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    marginHorizontal: 20,
+  },
+
+  emptyText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.primary700,
+  },
+
+  emptySubtext: {
+    marginTop: 4,
+    fontSize: 14,
+    color: Colors.secondary400,
+  },
+
+  // Place details card styles
+  placeDetailsCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 20,
+    padding: 20,
+    marginTop: 16,
+    shadowColor: Colors.primary700,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+
+  placeDetailsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+
+  placeDetailsHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+
+  placeDetailsName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.primary800,
+    marginLeft: 8,
+    flex: 1,
+  },
+
+  placeDetailsRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+
+  ratingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primary700,
+    marginLeft: 6,
+  },
+
+  placeDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+
+  placeDetailsAddress: {
+    fontSize: 13,
+    color: Colors.primary600,
+    marginLeft: 8,
+    flex: 1,
+    lineHeight: 18,
+  },
+
+  placeDetailsTypes: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+
+  typeChip: {
+    backgroundColor: Colors.primary100,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+
+  typeChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.primary700,
+  },
+
+  placeDetailsDescription: {
+    fontSize: 14,
+    color: Colors.primary700,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+
+  planTripButton: {
+    alignSelf: 'stretch',
+    backgroundColor: Colors.primary600,
+    borderRadius: 16,
   },
 });
 

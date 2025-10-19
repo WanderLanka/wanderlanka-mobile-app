@@ -434,6 +434,21 @@ export default function ItineraryPlanningScreen() {
       return;
     }
 
+    // Recalculate routes with the updated day plans (including all waypoints)
+    console.log('🗺️  Recalculating routes with all waypoints...');
+    try {
+      const { routeApi } = require('../../../utils/itineraryApi');
+      const routeResponse = await routeApi.calculateRoutes(itinerary._id);
+      if (routeResponse.success) {
+        console.log('✅ Routes recalculated with waypoints');
+      } else {
+        console.warn('⚠️  Route recalculation failed, but continuing:', routeResponse.message);
+      }
+    } catch (routeError: any) {
+      console.error('❌ Route recalculation error:', routeError.message);
+      // Don't block navigation - routes can be calculated later
+    }
+
     // Navigate to route display
     router.push({
       pathname: '/planning/route-display',

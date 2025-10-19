@@ -13,7 +13,7 @@ const getApiGatewayUrl = () => {
   const fallbackUrl = Platform.select({
     ios: 'http://localhost:3000',
     android: 'http://10.0.2.2:3000', // Android emulator localhost
-    default: 'http://192.168.8.159:3000' // Physical device - updated with current IP
+    default: 'http://10.21.140.73:3000' // Physical device - updated with current IP
   });
   
   console.log('🌐 Using fallback API Gateway URL:', fallbackUrl);
@@ -40,7 +40,7 @@ async function getAuthToken(): Promise<string | null> {
  */
 async function apiRequest(
   endpoint: string,
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' = 'GET',
   body?: any,
   requiresAuth: boolean = true
 ): Promise<any> {
@@ -70,12 +70,12 @@ async function apiRequest(
       // Add timeout to prevent hanging requests
     };
 
-    if (body && (method === 'POST' || method === 'PUT')) {
+    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
       config.body = JSON.stringify(body);
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout (increased for slow queries)
 
     try {
       const response = await fetch(`${API_GATEWAY_URL}${endpoint}`, {
@@ -282,7 +282,47 @@ export const routeApi = {
   },
 };
 
+/**
+ * My Trips API
+ */
+export const myTripsApi = {
+  /**
+   * Get all trips categorized (saved, unfinished, upcoming)
+   */
+  getMyTrips: async () => {
+    return apiRequest('/api/my-trips/summary', 'GET', undefined, true);
+  },
+
+  /**
+   * Get trips by specific category
+   * @param category - 'saved', 'unfinished', or 'upcoming'
+   */
+  getTripsByCategory: async (category: 'saved' | 'unfinished' | 'upcoming') => {
+    return apiRequest(`/api/my-trips/${category}`, 'GET', undefined, true);
+  },
+
+  /**
+   * Get detailed information for a specific trip
+   * @param tripId - The ID of the trip
+   */
+  getTripDetails: async (tripId: string) => {
+    return apiRequest(`/api/my-trips/trip/${tripId}`, 'GET', undefined, true);
+  },
+
+  /**
+   * Toggle checklist item completion status
+   * @param tripId - The ID of the trip
+   * @param itemId - The ID of the checklist item
+   * @param completed - Optional: specify completed state (true/false), otherwise toggles
+   */
+  toggleChecklistItem: async (tripId: string, itemId: string, completed?: boolean) => {
+    const body = completed !== undefined ? { completed } : {};
+    return apiRequest(`/api/my-trips/trip/${tripId}/checklist/${itemId}`, 'PATCH', body, true);
+  },
+};
+
 export default {
   itineraryApi,
   routeApi,
+  myTripsApi,
 };

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   FlatList,
@@ -9,56 +9,43 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { CustomButton, ThemedText } from '../../components';
+import React, { useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+
 import { Colors } from '../../constants/Colors';
+import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { myTripsApi } from '../../utils/itineraryApi';
 
 const { width } = Dimensions.get('window');
 
-// Mock data for upcoming trips
-const UPCOMING_TRIPS = [
-  {
-    id: 'trip1',
-    title: 'Kandy Cultural Heritage Tour',
-    destination: 'Kandy, Central Province',
-    startDate: '2024-08-15',
-    endDate: '2024-08-18',
-    daysUntil: 22,
-    thumbnail: 'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?w=400',
-    status: 'confirmed',
-    totalBudget: '$485',
-    spentAmount: '$485',
-    travelers: 2,
-    itinerary: {
-      days: 4,
-      places: ['Temple of the Tooth', 'Royal Botanical Gardens', 'Kandy Lake', 'Cultural Show'],
-      activities: 8,
-    },
-    bookings: {
-      accommodation: { confirmed: true, name: 'Earl\'s Regency Hotel', checkIn: '2024-08-15', checkOut: '2024-08-18' },
-      transport: { confirmed: true, type: 'Private Car', pickup: '2024-08-15 09:00' },
-      guides: { confirmed: true, name: 'Saman Perera', contact: '+94 77 123 4567' },
-    },
-    weather: {
-      condition: 'Partly Cloudy',
-      temperature: '24°C - 28°C',
-      precipitation: '20%',
-    },
-    documents: {
-      eTickets: ['flight_boarding_pass.pdf', 'hotel_confirmation.pdf'],
-      vouchers: ['transport_voucher.pdf', 'guide_booking.pdf'],
-    },
-    reminders: [
-      { type: 'packing', message: 'Start packing checklist', dueDate: '2024-08-13' },
-      { type: 'documents', message: 'Print travel documents', dueDate: '2024-08-14' },
-    ],
-  },
-];
-
 export default function UpcomingTripsScreen() {
   const [selectedTab, setSelectedTab] = useState<'overview' | 'details' | 'checklist'>('overview');
+  const [upcomingTrips, setUpcomingTrips] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch upcoming trips on component mount and when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchUpcomingTrips();
+    }, [])
+  );
+
+  const fetchUpcomingTrips = async () => {
+    try {
+      setIsLoading(true);
+      const response = await myTripsApi.getTripsByCategory('upcoming');
+      
+      if (response.success && response.data) {
+        setUpcomingTrips(response.data.trips || []);
+      }
+    } catch (error) {
+      console.error('Error fetching upcoming trips:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const getDaysUntilTrip = (startDate: string) => {
     const today = new Date();
@@ -90,7 +77,7 @@ export default function UpcomingTripsScreen() {
     // Navigate to detailed trip view
     router.push({
       pathname: '/myTrips/trip-details' as any,
-      params: { tripId: trip.id }
+      params: { tripId: trip._id }
     });
   };
 
@@ -123,7 +110,7 @@ export default function UpcomingTripsScreen() {
             router.push({
               pathname: '/planning/route-selection' as any,
               params: { 
-                tripId: trip.id,
+                tripId: trip._id,
                 mode: 'modify',
                 action: 'dates'
               }
@@ -131,13 +118,13 @@ export default function UpcomingTripsScreen() {
           }
         },
         { 
-          text: 'Edit Bookings', 
+          text: 'Edit Itinerary', 
           onPress: () => {
             router.push({
-              pathname: '/planning/booking' as any,
+              pathname: '/planning/itinerary' as any,
               params: { 
-                tripId: trip.id,
-                mode: 'modify'
+                itineraryId: trip._id,
+                mode: 'edit'
               }
             });
           }
@@ -190,7 +177,7 @@ export default function UpcomingTripsScreen() {
                 [
                   { text: 'Cancel', style: 'cancel' },
                   { text: 'Modify Trip', onPress: () => handleModifyTrip(trip) },
-                  { text: 'Cancel Trip', style: 'destructive', onPress: () => handleCancelTrip(trip.id) },
+                  { text: 'Cancel Trip', style: 'destructive', onPress: () => handleCancelTrip(trip._id) },
                 ]
               );
             }}
@@ -206,7 +193,7 @@ export default function UpcomingTripsScreen() {
             {new Date(trip.startDate).toLocaleDateString()} - {new Date(trip.endDate).toLocaleDateString()}
           </ThemedText>
           <ThemedText style={styles.tripDuration}>
-            ({trip.itinerary.days} days)
+            ({trip.tripDuration || trip.dayPlansCount || 0} days)
           </ThemedText>
         </View>
 
@@ -214,63 +201,49 @@ export default function UpcomingTripsScreen() {
         <View style={styles.quickStats}>
           <View style={styles.statItem}>
             <Ionicons name="location" size={14} color={Colors.secondary500} />
-            <ThemedText style={styles.statText}>{trip.itinerary.places.length} places</ThemedText>
+            <ThemedText style={styles.statText}>{trip.placesCount || 0} places</ThemedText>
           </View>
           <View style={styles.statItem}>
-            <Ionicons name="compass" size={14} color={Colors.secondary500} />
-            <ThemedText style={styles.statText}>{trip.itinerary.activities} activities</ThemedText>
+            <Ionicons name="calendar" size={14} color={Colors.secondary500} />
+            <ThemedText style={styles.statText}>{trip.dayPlansCount || 0} days</ThemedText>
           </View>
-          <View style={styles.statItem}>
-            <Ionicons name="people" size={14} color={Colors.secondary500} />
-            <ThemedText style={styles.statText}>{trip.travelers} travelers</ThemedText>
-          </View>
-          <View style={styles.statItem}>
-            <Ionicons name="wallet" size={14} color={Colors.success} />
-            <ThemedText style={styles.statText}>{trip.totalBudget}</ThemedText>
-          </View>
+          {trip.hasRoute && (
+            <View style={styles.statItem}>
+              <Ionicons name="navigate" size={14} color={Colors.success} />
+              <ThemedText style={styles.statText}>Route Ready</ThemedText>
+            </View>
+          )}
+          {trip.selectedRoute && (
+            <View style={styles.statItem}>
+              <Ionicons name="wallet" size={14} color={Colors.success} />
+              <ThemedText style={styles.statText}>LKR {trip.selectedRoute.estimatedCost || 0}</ThemedText>
+            </View>
+          )}
         </View>
 
-        {/* Booking Status */}
-        <View style={styles.bookingStatus}>
-          <ThemedText style={styles.bookingStatusTitle}>Booking Status</ThemedText>
-          <View style={styles.bookingItems}>
-            <View style={styles.bookingItem}>
-              <Ionicons 
-                name={trip.bookings.accommodation.confirmed ? "checkmark-circle" : "time"} 
-                size={12} 
-                color={trip.bookings.accommodation.confirmed ? Colors.success : Colors.warning} 
-              />
-              <ThemedText style={styles.bookingItemText}>Accommodation</ThemedText>
+        {/* Trip Route Info */}
+        {trip.selectedRoute && (
+          <View style={styles.routeInfo}>
+            <View style={styles.routeHeader}>
+              <Ionicons name="navigate" size={16} color={Colors.primary600} />
+              <ThemedText style={styles.routeTitle}>{trip.selectedRoute.routeName}</ThemedText>
             </View>
-            <View style={styles.bookingItem}>
-              <Ionicons 
-                name={trip.bookings.transport.confirmed ? "checkmark-circle" : "time"} 
-                size={12} 
-                color={trip.bookings.transport.confirmed ? Colors.success : Colors.warning} 
-              />
-              <ThemedText style={styles.bookingItemText}>Transport</ThemedText>
-            </View>
-            <View style={styles.bookingItem}>
-              <Ionicons 
-                name={trip.bookings.guides.confirmed ? "checkmark-circle" : "time"} 
-                size={12} 
-                color={trip.bookings.guides.confirmed ? Colors.success : Colors.warning} 
-              />
-              <ThemedText style={styles.bookingItemText}>Guide</ThemedText>
+            <View style={styles.routeDetails}>
+              <View style={styles.routeDetail}>
+                <Ionicons name="speedometer" size={12} color={Colors.secondary500} />
+                <ThemedText style={styles.routeDetailText}>
+                  {trip.selectedRoute.totalDistance} km
+                </ThemedText>
+              </View>
+              <View style={styles.routeDetail}>
+                <Ionicons name="time" size={12} color={Colors.secondary500} />
+                <ThemedText style={styles.routeDetailText}>
+                  {trip.selectedRoute.estimatedDuration}
+                </ThemedText>
+              </View>
             </View>
           </View>
-        </View>
-
-        {/* Weather Preview */}
-        <View style={styles.weatherPreview}>
-          <View style={styles.weatherHeader}>
-            <Ionicons name="partly-sunny" size={16} color={Colors.warning} />
-            <ThemedText style={styles.weatherTitle}>Weather Forecast</ThemedText>
-          </View>
-          <ThemedText style={styles.weatherText}>
-            {trip.weather.condition} • {trip.weather.temperature} • {trip.weather.precipitation} rain
-          </ThemedText>
-        </View>
+        )}
 
         {/* Action Buttons */}
         <View style={styles.actionButtons}>
@@ -282,13 +255,13 @@ export default function UpcomingTripsScreen() {
             style={styles.actionButton}
           />
           <CustomButton
-            title="Start Checklist"
+            title="Manage Trip"
             variant="primary"
             size="small"
             onPress={() => {
               router.push({
-                pathname: '/myTrips/checklist' as any,
-                params: { tripId: trip.id }
+                pathname: '/planning/itinerary',
+                params: { itineraryId: trip._id }
               });
             }}
             style={styles.actionButton}
@@ -311,7 +284,7 @@ export default function UpcomingTripsScreen() {
         <View style={styles.headerCenter}>
           <ThemedText style={styles.headerTitle}>Upcoming Trips</ThemedText>
           <ThemedText style={styles.headerSubtitle}>
-            {UPCOMING_TRIPS.length} trip{UPCOMING_TRIPS.length !== 1 ? 's' : ''} planned
+            {upcomingTrips.length} trip{upcomingTrips.length !== 1 ? 's' : ''} planned
           </ThemedText>
         </View>
         <TouchableOpacity style={styles.headerAction}>
@@ -320,18 +293,24 @@ export default function UpcomingTripsScreen() {
       </View>
 
       {/* Trips List */}
-      <FlatList
-        data={UPCOMING_TRIPS}
-        renderItem={renderTripCard}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.tripsList}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="airplane-outline" size={64} color={Colors.secondary400} />
-            <ThemedText style={styles.emptyStateTitle}>No Upcoming Trips</ThemedText>
-            <ThemedText style={styles.emptyStateDescription}>
-              Plan your next adventure and see your confirmed trips here
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary600} />
+          <ThemedText style={styles.loadingText}>Loading your upcoming trips...</ThemedText>
+        </View>
+      ) : (
+        <FlatList
+          data={upcomingTrips}
+          renderItem={renderTripCard}
+          keyExtractor={(item) => item._id}
+          contentContainerStyle={styles.tripsList}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="airplane-outline" size={64} color={Colors.secondary400} />
+              <ThemedText style={styles.emptyStateTitle}>No Upcoming Trips</ThemedText>
+              <ThemedText style={styles.emptyStateDescription}>
+                Plan your next adventure and see your confirmed trips here
             </ThemedText>
             <CustomButton
               title="Plan New Trip"
@@ -341,8 +320,9 @@ export default function UpcomingTripsScreen() {
               style={styles.emptyStateButton}
             />
           </View>
-        }
-      />
+          }
+        />
+      )}
 
       {/* Quick Actions FAB */}
       <TouchableOpacity 
@@ -539,29 +519,34 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // Booking Status
-  bookingStatus: {
-    backgroundColor: Colors.secondary50,
+  // Route Info
+  routeInfo: {
+    backgroundColor: Colors.primary100,
     padding: 12,
     borderRadius: 12,
     marginBottom: 16,
   },
-  bookingStatusTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.secondary700,
+  routeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginBottom: 8,
   },
-  bookingItems: {
-    flexDirection: 'row',
-    gap: 20,
+  routeTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primary700,
   },
-  bookingItem: {
+  routeDetails: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  routeDetail: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  bookingItemText: {
+  routeDetailText: {
     fontSize: 12,
     color: Colors.secondary600,
     fontWeight: '500',
@@ -597,6 +582,19 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+  },
+
+  // Loading State
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: Colors.secondary600,
   },
 
   // Empty State
