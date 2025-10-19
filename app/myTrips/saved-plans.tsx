@@ -10,12 +10,12 @@ import {
   View,
 } from 'react-native';
 import { CustomButton, ThemedText } from '../../components';
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
 
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useFocusEffect } from 'expo-router';
 import { myTripsApi } from '../../utils/itineraryApi';
 
 const { width } = Dimensions.get('window');

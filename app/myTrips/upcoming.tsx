@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -10,11 +9,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
 import { CustomButton, ThemedText } from '../../components';
+import React, { useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+
 import { Colors } from '../../constants/Colors';
+import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { myTripsApi } from '../../utils/itineraryApi';
 
 const { width } = Dimensions.get('window');

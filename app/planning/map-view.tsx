@@ -1,18 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
 import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
   Alert,
   Animated,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
+import React, { useEffect, useRef, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import { Ionicons } from '@expo/vector-icons';
-import { ThemedText } from '../../components';
+
 import { Colors } from '../../constants/Colors';
+import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ThemedText } from '../../components';
 import { myTripsApi } from '../../utils/itineraryApi';
 
 const GOOGLE_DIRECTIONS_API_KEY = 'AIzaSyDEi9t8bE0Jq1sMlkLpwIL7MrHH02XxVrM';
