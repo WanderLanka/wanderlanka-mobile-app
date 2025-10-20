@@ -147,7 +147,18 @@ export default function BookingsScreen() {
   };
 
   const renderBookingCard = (booking: CalendarBooking) => {
-    const backendStatus = items.find(it => String(it._id) === String(booking.id))?.status;
+    // Extract the actual booking ID (remove date suffix like :2025-11-01)
+    const actualBookingId = booking.id.split(':')[0];
+    
+    // Find the backend item using the actual booking ID
+    const backendItem = items.find(it => String(it._id) === actualBookingId);
+    const backendStatus = backendItem?.status;
+    
+    // Get client info from backend item if available
+    const backendAny = backendItem as any;
+    const clientName = backendAny?.guestDetails?.fullName || backendAny?.contactInfo?.name || booking.clientName;
+    const clientEmail = backendAny?.guestDetails?.email || backendAny?.contactInfo?.email || booking.clientEmail;
+    
     const statusPill = (() => {
       switch (backendStatus) {
         case 'approved':
@@ -162,19 +173,28 @@ export default function BookingsScreen() {
           return undefined;
       }
     })();
-    const disabled = actingId === booking.id;
+    const disabled = actingId === actualBookingId;
+    
+    // Debug logging for troubleshooting
+    if (!backendStatus) {
+      console.log('⚠️ No backend status found for booking:', {
+        displayId: booking.id,
+        actualId: actualBookingId,
+        availableIds: items.map(it => String(it._id))
+      });
+    }
 
     return (<View key={booking.id} style={styles.bookingCard}>
       <View style={styles.bookingHeader}>
         <View style={styles.clientInfo}>
           <View style={styles.clientAvatar}>
             <Text style={styles.clientInitial}>
-              {booking.clientName.charAt(0).toUpperCase()}
+              {clientName.charAt(0).toUpperCase()}
             </Text>
           </View>
           <View style={styles.clientDetails}>
-            <Text style={styles.clientName}>{booking.clientName}</Text>
-            <Text style={styles.clientEmail}>{booking.clientEmail}</Text>
+            <Text style={styles.clientName}>{clientName}</Text>
+            {clientEmail && <Text style={styles.clientEmail}>{clientEmail}</Text>}
           </View>
         </View>
         <View style={styles.bookingAmount}>
@@ -224,7 +244,7 @@ export default function BookingsScreen() {
           <>
             <TouchableOpacity 
               style={[styles.actionButton, styles.approveButton, disabled && styles.actionButtonDisabled]}
-              onPress={() => handleBookingAction(booking.id, 'approve')}
+              onPress={() => handleBookingAction(actualBookingId, 'approve')}
               disabled={disabled}
             >
               <Ionicons name="checkmark" size={18} color={Colors.white} />
@@ -232,7 +252,7 @@ export default function BookingsScreen() {
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.actionButton, styles.declineButton, disabled && styles.actionButtonDisabled]}
-              onPress={() => handleBookingAction(booking.id, 'decline')}
+              onPress={() => handleBookingAction(actualBookingId, 'decline')}
               disabled={disabled}
             >
               <Ionicons name="close" size={18} color={Colors.error} />
@@ -243,7 +263,7 @@ export default function BookingsScreen() {
           <>
             <TouchableOpacity 
               style={[styles.actionButton, styles.declineButton, disabled && styles.actionButtonDisabled]}
-              onPress={() => handleBookingAction(booking.id, 'decline')}
+              onPress={() => handleBookingAction(actualBookingId, 'decline')}
               disabled={disabled}
             >
               <Ionicons name="close" size={18} color={Colors.error} />
@@ -251,16 +271,28 @@ export default function BookingsScreen() {
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.actionButton, styles.contactButton]}
-              onPress={() => handleBookingAction(booking.id, 'contact')}
+              onPress={() => handleBookingAction(actualBookingId, 'contact')}
             >
               <Ionicons name="chatbubble" size={18} color={Colors.primary600} />
               <Text style={styles.contactButtonText}>Contact Client</Text>
             </TouchableOpacity>
           </>
+        ) : backendStatus === 'confirmed' ? (
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.contactButton]}
+            onPress={() => handleBookingAction(actualBookingId, 'contact')}
+          >
+            <Ionicons name="chatbubble" size={18} color={Colors.primary600} />
+            <Text style={styles.contactButtonText}>Contact Client</Text>
+          </TouchableOpacity>
+        ) : backendStatus === 'cancelled' ? (
+          <View style={styles.cancelledMessage}>
+            <Text style={styles.cancelledText}>This booking has been cancelled</Text>
+          </View>
         ) : (
           <TouchableOpacity 
             style={[styles.actionButton, styles.contactButton]}
-            onPress={() => handleBookingAction(booking.id, 'contact')}
+            onPress={() => handleBookingAction(actualBookingId, 'contact')}
           >
             <Ionicons name="chatbubble" size={18} color={Colors.primary600} />
             <Text style={styles.contactButtonText}>Contact Client</Text>
@@ -678,5 +710,20 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
     lineHeight: 20,
+  },
+
+  cancelledMessage: {
+    flex: 1,
+    padding: 12,
+    backgroundColor: Colors.light100,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  cancelledText: {
+    fontSize: 14,
+    color: Colors.secondary500,
+    fontStyle: 'italic',
   },
 });

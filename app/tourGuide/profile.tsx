@@ -432,8 +432,9 @@ export default function ProfileScreen() {
             <View style={styles.headerTop}>
               <Text style={styles.headerTitle}>Profile</Text>
             </View>
+          </View>
             
-            <View style={styles.profileCard}>
+          <View style={styles.profileCard}>
               <View style={styles.avatarSection}>
                 <ProfileAvatar
                   imageUri={guideData?.details?.avatar ? toAbsoluteImageUrl(guideData.details.avatar) : null}
@@ -514,7 +515,6 @@ export default function ProfileScreen() {
                 <Text style={styles.editProfileText}>Edit Profile</Text>
               </TouchableOpacity>
             </View>
-          </View>
 
           {/* Guide Information */}
           <ProfileSection title="Guide Information">
@@ -626,7 +626,7 @@ export default function ProfileScreen() {
             </Text>
             <Text style={styles.versionText}>WanderLanka v1.0.0</Text>
           </View>
-        </ScrollView>
+          </ScrollView>
       )}
 
       {/* Delete Account Modal */}

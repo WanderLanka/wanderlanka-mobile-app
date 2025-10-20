@@ -41,14 +41,14 @@ function resolveDevBaseUrl(): string {
 
   const isLanIp = inferredHost ? /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(inferredHost) : false;
   if (isLanIp && inferredHost) {
-    return `http://${inferredHost}:3000`;
+    return `http://${inferredHost}:3001`;
   }
 
   // Android emulator special hostname
-  if (Platform.OS === 'android') return 'http://10.0.2.2:3000';
+  if (Platform.OS === 'android') return 'http://10.0.2.2:3001';
 
   // iOS simulator or unknown: localhost
-  return 'http://localhost:3000';
+  return 'http://localhost:3001';
 }
 
 const DEV_BASE_URL = resolveDevBaseUrl();
