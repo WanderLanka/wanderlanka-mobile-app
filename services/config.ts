@@ -3,7 +3,7 @@
  */
 export const config = {
   // BASE_URL reads from .env file (EXPO_PUBLIC_API_BASE_URL) or falls back to hardcoded IP
-  BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || (__DEV__ ? 'http://192.168.1.41:3000' : 'https://your-production-api.com'),
+  BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || (__DEV__ ? 'http://192.168.1.37:3000' : 'https://your-production-api.com'),
   ENDPOINTS: {
     AUTH: '/api/auth', // Gateway namespace for auth endpoints
     HEALTH: '/health',

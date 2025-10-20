@@ -1,14 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
-import { Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CustomButton, CustomTextInput, ServicesTopBar, ThemedText } from '../../components';
 import { ItemCard } from '../../components/ItemCard';
 import { Colors } from '../../constants/Colors';
+import { AccommodationApiService, Accommodation, AccommodationFilters } from '../../services/accommodationApi';
 
 export default function AccomodationHomeScreen() {
   const insets = useSafeAreaInsets();
+  
+  // API data state
+  const [accommodations, setAccommodations] = useState<Accommodation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  
   // Modal and filter state
   const [filterVisible, setFilterVisible] = useState(false);
   const [minPrice, setMinPrice] = useState('');
@@ -16,7 +24,58 @@ export default function AccomodationHomeScreen() {
   const [location, setLocation] = useState('');
   const [minRating, setMinRating] = useState(0);
   const [propertyTypes, setPropertyTypes] = useState<string[]>([]);
-  const propertyTypeOptions = ['Hotel', 'Villa', 'Guest House', 'Hostel', 'Apartment'];
+  const propertyTypeOptions = ['hotel', 'resort', 'guesthouse', 'homestay'];
+
+  // Fetch accommodations from API
+  const fetchAccommodations = async (filters?: AccommodationFilters) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🏨 Fetching accommodations...');
+      const response = await AccommodationApiService.getAllAccommodations();
+      
+      if (response.success && response.data) {
+        setAccommodations(response.data);
+        console.log('✅ Accommodations loaded:', response.data.length);
+      } else {
+        throw new Error(response.message || 'Failed to fetch accommodations');
+      }
+    } catch (err: any) {
+      console.error('❌ Error fetching accommodations:', err);
+      setError(err.message || 'Failed to load accommodations');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Search accommodations with filters
+  const searchAccommodations = async (filters: AccommodationFilters) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🔍 Searching accommodations with filters:', filters);
+      const response = await AccommodationApiService.searchAccommodations(filters);
+      
+      if (response.success && response.data) {
+        setAccommodations(response.data);
+        console.log('✅ Search completed:', response.data.length);
+      } else {
+        throw new Error(response.message || 'Search failed');
+      }
+    } catch (err: any) {
+      console.error('❌ Error searching accommodations:', err);
+      setError(err.message || 'Search failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load accommodations on component mount
+  useEffect(() => {
+    fetchAccommodations();
+  }, []);
 
   const togglePropertyType = (type: string) => {
     setPropertyTypes((prev) =>
@@ -24,8 +83,16 @@ export default function AccomodationHomeScreen() {
     );
   };
 
-  const handleApplyFilters = () => {
-    // TODO: Connect to actual filtering logic
+  const handleApplyFilters = async () => {
+    const filters: AccommodationFilters = {
+      location: location || undefined,
+      minPrice: minPrice ? parseFloat(minPrice) : undefined,
+      maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
+      accommodationType: propertyTypes.length > 0 ? propertyTypes[0] : undefined,
+      minRating: minRating > 0 ? minRating : undefined,
+    };
+    
+    await searchAccommodations(filters);
     setFilterVisible(false);
   };
 
@@ -33,18 +100,25 @@ export default function AccomodationHomeScreen() {
     setFilterVisible(false);
   };
 
-  const renderItemCard = (item: any, prefix: string, index: number) => (
-  <ItemCard
-    key={`${prefix}-${index}`}
-    image={item.image || ''}
-    title={item.title || ' '}
-    city={item.city}
-    price={item.price}
-    rating={item.rating}
-    type="accommodation"
-    style={styles.carouselCard}
-  />
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchAccommodations();
+    setRefreshing(false);
+  };
+
+  const renderItemCard = (item: Accommodation, prefix: string, index: number) => (
+    <ItemCard
+      key={`${prefix}-${index}`}
+      image={item.images && item.images.length > 0 ? item.images[0] : '/placeholder-hotel.jpg'}
+      title={item.name}
+      city={item.location}
+      price={`$${item.price}/night`}
+      rating={item.rating}
+      type="accommodation"
+      style={styles.carouselCard}
+    />
   );
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -54,65 +128,94 @@ export default function AccomodationHomeScreen() {
         onProfilePress={() => {}}
         onNotificationsPress={() => {}}
       />
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={Colors.primary600}
+          />
+        }
+      >
         <View style={styles.greetingContainer}>
           <ThemedText variant="title" style={styles.greeting}>Accommodations</ThemedText>
           <ThemedText variant="caption" style={styles.caption}>Find and book your perfect stay.</ThemedText>
         </View>
 
-          <View style={styles.searchArea}>
-  
-            <CustomTextInput
-              label=''
-              placeholder='Search Accomodations'
-              leftIcon='location-outline'
-              containerStyle={[styles.searchInput, { marginBottom: 0 }]}
-              />
+        <View style={styles.searchArea}>
+          <CustomTextInput
+            label=''
+            placeholder='Search Accomodations'
+            leftIcon='location-outline'
+            containerStyle={[styles.searchInput, { marginBottom: 0 }]}
+            value={location}
+            onChangeText={setLocation}
+          />
+          <CustomButton
+            variant='primary'
+            size='small'
+            title=""
+            rightIcon={<Ionicons name="filter" size={22} color="white" />}
+            style={styles.filterButton}
+            onPress={() => setFilterVisible(true)}
+          />
+        </View>
+
+        {/* Loading State */}
+        {loading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.primary600} />
+            <ThemedText variant="caption" style={styles.loadingText}>Loading accommodations...</ThemedText>
+          </View>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle-outline" size={48} color={Colors.secondary400} style={styles.errorIcon} />
+            <ThemedText variant="subtitle" style={styles.errorText}>{error}</ThemedText>
+            <ThemedText variant="caption" style={styles.errorSubtext}>Please check again later</ThemedText>
             <CustomButton
-              variant='primary'
-              size='small'
-              title=""
-              rightIcon={<Ionicons name="filter" size={22} color="white" />}
-              style={styles.filterButton}
-              onPress={() => setFilterVisible(true)}
+              title="Retry"
+              variant="primary"
+              size="small"
+              onPress={() => fetchAccommodations()}
+              style={styles.retryButton}
             />
           </View>
+        )}
 
-        <View style={styles.sectionHeader}>
-          <ThemedText variant = 'title' style={styles.sectionTitle}>Top Rated Stays</ThemedText>
-          <ThemedText variant = 'caption' style={styles.seeMore}>See more →</ThemedText>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
-           {featuredData.map((item, i) => renderItemCard(item, 'featured', i))}
-            <ItemCard
-        image="https://images.unsplash.com/photo-1506744038136-46273834b3fb"
-        title="Test Hotel"
-        city="Colombo"
-        price="$100/night"
-        rating={4.5}
-        type="accommodation"
-      />
-        </ScrollView>
+        {/* Content */}
+        {!loading && !error && accommodations.length > 0 && (
+          <>
+            <View style={styles.sectionHeader}>
+              <ThemedText variant="title" style={styles.sectionTitle}>Available Stays</ThemedText>
+              <ThemedText variant="caption" style={styles.seeMore}>{accommodations.length} properties</ThemedText>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
+              {accommodations.slice(0, 5).map((item, i) => renderItemCard(item, 'featured', i))}
+            </ScrollView>
 
-        <View style={styles.sectionHeader}>
-          <ThemedText variant = 'subtitle' style={styles.sectionTitle}>Budget Friendly Stays</ThemedText>
-          <ThemedText variant = 'subtitle' style={styles.seeMore}>See more →</ThemedText>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
-          {featuredData.map((item, i) => (
-            <ItemCard key={i} {...item} style={styles.carouselCard} type="accommodation" />
-          ))}
-        </ScrollView>
+            <View style={styles.sectionHeader}>
+              <ThemedText variant="subtitle" style={styles.sectionTitle}>All Properties</ThemedText>
+              <ThemedText variant="subtitle" style={styles.seeMore}>See more →</ThemedText>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
+              {accommodations.map((item, i) => renderItemCard(item, 'all', i))}
+            </ScrollView>
+          </>
+        )}
 
-        <View style={styles.sectionHeader}>
-          <ThemedText  variant = 'subtitle' style={styles.sectionTitle}>Recent Searches</ThemedText>
-          <ThemedText  variant = 'subtitle' style={styles.seeMore}>See more →</ThemedText>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
-          {recentData.map((item, i) => (
-            <ItemCard key={i} {...item} style={styles.carouselCard} type="accommodation" />
-          ))}
-        </ScrollView>
+        {/* Empty State */}
+        {!loading && !error && accommodations.length === 0 && (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="home-outline" size={48} color={Colors.secondary400} style={styles.emptyIcon} />
+            <ThemedText variant="subtitle" style={styles.emptyText}>No accommodations found</ThemedText>
+            <ThemedText variant="caption" style={styles.emptySubtext}>Try adjusting your search criteria</ThemedText>
+          </View>
+        )}
       </ScrollView>
 
       <Modal
@@ -401,39 +504,61 @@ const styles = StyleSheet.create({
   },
   modalActionBtn: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 10,
+    color: Colors.primary600,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  errorIcon: {
+    marginBottom: 16,
+  },
+  errorText: {
+    color: Colors.secondary600,
+    textAlign: 'center',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  errorSubtext: {
+    color: Colors.secondary500,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    minWidth: 120,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  emptyIcon: {
+    marginBottom: 16,
+  },
+  emptyText: {
+    color: Colors.secondary600,
+    textAlign: 'center',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  emptySubtext: {
+    color: Colors.secondary500,
+    textAlign: 'center',
   }
-  // dateInputs: {
-  //   flexDirection: 'row',
-  //   justifyContent: 'space-between',
-  //   gap: 5,
-  // }
-
 });
 
-// Mock data
-const featuredData = [
-  {
-    image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb',
-    title: 'Luxury Beach Resort',
-    city: 'Galle',
-    price: '$220/night',
-    rating: 4.8,
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd',
-    title: 'Mountain View Hotel',
-    city: 'Kandy',
-    price: '$180/night',
-    rating: 4.7,
-  },
-];
-
-const recentData = [
-  {
-    image: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca',
-    title: 'City Center Inn',
-    city: 'Ella',
-    price: '$120/night',
-    rating: 4.5,
-  },
-];
+// Mock data removed - now using real API data

@@ -1,69 +1,14 @@
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CustomButton, CustomTextInput, ServicesTopBar, ThemedText } from '../../components';
 import { ItemCard } from '../../components/ItemCard';
 import { Colors } from '../../constants/Colors';
+import { TransportationApiService, Transportation, TransportationFilters } from '../../services/transportationApi';
 
-const vehicleData = [
-  {
-    image: 'https://images.unsplash.com/photo-1619767886558-efdc259cde1a?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    title: 'Luxury Sedan',
-    city: 'Colombo',
-    price: '$60/day',
-    capacity: 4,
-    ac: true,
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1461435218581-ff0972867e90?q=80&w=1174&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    title: 'Family Van',
-    city: 'Kandy',
-    price: '$80/day',
-    capacity: 7,
-    ac: true,
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1622893288761-823ba60f17a6?q=80&w=2128&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    title: 'SUV',
-    city: 'Nuwara Eliya',
-    price: '$90/day',
-    capacity: 6,
-    ac: true,
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1617479625255-43666e3a3509?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    title: 'Tourist Bus',
-    city: 'Jaffna',
-    price: '$150/day',
-    capacity: 30,
-    ac: true,
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1655286692463-ab43ef87988f?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    title: 'Hatchback',
-    city: 'Matara',
-    price: '$40/day',
-    capacity: 4,
-    ac: false,
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1554223789-df81106a45ed?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    title: 'Scooter',
-    city: 'Ella',
-    price: '$18/day',
-    capacity: 2,
-    ac: false,
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1465101178521-c1a9136a3c8b?auto=format&fit=crop&w=800&q=https://images.unsplash.com/photo-1502877338535-766e1452684a?auto=format&fit=crop&w=800&q=80',
-    title: 'Budget Car',
-    city: 'Galle',
-    price: '$35/day',
-    capacity: 4,
-    ac: false,
-  },
-];
+// Mock data removed - now using real API data
 
 const popularRoutes = [
   { from: 'Colombo', to: 'Kandy' },
@@ -74,6 +19,14 @@ const popularRoutes = [
 
 export default function TransportationHomeScreen() {
   const insets = useSafeAreaInsets();
+  
+  // API data state
+  const [transportation, setTransportation] = useState<Transportation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Form state
   const [destination, setDestination] = useState('');
   const [pickup, setPickup] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -89,10 +42,99 @@ export default function TransportationHomeScreen() {
   const [startDateError, setStartDateError] = useState('');
   const [endDateError, setEndDateError] = useState('');
 
+  // Fetch transportation from API
+  const fetchTransportation = async (filters?: TransportationFilters) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🚗 Fetching transportation...');
+      const response = await TransportationApiService.getAllTransportation();
+      
+      if (response.success && response.data) {
+        setTransportation(response.data);
+        console.log('✅ Transportation loaded:', response.data.length);
+      } else {
+        throw new Error(response.message || 'Failed to fetch transportation');
+      }
+    } catch (err: any) {
+      console.error('❌ Error fetching transportation:', err);
+      setError(err.message || 'Failed to load transportation');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Search transportation with filters
+  const searchTransportation = async (filters: TransportationFilters) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🔍 Searching transportation with filters:', filters);
+      const response = await TransportationApiService.searchTransportation(filters);
+      
+      if (response.success && response.data) {
+        setTransportation(response.data);
+        console.log('✅ Search completed:', response.data.length);
+      } else {
+        throw new Error(response.message || 'Search failed');
+      }
+    } catch (err: any) {
+      console.error('❌ Error searching transportation:', err);
+      setError(err.message || 'Search failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load transportation on component mount
+  useEffect(() => {
+    fetchTransportation();
+  }, []);
+
   // Autofill destination and pickup from route
   const handleRouteSelect = (route: { from: string; to: string }) => {
     setPickup(route.from);
     setDestination(route.to);
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchTransportation();
+    setRefreshing(false);
+  };
+
+  const handleSearch = async () => {
+    let valid = true;
+    if (!destination) {
+      setDestinationError('Destination is required.');
+      valid = false;
+    }
+    if (!pickup) {
+      setPickupError('Pickup location is required.');
+      valid = false;
+    }
+    if (!startDate) {
+      setStartDateError('Start date is required.');
+      valid = false;
+    }
+    if (!endDate) {
+      setEndDateError('End date is required.');
+      valid = false;
+    }
+    
+    if (valid) {
+      const filters: TransportationFilters = {
+        location: pickup,
+        vehicleType: selectedType ? selectedType.toLowerCase() as 'car' | 'van' | 'bus' : undefined,
+        minSeats: passengerCount || undefined,
+        maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
+        ac: acPref === 'AC' ? true : acPref === 'Non-AC' ? false : undefined,
+      };
+      
+      await searchTransportation(filters);
+    }
   };
 
   return (
@@ -100,7 +142,17 @@ export default function TransportationHomeScreen() {
       <View style={[styles.statusBarBackground, { height: insets.top }]} />
       <StatusBar style="light" translucent />
       <ServicesTopBar onProfilePress={() => {}} onNotificationsPress={() => {}} />
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={Colors.primary600}
+          />
+        }
+      >
         <View style={styles.greetingContainer}>
           <ThemedText variant="title" style={styles.greeting}>Transportation</ThemedText>
           <ThemedText variant="caption" style={styles.caption}>Book Your Ride, Chase the Island Vibes</ThemedText>
@@ -194,28 +246,7 @@ export default function TransportationHomeScreen() {
             title="Search Vehicles"
             variant="primary"
             style={styles.searchBtn}
-            onPress={() => {
-              let valid = true;
-              if (!destination) {
-                setDestinationError('Destination is required.');
-                valid = false;
-              }
-              if (!pickup) {
-                setPickupError('Pickup location is required.');
-                valid = false;
-              }
-              if (!startDate) {
-                setStartDateError('Start date is required.');
-                valid = false;
-              }
-              if (!endDate) {
-                setEndDateError('End date is required.');
-                valid = false;
-              }
-              if (valid) {
-                // Proceed with search logic
-              }
-            }}
+            onPress={handleSearch}
           />
         </View>
         {/* Popular Routes */}
@@ -233,34 +264,103 @@ export default function TransportationHomeScreen() {
             </TouchableOpacity>
           ))}
         </ScrollView>
-        {/* Carousels */}
-        <View style={styles.sectionHeader}>
-          <ThemedText variant="title" style={styles.sectionTitle}>Popular Now</ThemedText>
-          <ThemedText variant="caption" style={styles.seeMore}>See more →</ThemedText>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
-          {vehicleData.map((item, i) => (
-            <ItemCard key={i} {...item} style={styles.carouselCard} type="vehicle" />
-          ))}
-        </ScrollView>
-        <View style={styles.sectionHeader}>
-          <ThemedText variant="title" style={styles.sectionTitle}>For Families</ThemedText>
-          <ThemedText variant="caption" style={styles.seeMore}>See more →</ThemedText>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
-          {vehicleData.filter(v => v.capacity >= 4).map((item, i) => (
-            <ItemCard key={i} {...item} style={styles.carouselCard} type="vehicle" />
-          ))}
-        </ScrollView>
-        <View style={styles.sectionHeader}>
-          <ThemedText variant="title" style={styles.sectionTitle}>Best Deals</ThemedText>
-          <ThemedText variant="caption" style={styles.seeMore}>See more →</ThemedText>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
-          {vehicleData.filter(v => v.price && parseInt(v.price.replace(/[^0-9]/g, '')) <= 40).map((item, i) => (
-            <ItemCard key={i} {...item} style={styles.carouselCard} type="vehicle" />
-          ))}
-        </ScrollView>
+        {/* Loading State */}
+        {loading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={Colors.primary600} />
+            <ThemedText variant="caption" style={styles.loadingText}>Loading vehicles...</ThemedText>
+          </View>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle-outline" size={48} color={Colors.secondary400} style={styles.errorIcon} />
+            <ThemedText variant="subtitle" style={styles.errorText}>{error}</ThemedText>
+            <ThemedText variant="caption" style={styles.errorSubtext}>Please check again later</ThemedText>
+            <CustomButton
+              title="Retry"
+              variant="primary"
+              size="small"
+              onPress={() => fetchTransportation()}
+              style={styles.retryButton}
+            />
+          </View>
+        )}
+
+        {/* Content */}
+        {!loading && !error && transportation.length > 0 && (
+          <>
+            <View style={styles.sectionHeader}>
+              <ThemedText variant="title" style={styles.sectionTitle}>Available Vehicles</ThemedText>
+              <ThemedText variant="caption" style={styles.seeMore}>{transportation.length} vehicles</ThemedText>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
+              {transportation.slice(0, 5).map((item, i) => (
+                <ItemCard 
+                  key={i} 
+                  image={item.images && item.images.length > 0 ? item.images[0] : '/placeholder-vehicle.jpg'}
+                  title={`${item.brand} ${item.model}`}
+                  city={item.location}
+                  price={`$${item.pricingPerKm}/km`}
+                  capacity={item.seats}
+                  ac={item.ac}
+                  style={styles.carouselCard} 
+                  type="vehicle" 
+                />
+              ))}
+            </ScrollView>
+
+            <View style={styles.sectionHeader}>
+              <ThemedText variant="title" style={styles.sectionTitle}>For Families</ThemedText>
+              <ThemedText variant="caption" style={styles.seeMore}>See more →</ThemedText>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
+              {transportation.filter(v => v.seats >= 4).map((item, i) => (
+                <ItemCard 
+                  key={i} 
+                  image={item.images && item.images.length > 0 ? item.images[0] : '/placeholder-vehicle.jpg'}
+                  title={`${item.brand} ${item.model}`}
+                  city={item.location}
+                  price={`$${item.pricingPerKm}/km`}
+                  capacity={item.seats}
+                  ac={item.ac}
+                  style={styles.carouselCard} 
+                  type="vehicle" 
+                />
+              ))}
+            </ScrollView>
+
+            <View style={styles.sectionHeader}>
+              <ThemedText variant="title" style={styles.sectionTitle}>Best Deals</ThemedText>
+              <ThemedText variant="caption" style={styles.seeMore}>See more →</ThemedText>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
+              {transportation.filter(v => v.pricingPerKm <= 50).map((item, i) => (
+                <ItemCard 
+                  key={i} 
+                  image={item.images && item.images.length > 0 ? item.images[0] : '/placeholder-vehicle.jpg'}
+                  title={`${item.brand} ${item.model}`}
+                  city={item.location}
+                  price={`$${item.pricingPerKm}/km`}
+                  capacity={item.seats}
+                  ac={item.ac}
+                  style={styles.carouselCard} 
+                  type="vehicle" 
+                />
+              ))}
+            </ScrollView>
+          </>
+        )}
+
+        {/* Empty State */}
+        {!loading && !error && transportation.length === 0 && (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="car-outline" size={48} color={Colors.secondary400} style={styles.emptyIcon} />
+            <ThemedText variant="subtitle" style={styles.emptyText}>No vehicles found</ThemedText>
+            <ThemedText variant="caption" style={styles.emptySubtext}>Try adjusting your search criteria</ThemedText>
+          </View>
+        )}
       </ScrollView>
       {/* Filter Modal rendered outside ScrollView */}
       {filterVisible && (
@@ -583,5 +683,59 @@ const styles = StyleSheet.create({
     color: Colors.primary700,
     fontWeight: '500',
     fontSize: 13,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 10,
+    color: Colors.primary600,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  errorIcon: {
+    marginBottom: 16,
+  },
+  errorText: {
+    color: Colors.secondary600,
+    textAlign: 'center',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  errorSubtext: {
+    color: Colors.secondary500,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    minWidth: 120,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  emptyIcon: {
+    marginBottom: 16,
+  },
+  emptyText: {
+    color: Colors.secondary600,
+    textAlign: 'center',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  emptySubtext: {
+    color: Colors.secondary500,
+    textAlign: 'center',
   },
 });
