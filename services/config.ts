@@ -74,6 +74,9 @@ export const API_CONFIG = {
   TIMEOUT: 30000, // 30 seconds - increased for mobile networks
 } as const;
 
+// Export as API_CONFIG for backward compatibility
+export const API_CONFIG = config;
+
 /**
  * HTTP Status codes
  */

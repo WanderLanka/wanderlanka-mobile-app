@@ -23,7 +23,13 @@ export class AuthService {
       // Ensure server connection before signup
       // Proceed without automatic server detection
       
-      console.log('🔗 Signup request:', { ...userData, password: '[HIDDEN]' });
+      // Map frontend role 'tourist' to backend role 'traveler'
+      const backendUserData = {
+        ...userData,
+        role: userData.role === 'tourist' ? 'traveler' : userData.role
+      };
+      
+      console.log('🔗 Signup request:', { ...backendUserData, password: '[HIDDEN]' });
       
       // Use direct fetch for signup to match login implementation
   const response = await fetch(`${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/register`, {
@@ -33,7 +39,7 @@ export class AuthService {
           'x-client-type': 'mobile', // Server expects x-client-type, not x-platform
           'x-platform': 'mobile', // Keep for backwards compatibility
         },
-        body: JSON.stringify(userData),
+        body: JSON.stringify(backendUserData),
       });
 
       console.log('📡 Signup response status:', response.status);
@@ -432,8 +438,18 @@ export class AuthService {
       }
 
       return null;
-    } catch (error) {
-      console.error('Get profile error:', error);
+    } catch (error: any) {
+      // Don't log error for expected auth failures or profile not found
+      if (error?.status === 401 || 
+          error?.status === 404 || 
+          error?.message?.includes('token') || 
+          error?.message?.includes('Authentication required') ||
+          error?.message?.includes('Profile not found')) {
+        // Silently handle - this is expected when token is invalid or user doesn't exist
+        return null;
+      } else {
+        console.error('Get profile error:', error);
+      }
       return null;
     }
   }

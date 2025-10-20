@@ -13,7 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { TopBar } from '@/components/TopBar';
 import { myTripsApi } from '../../utils/itineraryApi';
 
-const GOOGLE_PLACES_API_KEY = 'AIzaSyDEi9t8bE0Jq1sMlkLpwIL7MrHH02XxVrM';
+const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || 'AIzaSyBPAjLGZlFyzwIRo60j3HlhR7Qp0pmqQQ8';
 
 interface MyTripsData {
   savedPlans: {
@@ -41,12 +41,27 @@ interface Place {
 }
 
 interface PlaceDetails {
+  placeId: string;
   name: string;
   address?: string;
   rating?: number;
+  userRatingsTotal?: number;
   types?: string[];
-  photos?: string[];
-  description?: string;
+  photoReference?: string;
+  openingHours?: {
+    openNow?: boolean;
+    weekdayText?: string[];
+  };
+  formattedPhoneNumber?: string;
+  website?: string;
+  priceLevel?: number;
+  vicinity?: string;
+  geometry?: {
+    location: {
+      lat: number;
+      lng: number;
+    };
+  };
 }
 
 export default function TravelerHomeScreen() {
@@ -60,7 +75,18 @@ export default function TravelerHomeScreen() {
   const [isLoadingPlaces, setIsLoadingPlaces] = useState(false);
   const [selectedPlaceDetails, setSelectedPlaceDetails] = useState<PlaceDetails | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
-  const insets = useSafeAreaInsets(); // 👈 to handle status bar space
+  const [searchResults, setSearchResults] = useState<Place[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  
+  // Trending destinations state
+  const [trendingDestinations, setTrendingDestinations] = useState<any[]>([]);
+  const [localFavorites, setLocalFavorites] = useState<any[]>([]);
+  const [hiddenGems, setHiddenGems] = useState<any[]>([]);
+  const [isLoadingTrending, setIsLoadingTrending] = useState(false);
+  const [isLoadingLocalFavorites, setIsLoadingLocalFavorites] = useState(false);
+  const [isLoadingHiddenGems, setIsLoadingHiddenGems] = useState(false);
+  
+  const insets = useSafeAreaInsets();
 
   // Fetch my trips data when screen focuses
   useFocusEffect(
@@ -75,6 +101,13 @@ export default function TravelerHomeScreen() {
       fetchPopularPlaces();
     }
   }, [isSearchModalVisible]);
+
+  // Fetch trending destinations on component mount
+  useEffect(() => {
+    fetchTrendingDestinations();
+    fetchLocalFavorites();
+    fetchHiddenGems();
+  }, []);
 
   const fetchMyTrips = async () => {
     try {
@@ -129,92 +162,101 @@ export default function TravelerHomeScreen() {
     }
   };
 
-  const fetchPlaceDetails = async (placeName: string, placeId?: string) => {
+  // Search places using Google Places API Text Search
+  const searchPlaces = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      setIsSearching(true);
+      console.log('🔍 Searching for:', query);
+      
+      // Use Text Search API for broader search
+      const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query + ' in Sri Lanka')}&key=${GOOGLE_PLACES_API_KEY}`;
+      
+      const response = await fetch(searchUrl);
+      const data = await response.json();
+      
+      console.log('📍 Search API response status:', data.status);
+      
+      if (data.status === 'OK' && data.results) {
+        const places: Place[] = data.results.slice(0, 10).map((place: any) => ({
+          type: 'place' as const,
+          name: place.name,
+          category: place.types?.[0]?.replace(/_/g, ' ') || 'Place',
+          icon: 'location',
+          placeId: place.place_id,
+          rating: place.rating,
+          address: place.formatted_address,
+        }));
+        
+        setSearchResults(places);
+        console.log(`✅ Found ${places.length} places`);
+      } else if (data.status === 'ZERO_RESULTS') {
+        setSearchResults([]);
+        console.log('⚠️ No results found');
+      } else {
+        console.warn('⚠️ Search API error:', data.status, data.error_message);
+        setSearchResults([]);
+      }
+      
+    } catch (error: any) {
+      console.error('❌ Error searching places:', error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Fetch detailed information using Google Places Details API
+  const fetchPlaceDetails = async (placeId: string) => {
     try {
       setIsLoadingDetails(true);
-      console.log('🔍 Fetching details for:', placeName);
+      console.log('🔍 Fetching details for place ID:', placeId);
       
-      // Mock place details - in production, this would call Google Places Details API
-      // or your backend service
-      const mockDetails: { [key: string]: PlaceDetails } = {
-        'galle_fort': {
-          name: 'Galle Fort',
-          address: 'Church Street, Galle 80000, Sri Lanka',
-          rating: 4.6,
-          types: ['Historic Site', 'UNESCO World Heritage'],
-          description: 'A historic fortification first built by the Portuguese, then extensively fortified by the Dutch.',
-        },
-        'kandy_temple': {
-          name: 'Temple of the Tooth',
-          address: 'Sri Dalada Veediya, Kandy 20000, Sri Lanka',
-          rating: 4.7,
-          types: ['Religious Site', 'UNESCO World Heritage'],
-          description: 'Sacred Buddhist temple housing a relic of the tooth of Buddha.',
-        },
-        'sigiriya': {
-          name: 'Sigiriya Rock Fortress',
-          address: 'Sigiriya, Sri Lanka',
-          rating: 4.8,
-          types: ['Ancient Wonder', 'UNESCO World Heritage'],
-          description: 'Ancient rock fortress and palace ruins with stunning frescoes and gardens.',
-        },
-        'mirissa': {
-          name: 'Mirissa Beach',
-          address: 'Mirissa, Sri Lanka',
-          rating: 4.5,
-          types: ['Beach', 'Water Sports'],
-          description: 'Beautiful crescent-shaped beach perfect for swimming, surfing, and whale watching.',
-        },
-        'yala': {
-          name: 'Yala National Park',
-          address: 'Yala, Sri Lanka',
-          rating: 4.6,
-          types: ['Wildlife', 'National Park'],
-          description: 'Sri Lanka\'s most visited national park, known for leopards and elephants.',
-        },
-        'ella_rock': {
-          name: 'Ella Rock',
-          address: 'Ella, Sri Lanka',
-          rating: 4.7,
-          types: ['Hiking', 'Mountain'],
-          description: 'Scenic hiking trail offering panoramic views of tea plantations and valleys.',
-        },
-        'whale_watching': {
-          name: 'Whale Watching Tours',
-          address: 'Mirissa & Trincomalee, Sri Lanka',
-          rating: 4.6,
-          types: ['Adventure', 'Wildlife'],
-          description: 'Experience blue whales and dolphins in their natural habitat.',
-        },
-        'safari': {
-          name: 'Safari Tours',
-          address: 'Yala & Udawalawe National Parks',
-          rating: 4.7,
-          types: ['Wildlife', 'Adventure'],
-          description: 'Guided safari tours to spot leopards, elephants, and diverse wildlife.',
-        },
-        'tea_tours': {
-          name: 'Tea Plantation Tours',
-          address: 'Nuwara Eliya & Ella, Sri Lanka',
-          rating: 4.5,
-          types: ['Cultural', 'Nature'],
-          description: 'Visit working tea estates and learn about Ceylon tea production.',
-        },
-      };
+      // Use Places Details API
+      const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,formatted_phone_number,opening_hours,rating,user_ratings_total,price_level,website,photos,types,geometry,vicinity&key=${GOOGLE_PLACES_API_KEY}`;
       
-      // Get details from mock data or create generic details
-      const details = mockDetails[placeId || ''] || {
-        name: placeName,
-        description: `Discover the beauty and culture of ${placeName}. A must-visit destination in Sri Lanka.`,
-        rating: 4.5,
-        types: ['Tourist Attraction'],
-      };
+      const response = await fetch(detailsUrl);
+      const data = await response.json();
       
-      setSelectedPlaceDetails(details);
-      console.log('✅ Loaded place details:', details.name);
+      console.log('📍 Details API response status:', data.status);
+      
+      if (data.status === 'OK' && data.result) {
+        const result = data.result;
+        
+        const details: PlaceDetails = {
+          placeId: placeId,
+          name: result.name,
+          address: result.formatted_address || result.vicinity,
+          rating: result.rating,
+          userRatingsTotal: result.user_ratings_total,
+          types: result.types?.slice(0, 3).map((type: string) => type.replace(/_/g, ' ')),
+          photoReference: result.photos?.[0]?.photo_reference,
+          openingHours: result.opening_hours ? {
+            openNow: result.opening_hours.open_now,
+            weekdayText: result.opening_hours.weekday_text,
+          } : undefined,
+          formattedPhoneNumber: result.formatted_phone_number,
+          website: result.website,
+          priceLevel: result.price_level,
+          vicinity: result.vicinity,
+          geometry: result.geometry,
+        };
+        
+        setSelectedPlaceDetails(details);
+        console.log('✅ Loaded place details:', details.name);
+      } else {
+        console.warn('⚠️ Details API error:', data.status, data.error_message);
+        Alert.alert('Error', 'Could not load place details');
+        setSelectedPlaceDetails(null);
+      }
       
     } catch (error: any) {
       console.error('❌ Error fetching place details:', error);
+      Alert.alert('Error', 'Failed to load place details');
       setSelectedPlaceDetails(null);
     } finally {
       setIsLoadingDetails(false);
@@ -232,9 +274,45 @@ export default function TravelerHomeScreen() {
     }
   };
 
-  const handlePlaceSelect = (placeName: string, placeId?: string) => {
+  const handlePlaceSelect = async (placeName: string, placeId?: string) => {
     setDestination(placeName);
-    fetchPlaceDetails(placeName, placeId);
+    
+    // If placeId looks like a fake ID (no underscores in real Google Place IDs after 'ChIJ')
+    // or is just a simple string, search for the real place ID first
+    if (placeId && !placeId.startsWith('ChIJ')) {
+      console.log('🔍 Searching for real place ID for:', placeName);
+      try {
+        // Search for the place to get real place ID
+        const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(placeName + ' Sri Lanka')}&key=${GOOGLE_PLACES_API_KEY}`;
+        const response = await fetch(searchUrl);
+        const data = await response.json();
+        
+        if (data.status === 'OK' && data.results && data.results.length > 0) {
+          const realPlaceId = data.results[0].place_id;
+          console.log('✅ Found real place ID:', realPlaceId);
+          // Navigate to full-screen place details
+          router.push({
+            pathname: '/place-details/[placeId]' as any,
+            params: { placeId: realPlaceId, placeName: placeName }
+          });
+        } else {
+          console.warn('⚠️ Could not find place:', placeName);
+          Alert.alert('Info', `Could not find details for ${placeName}`);
+        }
+      } catch (error) {
+        console.error('❌ Error searching for place:', error);
+      }
+    } else if (placeId) {
+      // Real Google Place ID, navigate to full-screen details directly
+      router.push({
+        pathname: '/place-details/[placeId]' as any,
+        params: { placeId: placeId, placeName: placeName }
+      });
+    }
+  };
+
+  const handleSearchConfirm = () => {
+    searchPlaces(searchQuery);
   };
 
   const openSearchModal = () => {
@@ -244,16 +322,125 @@ export default function TravelerHomeScreen() {
 
   const closeSearchModal = () => {
     setIsSearchModalVisible(false);
+    setSearchResults([]);
   };
 
-  const handleSearchConfirm = () => {
-    setDestination(searchQuery);
-    closeSearchModal();
-    if (searchQuery.trim()) {
-      router.push({
-        pathname: '/planning/route-selection' as any,
-        params: { destination: searchQuery.trim() }
-      });
+  // Fetch Trending Destinations using Google Places API
+  const fetchTrendingDestinations = async () => {
+    try {
+      setIsLoadingTrending(true);
+      console.log('🔍 Fetching trending destinations...');
+      
+      // Search for top tourist attractions in Sri Lanka
+      const queries = ['tourist attractions Sri Lanka', 'popular destinations Sri Lanka'];
+      const allResults: any[] = [];
+      
+      for (const query of queries) {
+        const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${GOOGLE_PLACES_API_KEY}`;
+        const response = await fetch(searchUrl);
+        const data = await response.json();
+        
+        if (data.status === 'OK' && data.results) {
+          allResults.push(...data.results);
+        }
+      }
+      
+      // Remove duplicates and get top rated places
+      const uniquePlaces = Array.from(new Map(allResults.map(item => [item.place_id, item])).values());
+      const topPlaces = uniquePlaces
+        .filter(place => place.rating && place.rating >= 4.0)
+        .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+        .slice(0, 6);
+      
+      const destinations = topPlaces.map(place => ({
+        title: place.name,
+        desc: place.types?.[0]?.replace(/_/g, ' ') || 'Tourist Attraction',
+        img: place.photos?.[0]?.photo_reference 
+          ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${place.photos[0].photo_reference}&key=${GOOGLE_PLACES_API_KEY}`
+          : 'https://images.unsplash.com/photo-1506744038136-46273834b3fb',
+        placeId: place.place_id,
+        rating: place.rating,
+      }));
+      
+      setTrendingDestinations(destinations);
+      console.log('✅ Loaded trending destinations:', destinations.length);
+      
+    } catch (error: any) {
+      console.error('❌ Error fetching trending destinations:', error);
+    } finally {
+      setIsLoadingTrending(false);
+    }
+  };
+
+  // Fetch Local Favorites
+  const fetchLocalFavorites = async () => {
+    try {
+      setIsLoadingLocalFavorites(true);
+      console.log('🔍 Fetching local favorites...');
+      
+      // Search for local favorite places
+      const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent('local restaurants markets Sri Lanka')}&key=${GOOGLE_PLACES_API_KEY}`;
+      const response = await fetch(searchUrl);
+      const data = await response.json();
+      
+      if (data.status === 'OK' && data.results) {
+        const favorites = data.results
+          .filter((place: any) => place.rating && place.rating >= 4.0)
+          .slice(0, 6)
+          .map((place: any) => ({
+            title: place.name,
+            desc: place.vicinity || place.formatted_address?.split(',')[0] || 'Local Spot',
+            img: place.photos?.[0]?.photo_reference 
+              ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${place.photos[0].photo_reference}&key=${GOOGLE_PLACES_API_KEY}`
+              : 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee',
+            placeId: place.place_id,
+            rating: place.rating,
+          }));
+        
+        setLocalFavorites(favorites);
+        console.log('✅ Loaded local favorites:', favorites.length);
+      }
+      
+    } catch (error: any) {
+      console.error('❌ Error fetching local favorites:', error);
+    } finally {
+      setIsLoadingLocalFavorites(false);
+    }
+  };
+
+  // Fetch Hidden Gems
+  const fetchHiddenGems = async () => {
+    try {
+      setIsLoadingHiddenGems(true);
+      console.log('🔍 Fetching hidden gems...');
+      
+      // Search for lesser-known but highly rated places
+      const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent('scenic spots viewpoints Sri Lanka')}&key=${GOOGLE_PLACES_API_KEY}`;
+      const response = await fetch(searchUrl);
+      const data = await response.json();
+      
+      if (data.status === 'OK' && data.results) {
+        const gems = data.results
+          .filter((place: any) => place.rating && place.rating >= 4.2)
+          .slice(0, 6)
+          .map((place: any) => ({
+            title: place.name,
+            desc: place.types?.[0]?.replace(/_/g, ' ') || 'Scenic Spot',
+            img: place.photos?.[0]?.photo_reference 
+              ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${place.photos[0].photo_reference}&key=${GOOGLE_PLACES_API_KEY}`
+              : 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca',
+            placeId: place.place_id,
+            rating: place.rating,
+          }));
+        
+        setHiddenGems(gems);
+        console.log('✅ Loaded hidden gems:', gems.length);
+      }
+      
+    } catch (error: any) {
+      console.error('❌ Error fetching hidden gems:', error);
+    } finally {
+      setIsLoadingHiddenGems(false);
     }
   };
 
@@ -336,15 +523,64 @@ export default function TravelerHomeScreen() {
                   <Ionicons name="star" size={16} color={Colors.warning} />
                   <ThemedText style={styles.ratingText}>
                     {selectedPlaceDetails.rating.toFixed(1)}
+                    {selectedPlaceDetails.userRatingsTotal && (
+                      <ThemedText style={styles.ratingsCount}> ({selectedPlaceDetails.userRatingsTotal} reviews)</ThemedText>
+                    )}
+                  </ThemedText>
+                </View>
+              )}
+
+              {selectedPlaceDetails.openingHours && (
+                <View style={styles.placeDetailsRow}>
+                  <Ionicons 
+                    name={selectedPlaceDetails.openingHours.openNow ? "time" : "time-outline"} 
+                    size={16} 
+                    color={selectedPlaceDetails.openingHours.openNow ? Colors.success : Colors.error} 
+                  />
+                  <ThemedText style={[
+                    styles.placeDetailsText,
+                    { color: selectedPlaceDetails.openingHours.openNow ? Colors.success : Colors.error }
+                  ]}>
+                    {selectedPlaceDetails.openingHours.openNow ? 'Open Now' : 'Closed'}
                   </ThemedText>
                 </View>
               )}
 
               {selectedPlaceDetails.address && (
                 <View style={styles.placeDetailsRow}>
-                  <Ionicons name="pin" size={16} color={Colors.primary600} />
+                  <Ionicons name="location-outline" size={16} color={Colors.primary600} />
                   <ThemedText style={styles.placeDetailsAddress}>
                     {selectedPlaceDetails.address}
+                  </ThemedText>
+                </View>
+              )}
+
+              {selectedPlaceDetails.formattedPhoneNumber && (
+                <View style={styles.placeDetailsRow}>
+                  <Ionicons name="call-outline" size={16} color={Colors.primary600} />
+                  <ThemedText style={styles.placeDetailsText}>
+                    {selectedPlaceDetails.formattedPhoneNumber}
+                  </ThemedText>
+                </View>
+              )}
+
+              {selectedPlaceDetails.website && (
+                <TouchableOpacity 
+                  style={styles.placeDetailsRow}
+                  onPress={() => {/* Open website */}}
+                >
+                  <Ionicons name="globe-outline" size={16} color={Colors.primary600} />
+                  <ThemedText style={[styles.placeDetailsText, { color: Colors.primary600, textDecorationLine: 'underline' }]}>
+                    Visit Website
+                  </ThemedText>
+                </TouchableOpacity>
+              )}
+
+              {selectedPlaceDetails.priceLevel !== undefined && (
+                <View style={styles.placeDetailsRow}>
+                  <Ionicons name="cash-outline" size={16} color={Colors.primary600} />
+                  <ThemedText style={styles.placeDetailsText}>
+                    {'$'.repeat(selectedPlaceDetails.priceLevel)} {selectedPlaceDetails.priceLevel === 0 ? 'Free' : ''}
                   </ThemedText>
                 </View>
               )}
@@ -359,13 +595,23 @@ export default function TravelerHomeScreen() {
                 </View>
               )}
 
-              {selectedPlaceDetails.description && (
-                <ThemedText style={styles.placeDetailsDescription}>
-                  {selectedPlaceDetails.description}
-                </ThemedText>
+              {selectedPlaceDetails.openingHours?.weekdayText && (
+                <View style={styles.openingHoursSection}>
+                  <ThemedText style={styles.detailsSectionTitle}>Opening Hours</ThemedText>
+                  {selectedPlaceDetails.openingHours.weekdayText.map((text, index) => (
+                    <ThemedText key={index} style={styles.openingHoursText}>
+                      {text}
+                    </ThemedText>
+                  ))}
+                </View>
               )}
 
-              {/* without */}
+              {selectedPlaceDetails.photoReference && (
+                <View style={styles.placePhoto}>
+                  {/* Photo can be loaded using Google Places Photo API */}
+                  <ThemedText style={styles.photoPlaceholder}>📷 Photo Available</ThemedText>
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -409,38 +655,59 @@ export default function TravelerHomeScreen() {
             </View>
 
             <ScrollView style={styles.modalContent}>
-              {searchQuery.length > 0 && (
+              {/* Search Results from Google Places API */}
+              {isSearching && (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color={Colors.primary600} />
+                  <ThemedText style={styles.loadingText}>Searching places...</ThemedText>
+                </View>
+              )}
+
+              {searchResults.length > 0 && !isSearching && (
                 <View style={styles.suggestionsSection}>
                   <ThemedText variant="subtitle" style={styles.suggestionsTitle}>
-                    Search Results
+                    Search Results ({searchResults.length})
                   </ThemedText>
-                  {filteredSuggestions.map((suggestion, index) => (
+                  {searchResults.map((place, index) => (
                     <TouchableOpacity
                       key={index}
                       style={styles.suggestionItem}
                       onPress={() => {
-                        handlePlaceSelect(suggestion.name, suggestion.type);
+                        handlePlaceSelect(place.name, place.placeId);
                         closeSearchModal();
                       }}
                     >
-                      <Ionicons name={suggestion.icon as any} size={18} color={Colors.primary600} />
+                      <Ionicons name="location" size={18} color={Colors.primary600} />
                       <View style={styles.suggestionTextContainer}>
-                        <ThemedText style={styles.suggestionText}>{suggestion.name}</ThemedText>
-                        <ThemedText style={styles.suggestionCategory}>{suggestion.category}</ThemedText>
-                      </View>
-                      <View style={styles.suggestionType}>
-                        <ThemedText style={styles.suggestionTypeText}>
-                          {suggestion.type === 'place' ? 'Place' : suggestion.type === 'activity' ? 'Activity' : 'Guide'}
+                        <ThemedText style={styles.suggestionText}>{place.name}</ThemedText>
+                        <ThemedText style={styles.suggestionCategory}>
+                          {place.address || place.category}
                         </ThemedText>
                       </View>
+                      {place.rating && (
+                        <View style={styles.suggestionRating}>
+                          <Ionicons name="star" size={14} color={Colors.warning} />
+                          <ThemedText style={styles.suggestionRatingText}>
+                            {place.rating.toFixed(1)}
+                          </ThemedText>
+                        </View>
+                      )}
                     </TouchableOpacity>
                   ))}
+                </View>
+              )}
+
+              {searchQuery.length > 0 && searchResults.length === 0 && !isSearching && (
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="search-outline" size={48} color={Colors.secondary400} />
+                  <ThemedText style={styles.emptyText}>No places found</ThemedText>
+                  <ThemedText style={styles.emptySubtext}>Try searching for something else</ThemedText>
                 </View>
               )}
               
               <View style={styles.quickSearchSection}>
                 <ThemedText variant="subtitle" style={styles.quickSearchTitle}>
-                  Quick Search
+                  {searchQuery.length > 0 ? 'Popular Places' : 'Quick Search'}
                 </ThemedText>
                 
                 <View style={styles.categorySection}>
@@ -518,61 +785,154 @@ export default function TravelerHomeScreen() {
         <View style={styles.discoverSection}>
           <View style={styles.sectionHeader}>
             <ThemedText variant="subtitle" style={styles.sectionTitle}>Trending Destinations</ThemedText>
-            <TouchableOpacity style={styles.seeAllButton}>
+            <TouchableOpacity 
+              style={styles.seeAllButton}
+              onPress={() => router.push({
+                pathname: '/destinations/list' as any,
+                params: { category: 'trending', title: 'Trending Destinations' }
+              })}
+            >
               <ThemedText style={styles.seeAllText}>See All</ThemedText>
               <Ionicons name="chevron-forward" size={16} color={Colors.primary600} />
             </TouchableOpacity>
           </View>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false} 
-            contentContainerStyle={styles.carouselContainer}
-            style={styles.carousel}
-          >
-            {[{title:'Galle',desc:'Beach & Fort',img:'https://images.unsplash.com/photo-1506744038136-46273834b3fb'},{title:'Kandy',desc:'Hill Capital',img:'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd'},{title:'Ella',desc:'Nature & Views',img:'https://images.unsplash.com/photo-1465101046530-73398c7f28ca'}].map((item,i)=>(
-              <DestinationCard key={i} title={item.title} desc={item.desc} img={item.img} />
-            ))}
-          </ScrollView>
+          
+          {isLoadingTrending ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.primary600} />
+              <ThemedText style={styles.loadingText}>Loading trending destinations...</ThemedText>
+            </View>
+          ) : (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              contentContainerStyle={styles.carouselContainer}
+              style={styles.carousel}
+            >
+              {trendingDestinations.map((item, i) => (
+                <TouchableOpacity 
+                  key={i}
+                  onPress={() => {
+                    setDestination(item.title);
+                    if (item.placeId) {
+                      router.push({
+                        pathname: '/place-details/[placeId]' as any,
+                        params: { placeId: item.placeId, placeName: item.title }
+                      });
+                    }
+                  }}
+                >
+                  <DestinationCard 
+                    title={item.title} 
+                    desc={item.desc} 
+                    img={item.img} 
+                  />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
         </View>
         
         <View style={styles.discoverSection}>
           <View style={styles.sectionHeader}>
             <ThemedText variant="subtitle" style={styles.sectionTitle}>Local Favorites</ThemedText>
-            <TouchableOpacity style={styles.seeAllButton}>
+            <TouchableOpacity 
+              style={styles.seeAllButton}
+              onPress={() => router.push({
+                pathname: '/destinations/list' as any,
+                params: { category: 'local', title: 'Local Favorites' }
+              })}
+            >
               <ThemedText style={styles.seeAllText}>See All</ThemedText>
               <Ionicons name="chevron-forward" size={16} color={Colors.primary600} />
             </TouchableOpacity>
           </View>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false} 
-            contentContainerStyle={styles.carouselContainer}
-            style={styles.carousel}
-          >
-            {[{title:'Jaffna',desc:'Culture & Cuisine',img:'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee'},{title:'Matara',desc:'Southern Beaches',img:'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd'},{title:'Sigiriya',desc:'Ancient Rock',img:'https://images.unsplash.com/photo-1465101046530-73398c7f28ca'}].map((item,i)=>(
-              <DestinationCard key={i} title={item.title} desc={item.desc} img={item.img} />
-            ))}
-          </ScrollView>
+          
+          {isLoadingLocalFavorites ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.primary600} />
+              <ThemedText style={styles.loadingText}>Loading local favorites...</ThemedText>
+            </View>
+          ) : (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              contentContainerStyle={styles.carouselContainer}
+              style={styles.carousel}
+            >
+              {localFavorites.map((item, i) => (
+                <TouchableOpacity 
+                  key={i}
+                  onPress={() => {
+                    setDestination(item.title);
+                    if (item.placeId) {
+                      router.push({
+                        pathname: '/place-details/[placeId]' as any,
+                        params: { placeId: item.placeId, placeName: item.title }
+                      });
+                    }
+                  }}
+                >
+                  <DestinationCard 
+                    title={item.title} 
+                    desc={item.desc} 
+                    img={item.img} 
+                  />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
         </View>
         
         <View style={styles.discoverSection}>
           <View style={styles.sectionHeader}>
             <ThemedText variant="subtitle" style={styles.sectionTitle}>Hidden Gems</ThemedText>
-            <TouchableOpacity style={styles.seeAllButton}>
+            <TouchableOpacity 
+              style={styles.seeAllButton}
+              onPress={() => router.push({
+                pathname: '/destinations/list' as any,
+                params: { category: 'hidden', title: 'Hidden Gems' }
+              })}
+            >
               <ThemedText style={styles.seeAllText}>See All</ThemedText>
               <Ionicons name="chevron-forward" size={16} color={Colors.primary600} />
             </TouchableOpacity>
           </View>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false} 
-            contentContainerStyle={styles.carouselContainer}
-            style={styles.carousel}
-          >
-            {[{title:'Knuckles',desc:'Mountain Range',img:'https://images.unsplash.com/photo-1465101046530-73398c7f28ca'},{title:'Kalpitiya',desc:'Dolphin Watching',img:'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd'},{title:'Haputale',desc:'Tea Country',img:'https://images.unsplash.com/photo-1506744038136-46273834b3fb'}].map((item,i)=>(
-              <DestinationCard key={i} title={item.title} desc={item.desc} img={item.img} />
-            ))}
-          </ScrollView>
+          
+          {isLoadingHiddenGems ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.primary600} />
+              <ThemedText style={styles.loadingText}>Loading hidden gems...</ThemedText>
+            </View>
+          ) : (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              contentContainerStyle={styles.carouselContainer}
+              style={styles.carousel}
+            >
+              {hiddenGems.map((item, i) => (
+                <TouchableOpacity 
+                  key={i}
+                  onPress={() => {
+                    setDestination(item.title);
+                    if (item.placeId) {
+                      router.push({
+                        pathname: '/place-details/[placeId]' as any,
+                        params: { placeId: item.placeId, placeName: item.title }
+                      });
+                    }
+                  }}
+                >
+                  <DestinationCard 
+                    title={item.title} 
+                    desc={item.desc} 
+                    img={item.img} 
+                  />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
         </View>
         {/* Categorized Attractions Grid */}
         <View style={styles.categoriesSection}>
@@ -1287,6 +1647,69 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     backgroundColor: Colors.primary600,
     borderRadius: 16,
+  },
+
+  // Additional place details styles
+  ratingsCount: {
+    fontSize: 12,
+    color: Colors.secondary400,
+    fontWeight: '400',
+  },
+
+  placeDetailsText: {
+    fontSize: 13,
+    color: Colors.primary600,
+    marginLeft: 8,
+    flex: 1,
+    lineHeight: 18,
+  },
+
+  detailsSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primary700,
+    marginBottom: 8,
+  },
+
+  openingHoursSection: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: Colors.secondary50,
+    borderRadius: 12,
+  },
+
+  openingHoursText: {
+    fontSize: 12,
+    color: Colors.primary600,
+    marginBottom: 4,
+    lineHeight: 18,
+  },
+
+  placePhoto: {
+    marginTop: 16,
+    height: 200,
+    backgroundColor: Colors.secondary100,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  photoPlaceholder: {
+    fontSize: 14,
+    color: Colors.secondary400,
+  },
+
+  // Search result styles
+  suggestionRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  suggestionRatingText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.primary700,
   },
 });
 

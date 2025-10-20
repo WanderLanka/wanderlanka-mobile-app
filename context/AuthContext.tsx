@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User } from '../types';
 
 import { AuthService } from '../services/auth';
+import { User } from '../types';
 
 // Frontend role type for signup form
 type FrontendRole = 'tourist' | 'guide';
@@ -64,21 +64,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const isAuth = await AuthService.isAuthenticated();
       
       if (isAuth) {
-        const currentUser = await AuthService.getCurrentUser();
-        
-        // Check if user has pending, suspended, or rejected status
-        if (currentUser && (currentUser.status === 'pending' || currentUser.status === 'suspended' || currentUser.status === 'rejected')) {
-          // Clear auth for users with non-active status
+        try {
+          // Try to fetch profile from server to validate token
+          const profile = await AuthService.getProfile();
+          
+          if (profile) {
+            // Check if user has pending, suspended, or rejected status
+            if (profile.status === 'pending' || profile.status === 'suspended' || profile.status === 'rejected') {
+              // Clear auth for users with non-active status
+              console.log('⚠️ User has non-active status, clearing auth');
+              setIsAuthenticated(false);
+              setUser(null);
+              await AuthService.logout();
+            } else {
+              setUser(profile);
+              setIsAuthenticated(true);
+            }
+          } else {
+            // Profile not found, clear invalid token
+            console.log('⚠️ Profile not found, clearing auth');
+            setIsAuthenticated(false);
+            setUser(null);
+            await AuthService.logout();
+          }
+        } catch (profileError: any) {
+          // If profile fetch fails (404, 401, etc.), clear the invalid token
+          console.log('⚠️ Profile fetch failed, clearing stored auth:', profileError.message);
           setIsAuthenticated(false);
           setUser(null);
-          // Clear stored tokens
           await AuthService.logout();
-        } else if (currentUser) {
-          setUser(currentUser);
-          setIsAuthenticated(true);
-        } else {
-          setIsAuthenticated(false);
-          setUser(null);
         }
       } else {
         setIsAuthenticated(false);
@@ -88,6 +102,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('Auth check error:', error);
       setIsAuthenticated(false);
       setUser(null);
+      // Clear storage on auth check error
+      await AuthService.logout();
     } finally {
       setIsLoading(false);
     }
