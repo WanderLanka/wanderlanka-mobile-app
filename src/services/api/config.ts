@@ -5,7 +5,7 @@
 
 export const API_CONFIG = {
   // Current network IP - Update this when network changes
-  BASE_URL: __DEV__ ? 'http://192.168.1.41:3001' : 'https://api.wanderlanka.com',
+  BASE_URL: __DEV__ ? 'http://192.168.1.45:3001' : 'https://api.wanderlanka.com',
   
   ENDPOINTS: {
     AUTH: '/api/auth',

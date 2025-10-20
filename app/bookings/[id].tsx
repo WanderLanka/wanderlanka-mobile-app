@@ -3,9 +3,11 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useStripe } from '@stripe/stripe-react-native';
 import { Colors } from '../../constants/Colors';
 import { BookingService, TourPackageBookingItem } from '../../services/booking';
 import { GuideService, PackageListItem } from '../../services/guide';
+import { paymentService } from '../../services/paymentService';
 import { ThemedText } from '../../components';
 import guideIcon from '../../assets/images/guide.png';
 
@@ -13,6 +15,7 @@ export default function BookingDetailsScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const bookingId = (params.id as string) || '';
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState<TourPackageBookingItem | null>(null);
@@ -73,78 +76,171 @@ export default function BookingDetailsScreen() {
   const handlePayment = async () => {
     if (!booking) return;
 
-    Alert.alert(
-      'Confirm Payment',
-      `Complete payment of ${booking.pricing.currency} ${booking.pricing.totalAmount.toLocaleString()} for ${booking.packageTitle}?`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
+    setProcessingPayment(true);
+
+    try {
+      console.log('💳 Starting Stripe payment flow for booking:', booking._id);
+
+      // Step 1: Create payment intent with booking data
+      const paymentIntentData = {
+        bookingId: booking._id,  // Include existing booking ID
+        serviceType: 'guide' as const,
+        serviceId: booking.tourPackageId || booking.packageSlug || '',
+        serviceProvider: booking.guideId || '',
+        totalAmount: booking.pricing?.totalAmount || 0,
+        bookingDetails: {
+          tourDate: booking.startDate,
+          duration: `${Math.ceil((new Date(booking.endDate).getTime() - new Date(booking.startDate).getTime()) / (1000 * 60 * 60 * 24))} days`,
+          groupSize: booking.peopleCount || 1,
+          specialRequests: booking.notes || '',
+          currency: booking.pricing?.currency || 'LKR',
         },
-        {
-          text: 'Pay Now',
-          onPress: async () => {
-            setProcessingPayment(true);
-            try {
-              const response = await BookingService.payTourPackageBooking(booking._id);
-              
-              if (response.success && response.data) {
-                // Update local booking state
-                setBooking(response.data);
-                
-                Alert.alert(
-                  'Payment Successful!',
-                  'Your booking has been confirmed. You can now view your itinerary and contact the tour guide.',
-                  [
-                    {
-                      text: 'OK',
-                      onPress: () => {
-                        // Optionally refresh the page or navigate
-                      },
-                    },
-                  ]
-                );
-              } else {
-                // Check if this is a guide availability error
-                const errorMsg = response.error || '';
-                const isAvailabilityError = errorMsg.includes('not available') || errorMsg.includes('selected dates');
-                
-                if (isAvailabilityError) {
-                  // Guide is not available - booking has been set back to pending
-                  setBooking({ ...booking, status: 'pending' });
-                  
-                  Alert.alert(
-                    'Guide Unavailable',
-                    'The tour guide is not available on your selected dates. Another traveller has already booked this guide during your tour period. Please choose different dates and try again.',
-                    [
-                      { 
-                        text: 'Choose New Dates',
-                        onPress: () => {
-                          // Navigate back to booking page to select new dates
-                          router.back();
-                        }
-                      },
-                      { text: 'Cancel', style: 'cancel' }
-                    ]
-                  );
-                } else {
-                  throw new Error(errorMsg || 'Payment failed');
-                }
-              }
-            } catch (error: any) {
-              console.error('Payment error:', error);
-              Alert.alert(
-                'Payment Failed',
-                error.message || 'Unable to process payment. Please try again.',
-                [{ text: 'OK' }]
-              );
-            } finally {
-              setProcessingPayment(false);
-            }
+        contactInfo: {
+          email: (booking as any).guestDetails?.email || (booking as any).contactInfo?.email || 'guest@example.com',
+          phone: (booking as any).guestDetails?.phone || (booking as any).contactInfo?.phone || 'N/A',
+          firstName: (booking as any).guestDetails?.fullName?.split(' ')[0] || 'Guest',
+          lastName: (booking as any).guestDetails?.fullName?.split(' ').slice(1).join(' ') || '',
+        },
+        guestDetails: (booking as any).guestDetails,
+        tourPackageId: booking.tourPackageId,
+        packageSlug: booking.packageSlug,
+        guideId: booking.guideId,
+        startDate: booking.startDate,
+        endDate: booking.endDate,
+        peopleCount: booking.peopleCount,
+        notes: booking.notes,
+      };
+
+      console.log('📤 Creating payment intent with data:', {
+        bookingId: booking._id,
+        amount: paymentIntentData.totalAmount,
+        serviceType: paymentIntentData.serviceType,
+      });
+
+      const paymentIntent = await paymentService.createPaymentIntent(paymentIntentData);
+
+      console.log('✅ Payment intent created:', {
+        paymentIntentId: paymentIntent.paymentIntentId,
+        clientSecret: paymentIntent.clientSecret ? '***' : 'missing',
+      });
+
+      // Step 2: Initialize Stripe Payment Sheet
+      console.log('🎨 Initializing payment sheet...');
+      const { error: initError } = await initPaymentSheet({
+        merchantDisplayName: 'WanderLanka',
+        paymentIntentClientSecret: paymentIntent.clientSecret,
+        defaultBillingDetails: {
+          name: paymentIntentData.contactInfo.firstName + ' ' + paymentIntentData.contactInfo.lastName,
+          email: paymentIntentData.contactInfo.email,
+          phone: paymentIntentData.contactInfo.phone,
+        },
+        returnURL: 'wanderlanka://payment-success',
+        appearance: {
+          colors: {
+            primary: Colors.primary600,
+            background: '#FFFFFF',
+            componentBackground: '#F3F4F6',
+            componentBorder: '#E5E7EB',
+            componentDivider: '#E5E7EB',
+            primaryText: '#1F2937',
+            secondaryText: '#6B7280',
+            componentText: '#1F2937',
+            placeholderText: '#9CA3AF',
+          },
+          shapes: {
+            borderRadius: 12,
+            borderWidth: 1,
           },
         },
-      ]
-    );
+      });
+
+      if (initError) {
+        console.error('❌ Payment sheet init error:', initError);
+        throw new Error(initError.message);
+      }
+
+      console.log('✅ Payment sheet initialized');
+
+      // Step 3: Present Payment Sheet
+      console.log('📱 Presenting payment sheet to user...');
+      const { error: paymentError } = await presentPaymentSheet();
+
+      if (paymentError) {
+        if (paymentError.code === 'Canceled') {
+          console.log('ℹ️ User cancelled payment');
+          Alert.alert('Payment Cancelled', 'You cancelled the payment.');
+          
+          // Cancel payment intent on backend
+          if (paymentIntent.paymentIntentId && paymentIntent.bookingId) {
+            await paymentService.cancelPaymentIntent(
+              paymentIntent.paymentIntentId,
+              paymentIntent.bookingId
+            );
+          }
+          return;
+        }
+
+        console.error('❌ Payment error:', paymentError);
+        throw new Error(paymentError.message);
+      }
+
+      console.log('✅ Payment sheet completed successfully');
+
+      // Step 4: Confirm payment with backend
+      console.log('🔄 Confirming payment with backend...');
+      const confirmation = await paymentService.confirmPayment({
+        paymentIntentId: paymentIntent.paymentIntentId,
+        bookingId: paymentIntent.bookingId,
+      });
+
+      console.log('✅ Payment confirmed:', confirmation);
+
+      // Update local booking state to confirmed
+      setBooking({
+        ...booking,
+        status: 'confirmed',
+      });
+
+      // Show success message
+      Alert.alert(
+        'Payment Successful! 🎉',
+        `Your booking has been confirmed.\nConfirmation: ${confirmation.data.confirmationNumber}\n\nYou can now view your itinerary and contact the tour guide.`,
+        [
+          {
+            text: 'View Details',
+            onPress: () => {
+              // Reload the booking to get updated details
+              const load = async () => {
+                const res = await BookingService.getBooking(String(bookingId));
+                const data = (res?.success && (res as any).data) ? (res as any).data : null;
+                if (data) setBooking(data);
+              };
+              load();
+            },
+          },
+        ]
+      );
+
+    } catch (error: any) {
+      console.error('❌ Payment flow error:', error);
+      
+      Alert.alert(
+        'Payment Failed',
+        error.message || 'Unable to process payment. Please try again.',
+        [
+          {
+            text: 'Try Again',
+            onPress: () => handlePayment(),
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+        ]
+      );
+    } finally {
+      setProcessingPayment(false);
+    }
   };
 
   const statusBadge = useMemo(() => {
