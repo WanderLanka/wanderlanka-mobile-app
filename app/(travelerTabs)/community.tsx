@@ -17,8 +17,10 @@ import {
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText, TopBar } from '../../components';
+import { fetchPosts as fetchAllPosts, fetchRecommendedPosts } from '../../services/communityApi';
 import { formatTimeShort, getTimestampAgo } from '../../utils/timeFormat';
 
+import { API_CONFIG } from '../../services/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants/Colors';
 import CommentSection from '../../components/CommentSection';
@@ -27,8 +29,6 @@ import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
-import { API_CONFIG } from '../../services/config';
-import { fetchRecommendedPosts, fetchPosts as fetchAllPosts } from '../../services/communityApi';
 
 // Mock data - easily replaceable with backend API calls
 const MOCK_TRAVEL_POSTS: any[] = [
