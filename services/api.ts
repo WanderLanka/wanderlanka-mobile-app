@@ -3,13 +3,14 @@ import {
   ApiResponse,
   AuthResponse,
 } from '../types';
+import {
+  checkInternetConnection,
+  classifyNetworkError,
+  retryWithBackoff
+} from '../utils/networkUtils';
 
 import { StorageService } from './storage';
-import { 
-  checkInternetConnection, 
-  classifyNetworkError, 
-  retryWithBackoff 
-} from '../utils/networkUtils';
+
 // Removed automatic server detection: rely on configured BASE_URL only
 
 // Custom API Error to carry HTTP status and optional error code
@@ -178,8 +179,21 @@ export class ApiService {
     try {
       // Use retry mechanism for network requests
       return await retryWithBackoff(makeRequest, 2, 1000); // 2 retries, 1 second base delay
-    } catch (error) {
-      console.error('API request failed:', error);
+    } catch (error: any) {
+      // Don't log alarming errors for expected auth failures or profile not found
+      const isExpectedAuthError = error?.status === 401 || 
+                                   error?.status === 404 ||
+                                   error?.message?.includes('token') || 
+                                   error?.message?.includes('Authentication required') ||
+                                   error?.message?.includes('Access denied') ||
+                                   error?.message?.includes('Profile not found');
+      
+      if (isExpectedAuthError) {
+        // Silently handle expected authentication/profile errors
+        console.log('ℹ️ Authentication check failed (expected on first launch or after logout)');
+      } else {
+        console.error('API request failed:', error);
+      }
 
       // If error is already an ApiError, surface its message
       if (error instanceof ApiError) {

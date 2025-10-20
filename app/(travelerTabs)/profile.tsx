@@ -1,4 +1,5 @@
 import {
+  ActivityIndicator,
   Alert,
   ScrollView,
   StyleSheet,
@@ -8,13 +9,15 @@ import {
   View,
 } from 'react-native';
 import { DeleteAccountModal, ProfileAvatar } from '../../components';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { UserProfile, getProfile } from '../../services/profileApi';
 
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useFocusEffect } from '@react-navigation/native';
 
 // Utility function to format numbers professionally
 const formatNumber = (num: number): string => {
@@ -133,9 +136,99 @@ const ProfileItem: React.FC<ProfileItemProps> = ({
 
 export default function ProfileScreen() {
   const { logout } = useAuth();
-  const [darkMode, setDarkMode] = useState(MOCK_USER_DATA.preferences.darkMode);
-  const [notifications, setNotifications] = useState(MOCK_USER_DATA.preferences.notifications);
+  
+  // State for user profile data
+  const [userData, setUserData] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // UI preferences state
+  const [darkMode, setDarkMode] = useState(false);
+  const [notifications, setNotifications] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // Fetch user profile data
+  const fetchUserProfile = async (isRefreshing = false) => {
+    try {
+      if (!isRefreshing) {
+        setLoading(true);
+      }
+      const profile = await getProfile();
+      setUserData(profile);
+    } catch (error: any) {
+      console.error('❌ Error fetching profile:', error);
+      Alert.alert(
+        'Error',
+        error.message || 'Failed to load profile data',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Load profile on mount
+  useEffect(() => {
+    fetchUserProfile();
+  }, []);
+
+  // Refresh profile when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchUserProfile(true);
+    }, [])
+  );
+
+  // Pull to refresh
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchUserProfile(true);
+  };
+
+  // Use fallback data if profile not loaded yet
+  const displayData = userData || {
+    id: '',
+    username: 'Loading...',
+    email: 'Loading...',
+    fullName: 'Loading...',
+    phone: null,
+    avatar: null,
+    role: 'traveler',
+    status: 'active' as const,
+    isActive: true,
+    emailVerified: false,
+    phoneVerified: false,
+    platform: 'mobile' as const,
+    memberSince: new Date().toISOString(),
+    verified: false,
+    bio: null,
+    dateOfBirth: null,
+    gender: null,
+    nationality: null,
+    passportNumber: null,
+    emergencyContact: {
+      name: null,
+      phone: null,
+      relationship: null,
+    },
+    preferences: {
+      budget: null,
+      accommodation: null,
+      dietary: null,
+      interests: [],
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  // Mock data for features not yet in backend (stats only)
+  const MOCK_USER_DATA = {
+    loyaltyPoints: 2450,
+    tripsCompleted: 12,
+    countriesVisited: 8,
+    totalDistance: 15420, // in km
+  };
 
   const handleEditProfile = () => {
     router.push('/profile/edit-profile');
@@ -229,26 +322,32 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <ProfileAvatar
-            imageUri={MOCK_USER_DATA.avatar}
-            size={80}
-            onEdit={handleEditProfile}
-          />
-          
-          <View style={styles.profileInfo}>
-            <Text style={styles.userName}>{MOCK_USER_DATA.fullName}</Text>
-            <Text style={styles.userEmail}>{MOCK_USER_DATA.email}</Text>
-            {MOCK_USER_DATA.verified && (
-              <View style={styles.verifiedBadge}>
-                <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
-                <Text style={styles.verifiedText}>Verified</Text>
-              </View>
-            )}
-          </View>
+      {loading && !userData ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary600} />
+          <Text style={styles.loadingText}>Loading profile...</Text>
         </View>
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Header */}
+          <View style={styles.header}>
+            <ProfileAvatar
+              imageUri={displayData.avatar}
+              size={80}
+              onEdit={handleEditProfile}
+            />
+            
+            <View style={styles.profileInfo}>
+              <Text style={styles.userName}>{displayData.fullName || displayData.username}</Text>
+              <Text style={styles.userEmail}>{displayData.email}</Text>
+              {displayData.emailVerified && (
+                <View style={styles.verifiedBadge}>
+                  <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
+                  <Text style={styles.verifiedText}>Verified</Text>
+                </View>
+              )}
+            </View>
+          </View>
 
         {/* Stats Cards */}
         <ScrollView 
@@ -331,17 +430,17 @@ export default function ProfileScreen() {
           <ProfileItem
             icon="call-outline"
             label="Phone Verification"
-            value={MOCK_USER_DATA.phoneVerified ? "Verified" : "Not Verified"}
+            value={displayData.phoneVerified ? "Verified" : "Not Verified"}
             showArrow={false}
             rightComponent={
               <View style={styles.verifiedBadge}>
                 <Ionicons 
-                  name={MOCK_USER_DATA.phoneVerified ? "checkmark-circle" : "alert-circle"} 
+                  name={displayData.phoneVerified ? "checkmark-circle" : "alert-circle"} 
                   size={16} 
-                  color={MOCK_USER_DATA.phoneVerified ? Colors.success : Colors.warning} 
+                  color={displayData.phoneVerified ? Colors.success : Colors.warning} 
                 />
-                <Text style={[styles.verifiedText, { color: MOCK_USER_DATA.phoneVerified ? Colors.success : Colors.warning }]}>
-                  {MOCK_USER_DATA.phoneVerified ? "Verified" : "Not Verified"}
+                <Text style={[styles.verifiedText, { color: displayData.phoneVerified ? Colors.success : Colors.warning }]}>
+                  {displayData.phoneVerified ? "Verified" : "Not Verified"}
                 </Text>
               </View>
             }
@@ -349,13 +448,13 @@ export default function ProfileScreen() {
           <ProfileItem
             icon="document-outline"
             label="Passport Number"
-            value={MOCK_USER_DATA.passportNumber}
+            value={displayData.passportNumber || "Not set"}
             onPress={handleEditProfile}
           />
           <ProfileItem
             icon="heart-outline"
             label="Travel Preferences"
-            value={MOCK_USER_DATA.preferences.budget}
+            value={displayData.preferences?.budget || "Not set"}
             onPress={handleEditProfile}
           />
         </ProfileSection>
@@ -458,7 +557,7 @@ export default function ProfileScreen() {
           <ProfileItem
             icon="ribbon-outline"
             label="Achievement Badges"
-            value={`${MOCK_USER_DATA.achievements.length} earned`}
+            value="View badges"
             onPress={handleAchievements}
           />
           <ProfileItem
@@ -493,22 +592,22 @@ export default function ProfileScreen() {
           <ProfileItem
             icon="shield-outline"
             label="Account Status"
-            value={MOCK_USER_DATA.isActive ? "Active Account" : "Deactivated"}
+            value={displayData.isActive ? "Active Account" : "Deactivated"}
             showArrow={false}
             rightComponent={
               <View style={styles.verifiedBadge}>
                 <Ionicons 
-                  name={MOCK_USER_DATA.isActive ? "shield-checkmark" : "shield-outline"} 
+                  name={displayData.isActive ? "shield-checkmark" : "shield-outline"} 
                   size={16} 
-                  color={MOCK_USER_DATA.isActive ? Colors.success : Colors.warning} 
+                  color={displayData.isActive ? Colors.success : Colors.warning} 
                 />
-                <Text style={[styles.verifiedText, { color: MOCK_USER_DATA.isActive ? Colors.success : Colors.warning }]}>
-                  {MOCK_USER_DATA.isActive ? "Active" : "Inactive"}
+                <Text style={[styles.verifiedText, { color: displayData.isActive ? Colors.success : Colors.warning }]}>
+                  {displayData.isActive ? "Active" : "Inactive"}
                 </Text>
               </View>
             }
           />
-          {MOCK_USER_DATA.isActive && (
+          {displayData.isActive && (
             <ProfileItem
               icon="trash-outline"
               label="Delete Account"
@@ -526,11 +625,12 @@ export default function ProfileScreen() {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            Member since {new Date(MOCK_USER_DATA.memberSince).getFullYear()}
+            Member since {new Date(displayData.memberSince).getFullYear()}
           </Text>
           <Text style={styles.versionText}>WanderLanka v1.0.0</Text>
         </View>
       </ScrollView>
+      )}
 
       {/* Delete Account Modal */}
       <DeleteAccountModal
@@ -742,5 +842,16 @@ const styles = StyleSheet.create({
   versionText: {
     fontSize: 10,
     color: Colors.secondary400,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: Colors.secondary500,
   },
 });

@@ -15,30 +15,53 @@ import React, { useEffect, useState } from 'react';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { formatTimeAgo } from '@/utils/timeFormat';
+import { mapPointsApi } from '@/services/mapPointsApi';
 import { router } from 'expo-router';
 
 const POINT_TYPES = [
-  { id: 'washroom', name: 'Restroom', icon: 'business-outline', color: Colors.primary600 },
-  { id: 'wifi', name: 'WiFi Spot', icon: 'wifi-outline', color: Colors.info },
-  { id: 'restaurant', name: 'Local Eatery', icon: 'restaurant-outline', color: Colors.warning },
-  { id: 'poi', name: 'Point of Interest', icon: 'location-outline', color: Colors.success },
-  { id: 'parking', name: 'Parking', icon: 'car-outline', color: Colors.secondary600 },
+  { id: 'attraction', name: 'Attraction', icon: 'star-outline', color: Colors.primary600 },
+  { id: 'restaurant', name: 'Restaurant', icon: 'restaurant-outline', color: Colors.warning },
+  { id: 'hotel', name: 'Hotel', icon: 'bed-outline', color: Colors.info },
+  { id: 'viewpoint', name: 'Viewpoint', icon: 'eye-outline', color: Colors.success },
+  { id: 'beach', name: 'Beach', icon: 'water-outline', color: Colors.info },
+  { id: 'temple', name: 'Temple', icon: 'home-outline', color: Colors.warning },
+  { id: 'nature', name: 'Nature', icon: 'leaf-outline', color: Colors.success },
+  { id: 'adventure', name: 'Adventure', icon: 'bicycle-outline', color: Colors.error },
+  { id: 'shopping', name: 'Shopping', icon: 'cart-outline', color: Colors.primary600 },
+  { id: 'nightlife', name: 'Nightlife', icon: 'moon-outline', color: Colors.secondary600 },
+  { id: 'transport', name: 'Transport', icon: 'bus-outline', color: Colors.info },
+  { id: 'other', name: 'Other', icon: 'ellipsis-horizontal-outline', color: Colors.secondary600 },
 ];
 
 interface MapPoint {
+  _id: string;
   id: string;
-  type: 'washroom' | 'wifi' | 'restaurant' | 'poi' | 'parking';
+  category: 'attraction' | 'restaurant' | 'hotel' | 'viewpoint' | 'beach' | 'temple' | 'nature' | 'adventure' | 'shopping' | 'nightlife' | 'transport' | 'other';
   title: string;
   description: string;
-  latitude: number;
-  longitude: number;
-  addedBy: string;
-  addedDate: string;
-  verified: boolean;
-  rating: number;
-  reviews: number;
-  status: 'pending' | 'approved' | 'rejected';
-  lastUpdated?: string;
+  location: {
+    type: 'Point';
+    coordinates: [number, number]; // [longitude, latitude]
+  };
+  latitude: number; // For convenience
+  longitude: number; // For convenience
+  address?: string;
+  placeName?: string;
+  author: {
+    userId: string;
+    username: string;
+    avatar?: string;
+    role: string;
+  };
+  rating?: number;
+  likesCount?: number;
+  commentsCount?: number;
+  savesCount?: number;
+  status: 'published' | 'draft' | 'archived';
+  visibility: 'public' | 'private';
+  isVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface EditPointModalProps {
@@ -49,13 +72,13 @@ interface EditPointModalProps {
 }
 
 const EditPointModal: React.FC<EditPointModalProps> = ({ visible, onClose, onSubmit, point }) => {
-  const [selectedType, setSelectedType] = useState<string>('washroom');
+  const [selectedType, setSelectedType] = useState<string>('attraction');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
 
   useEffect(() => {
     if (point) {
-      setSelectedType(point.type);
+      setSelectedType(point.category);
       setTitle(point.title);
       setDescription(point.description);
     }
@@ -71,17 +94,17 @@ const EditPointModal: React.FC<EditPointModalProps> = ({ visible, onClose, onSub
 
     const updatedPoint: MapPoint = {
       ...point,
-      type: selectedType as MapPoint['type'],
+      category: selectedType as MapPoint['category'],
       title: title.trim(),
       description: description.trim(),
-      lastUpdated: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     onSubmit(updatedPoint);
   };
 
   const resetForm = () => {
-    setSelectedType('washroom');
+    setSelectedType('attraction');
     setTitle('');
     setDescription('');
   };
@@ -193,29 +216,29 @@ interface MyMapPointCardProps {
 }
 
 const MyMapPointCard: React.FC<MyMapPointCardProps> = ({ point, onEdit, onDelete, onViewOnMap }) => {
-  const pointType = POINT_TYPES.find(type => type.id === point.type);
+  const pointType = POINT_TYPES.find(type => type.id === point.category);
   
   const getStatusConfig = (status: MapPoint['status']) => {
     switch (status) {
-      case 'approved':
+      case 'published':
         return { 
           color: Colors.success, 
           icon: 'checkmark-circle' as const, 
-          text: 'Approved',
+          text: 'Published',
           bgColor: Colors.success + '15'
         };
-      case 'rejected':
+      case 'archived':
         return { 
           color: Colors.error, 
-          icon: 'close-circle' as const, 
-          text: 'Rejected',
+          icon: 'archive' as const, 
+          text: 'Archived',
           bgColor: Colors.error + '15'
         };
-      default:
+      default: // draft
         return { 
           color: Colors.warning, 
-          icon: 'time' as const, 
-          text: 'Pending Review',
+          icon: 'document-text' as const, 
+          text: 'Draft',
           bgColor: Colors.warning + '15'
         };
     }
@@ -259,11 +282,11 @@ const MyMapPointCard: React.FC<MyMapPointCardProps> = ({ point, onEdit, onDelete
       <View style={styles.pointStats}>
         <View style={styles.statItem}>
           <Ionicons name="star" size={14} color={Colors.warning} />
-          <Text style={styles.statText}>{point.rating || '0.0'}</Text>
+          <Text style={styles.statText}>{point.rating?.toFixed(1) || 'N/A'}</Text>
         </View>
         <View style={styles.statItem}>
           <Ionicons name="chatbubble" size={14} color={Colors.info} />
-          <Text style={styles.statText}>{point.reviews} reviews</Text>
+          <Text style={styles.statText}>{point.commentsCount || 0} reviews</Text>
         </View>
         <View style={styles.statItem}>
           <Ionicons name="location" size={14} color={Colors.primary600} />
@@ -276,11 +299,11 @@ const MyMapPointCard: React.FC<MyMapPointCardProps> = ({ point, onEdit, onDelete
       {/* Timestamps */}
       <View style={styles.pointTimestamps}>
         <Text style={styles.timestampText}>
-          Added {formatTimeAgo(new Date(point.addedDate))}
+          Added {formatTimeAgo(new Date(point.createdAt))}
         </Text>
-        {point.lastUpdated && (
+        {point.updatedAt && point.updatedAt !== point.createdAt && (
           <Text style={styles.timestampText}>
-            Updated {formatTimeAgo(new Date(point.lastUpdated))}
+            Updated {formatTimeAgo(new Date(point.updatedAt))}
           </Text>
         )}
       </View>
@@ -315,64 +338,46 @@ const MyMapPointCard: React.FC<MyMapPointCardProps> = ({ point, onEdit, onDelete
   );
 };
 
-// Mock data for demonstration
-const MOCK_USER_POINTS: MapPoint[] = [
-  {
-    id: 'user_point_1',
-    type: 'washroom',
-    title: 'Clean Public Restroom - Galle Fort',
-    description: 'Well-maintained restroom facility near the lighthouse. Accessible and clean with proper amenities.',
-    latitude: 6.0535,
-    longitude: 80.2210,
-    addedBy: 'You',
-    addedDate: '2024-01-15',
-    verified: true,
-    rating: 4.2,
-    reviews: 8,
-    status: 'approved',
-    lastUpdated: '2024-01-20',
-  },
-  {
-    id: 'user_point_2',
-    type: 'wifi',
-    title: 'Free WiFi - Beach Cafe Unawatuna',
-    description: 'Strong WiFi connection available for customers. Password provided with purchase.',
-    latitude: 6.0108,
-    longitude: 80.2492,
-    addedBy: 'You',
-    addedDate: '2024-01-10',
-    verified: false,
-    rating: 0,
-    reviews: 0,
-    status: 'pending',
-  },
-  {
-    id: 'user_point_3',
-    type: 'restaurant',
-    title: 'Local Rice & Curry - Mirissa',
-    description: 'Authentic Sri Lankan rice and curry. Great portions and very affordable.',
-    latitude: 5.9467,
-    longitude: 80.4682,
-    addedBy: 'You',
-    addedDate: '2024-01-05',
-    verified: false,
-    rating: 0,
-    reviews: 0,
-    status: 'rejected',
-  },
-];
-
 export default function MyMapPointsScreen() {
-  const [myPoints, setMyPoints] = useState<MapPoint[]>(MOCK_USER_POINTS);
+  const [myPoints, setMyPoints] = useState<MapPoint[]>([]);
   const [editingPoint, setEditingPoint] = useState<MapPoint | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'approved' | 'pending' | 'rejected'>('all');
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<'all' | 'published' | 'draft' | 'archived'>('all');
+
+  // Fetch user's map points
+  const fetchMyMapPoints = async () => {
+    try {
+      console.log('📍 Fetching user\'s map points...');
+      const response = await mapPointsApi.getMyMapPoints();
+      
+      if (response.success && response.data && response.data.mapPoints) {
+        const points: MapPoint[] = response.data.mapPoints.map((point: any) => ({
+          ...point,
+          id: point._id,
+          latitude: point.location.coordinates[1],
+          longitude: point.location.coordinates[0],
+        }));
+        
+        setMyPoints(points);
+        console.log(`✅ Fetched ${points.length} map points`);
+      }
+    } catch (error: any) {
+      console.error('❌ Error fetching map points:', error);
+      Alert.alert('Error', error.message || 'Failed to load your map points');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMyMapPoints();
+  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await fetchMyMapPoints();
     setRefreshing(false);
   };
 
@@ -381,11 +386,33 @@ export default function MyMapPointsScreen() {
     setShowEditModal(true);
   };
 
-  const handleSaveEdit = (updatedPoint: MapPoint) => {
-    setMyPoints(prev => prev.map(p => p.id === updatedPoint.id ? updatedPoint : p));
-    setShowEditModal(false);
-    setEditingPoint(null);
-    Alert.alert('Success', 'Map point updated successfully!');
+  const handleSaveEdit = async (updatedPoint: MapPoint) => {
+    try {
+      console.log('📝 Updating map point:', updatedPoint._id);
+      
+      const response = await mapPointsApi.updateMapPoint(updatedPoint._id, {
+        title: updatedPoint.title,
+        description: updatedPoint.description,
+        type: updatedPoint.category,
+      });
+
+      if (response.success) {
+        // Update local state
+        setMyPoints(prev => prev.map(p => 
+          p._id === updatedPoint._id ? { ...p, ...updatedPoint } : p
+        ));
+        
+        setShowEditModal(false);
+        setEditingPoint(null);
+        Alert.alert('Success', 'Map point updated successfully!');
+        
+        // Refresh data
+        await fetchMyMapPoints();
+      }
+    } catch (error: any) {
+      console.error('❌ Error updating map point:', error);
+      Alert.alert('Error', error.message || 'Failed to update map point');
+    }
   };
 
   const handleDelete = (point: MapPoint) => {
@@ -397,9 +424,20 @@ export default function MyMapPointsScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            setMyPoints(prev => prev.filter(p => p.id !== point.id));
-            Alert.alert('Deleted', 'Map point has been removed.');
+          onPress: async () => {
+            try {
+              console.log('🗑️ Deleting map point:', point._id);
+              
+              const response = await mapPointsApi.deleteMapPoint(point._id);
+              
+              if (response.success) {
+                setMyPoints(prev => prev.filter(p => p._id !== point._id));
+                Alert.alert('Deleted', 'Map point has been removed.');
+              }
+            } catch (error: any) {
+              console.error('❌ Error deleting map point:', error);
+              Alert.alert('Error', error.message || 'Failed to delete map point');
+            }
           },
         },
       ]
@@ -411,7 +449,7 @@ export default function MyMapPointsScreen() {
     router.push({
       pathname: '/community/crowdsource-map',
       params: { 
-        filter: point.type,
+        filter: point.category,
         selectedPointId: point.id,
         lat: point.latitude.toString(),
         lng: point.longitude.toString(),
@@ -433,6 +471,15 @@ export default function MyMapPointsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Loading Overlay */}
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading your map points...</Text>
+          </View>
+        </View>
+      )}
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -456,9 +503,9 @@ export default function MyMapPointsScreen() {
       >
         {[
           { key: 'all', label: 'All', count: myPoints.length },
-          { key: 'approved', label: 'Approved', count: getStatusCount('approved') },
-          { key: 'pending', label: 'Pending', count: getStatusCount('pending') },
-          { key: 'rejected', label: 'Rejected', count: getStatusCount('rejected') },
+          { key: 'published', label: 'Published', count: getStatusCount('published') },
+          { key: 'draft', label: 'Draft', count: getStatusCount('draft') },
+          { key: 'archived', label: 'Archived', count: getStatusCount('archived') },
         ].map((tab) => (
           <TouchableOpacity
             key={tab.key}
@@ -541,6 +588,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.secondary50,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    zIndex: 1000,
+  },
+  loadingContainer: {
+    backgroundColor: Colors.white,
+    paddingHorizontal: 32,
+    paddingVertical: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: Colors.secondary700,
+    fontWeight: '500',
   },
   header: {
     flexDirection: 'row',
