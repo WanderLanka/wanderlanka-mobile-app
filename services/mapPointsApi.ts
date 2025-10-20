@@ -226,4 +226,117 @@ export const mapPointsApi = {
       throw error;
     }
   },
+
+  /**
+   * Get current user's map points
+   */
+  getMyMapPoints: async (params?: {
+    page?: number;
+    limit?: number;
+    status?: 'published' | 'draft' | 'archived';
+  }) => {
+    try {
+      const token = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const queryParams = new URLSearchParams();
+      if (params) {
+        Object.entries(params).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            queryParams.append(key, value.toString());
+          }
+        });
+      }
+
+      const url = `${API_BASE_URL}/api/community/map-points/my-points?${queryParams.toString()}`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.message || 'Failed to fetch your map points');
+      }
+
+      return data;
+    } catch (error: any) {
+      console.error('❌ Error fetching my map points:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update a map point
+   */
+  updateMapPoint: async (id: string, data: Partial<MapPointFormData>) => {
+    try {
+      const token = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/community/map-points/${id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+        }
+      );
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(responseData?.message || 'Failed to update map point');
+      }
+
+      return responseData;
+    } catch (error: any) {
+      console.error('❌ Error updating map point:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Delete a map point
+   */
+  deleteMapPoint: async (id: string) => {
+    try {
+      const token = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/community/map-points/${id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.message || 'Failed to delete map point');
+      }
+
+      return data;
+    } catch (error: any) {
+      console.error('❌ Error deleting map point:', error);
+      throw error;
+    }
+  },
 };

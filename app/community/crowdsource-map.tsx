@@ -724,8 +724,37 @@ export default function CrowdsourceMapScreen() {
           </View>
         )}
 
-        {/* Selected Point Info */}
-        {selectedPoint && !showReviewsList && (
+        {/* Selected Point Info - Compact Mode for Direct View */}
+        {selectedPoint && !showReviewsList && viewMode === 'direct' && (
+          <View style={styles.selectedPointInfoCompact}>
+            <View style={styles.compactInfoRow}>
+              <View style={styles.compactInfo}>
+                <Text style={styles.compactTitle} numberOfLines={1}>{selectedPoint.title}</Text>
+                <View style={styles.compactRating}>
+                  {selectedPoint.rating > 0 ? (
+                    <>
+                      <StarRating rating={selectedPoint.rating} size={14} />
+                      <Text style={styles.compactRatingText}>{selectedPoint.rating.toFixed(1)}</Text>
+                      <Text style={styles.compactReviewCount}>({selectedPoint.reviews})</Text>
+                    </>
+                  ) : (
+                    <Text style={styles.compactNoRating}>No ratings yet</Text>
+                  )}
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.compactReviewButton}
+                onPress={() => setShowReviewsList(true)}
+              >
+                <Ionicons name="chatbox-ellipses" size={20} color={Colors.white} />
+                <Text style={styles.compactReviewButtonText}>Reviews</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Selected Point Info - Full Mode for Normal Browse */}
+        {selectedPoint && !showReviewsList && viewMode !== 'direct' && (
           <View style={styles.selectedPointInfo}>
             <View style={styles.selectedPointHeader}>
               <View style={styles.selectedPointTitleContainer}>
@@ -1246,6 +1275,68 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 5,
+  },
+  // Compact Mode for Direct View
+  selectedPointInfoCompact: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 14,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  compactInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  compactInfo: {
+    flex: 1,
+  },
+  compactTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.black,
+    marginBottom: 6,
+  },
+  compactRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  compactRatingText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.warning,
+  },
+  compactReviewCount: {
+    fontSize: 12,
+    color: Colors.secondary500,
+  },
+  compactNoRating: {
+    fontSize: 12,
+    color: Colors.secondary400,
+    fontStyle: 'italic',
+  },
+  compactReviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary600,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
+  },
+  compactReviewButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.white,
   },
   selectedPointHeader: {
     flexDirection: 'row',
