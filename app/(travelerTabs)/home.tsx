@@ -6,12 +6,14 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants/Colors';
 import { DestinationCard } from '../../components/DestinationCard';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { TopBar } from '@/components/TopBar';
 import { myTripsApi } from '../../utils/itineraryApi';
+import { useAuth } from '../../context/AuthContext';
 
 const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || 'AIzaSyBPAjLGZlFyzwIRo60j3HlhR7Qp0pmqQQ8';
 
@@ -65,6 +67,7 @@ interface PlaceDetails {
 }
 
 export default function TravelerHomeScreen() {
+  const { user } = useAuth();
   const [destination, setDestination] = useState('');
   const [isSearchModalVisible, setIsSearchModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -87,6 +90,12 @@ export default function TravelerHomeScreen() {
   const [isLoadingHiddenGems, setIsLoadingHiddenGems] = useState(false);
   
   const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+  AsyncStorage.getItem('accessToken').then(token => {
+    console.log('🔑 Access Token:', token);
+  });
+}, []);
 
   // Fetch my trips data when screen focuses
   useFocusEffect(
@@ -476,7 +485,9 @@ export default function TravelerHomeScreen() {
       />
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.greetingContainer}>
-          <ThemedText variant="title" style={styles.greeting}>Welcome Machan!</ThemedText>
+          <ThemedText variant="title" style={styles.greeting}>
+            Welcome {user?.username || 'Machan'}!
+          </ThemedText>
           <ThemedText variant="caption" style={styles.caption}>Explore Sri Lanka With Us!</ThemedText>
         </View>
 

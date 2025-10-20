@@ -17,8 +17,10 @@ import {
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText, TopBar } from '../../components';
+import { fetchPosts as fetchAllPosts, fetchRecommendedPosts } from '../../services/communityApi';
 import { formatTimeShort, getTimestampAgo } from '../../utils/timeFormat';
 
+import { API_CONFIG } from '../../services/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../../constants/Colors';
 import CommentSection from '../../components/CommentSection';
@@ -27,7 +29,6 @@ import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
-import { API_CONFIG } from '../../services/config';
 
 // Mock data - easily replaceable with backend API calls
 const MOCK_TRAVEL_POSTS: any[] = [
@@ -313,6 +314,7 @@ export default function CommunityScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('blog');
+  const [feedType, setFeedType] = useState<'for-you' | 'recent' | 'popular'>('for-you'); // New state
   const [posts, setPosts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -344,21 +346,19 @@ export default function CommunityScreen() {
   const fetchPosts = useCallback(async (showLoader = true) => {
     if (showLoader) setIsLoading(true);
     try {
-      const token = await AsyncStorage.getItem('accessToken');
-      const baseURL = API_CONFIG.BASE_URL;
-      const apiURL = `${baseURL}/api/community/posts?limit=20&sort=recent`;
+      let data;
+      
+      if (feedType === 'for-you') {
+        // Fetch personalized recommended posts
+        console.log('🎯 Fetching recommended posts...');
+        data = await fetchRecommendedPosts({ limit: 20 });
+      } else {
+        // Fetch generic posts (recent or popular)
+        console.log(`📥 Fetching ${feedType} posts...`);
+        data = await fetchAllPosts({ limit: 20, sort: feedType });
+      }
 
-      console.log('📥 Fetching posts from:', apiURL);
-
-      const response = await fetch(apiURL, {
-        headers: {
-          ...(token && { 'Authorization': `Bearer ${token}` })
-        }
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      if (data.success) {
         console.log(`✅ Fetched ${data.data.posts.length} posts`);
         
         // Transform backend data to match UI format
@@ -392,7 +392,7 @@ export default function CommunityScreen() {
       if (showLoader) setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [feedType]); // Add feedType dependency
 
   // Fetch user's questions
   const fetchUserQuestions = useCallback(async () => {
@@ -794,6 +794,69 @@ export default function CommunityScreen() {
         </View>
         <Ionicons name="camera-outline" size={20} color={Colors.primary600} />
       </TouchableOpacity>
+
+      {/* Feed Type Selector */}
+      <View style={styles.feedTypeSelector}>
+        <TouchableOpacity
+          style={[
+            styles.feedTypeButton,
+            feedType === 'for-you' && styles.feedTypeButtonActive
+          ]}
+          onPress={() => setFeedType('for-you')}
+        >
+          <Ionicons 
+            name={feedType === 'for-you' ? 'sparkles' : 'sparkles-outline'} 
+            size={16} 
+            color={feedType === 'for-you' ? Colors.primary600 : Colors.secondary400} 
+          />
+          <Text style={[
+            styles.feedTypeText,
+            feedType === 'for-you' && styles.feedTypeTextActive
+          ]}>
+            For You
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.feedTypeButton,
+            feedType === 'recent' && styles.feedTypeButtonActive
+          ]}
+          onPress={() => setFeedType('recent')}
+        >
+          <Ionicons 
+            name={feedType === 'recent' ? 'time' : 'time-outline'} 
+            size={16} 
+            color={feedType === 'recent' ? Colors.primary600 : Colors.secondary400} 
+          />
+          <Text style={[
+            styles.feedTypeText,
+            feedType === 'recent' && styles.feedTypeTextActive
+          ]}>
+            Recent
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.feedTypeButton,
+            feedType === 'popular' && styles.feedTypeButtonActive
+          ]}
+          onPress={() => setFeedType('popular')}
+        >
+          <Ionicons 
+            name={feedType === 'popular' ? 'flame' : 'flame-outline'} 
+            size={16} 
+            color={feedType === 'popular' ? Colors.primary600 : Colors.secondary400} 
+          />
+          <Text style={[
+            styles.feedTypeText,
+            feedType === 'popular' && styles.feedTypeTextActive
+          ]}>
+            Popular
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Posts Feed */}
       {isLoading && posts.length === 0 ? (
@@ -1564,6 +1627,43 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.secondary400,
     marginLeft: 12,
+  },
+  feedTypeSelector: {
+    flexDirection: 'row',
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 20,
+    shadowColor: Colors.black,
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  feedTypeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    gap: 6,
+  },
+  feedTypeButtonActive: {
+    backgroundColor: Colors.primary100,
+  },
+  feedTypeText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.secondary400,
+  },
+  feedTypeTextActive: {
+    color: Colors.primary600,
+    fontWeight: '600',
   },
   avatar: {
     width: 32,

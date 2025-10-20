@@ -92,8 +92,34 @@ export const getAccountStatus = async (): Promise<AccountStatus> => {
   return response.data || response;
 };
 
+/**
+ * Toggle account status (activate/deactivate)
+ * @param isActive - true to activate, false to deactivate
+ * @returns Promise<any>
+ */
+export const toggleAccountStatus = async (isActive: boolean): Promise<any> => {
+  const response = await ApiService.put<any>('/api/auth/profile/account-status', { isActive });
+  return response.data || response;
+};
+
+/**
+ * Delete account (soft delete - deactivates account)
+ * @param password - User password for verification
+ * @param confirmation - Must be "DELETE MY ACCOUNT"
+ * @returns Promise<any>
+ */
+export const deleteAccount = async (password: string, confirmation: string): Promise<any> => {
+  const response = await ApiService.delete<any>('/api/auth/profile/delete-account', {
+    password,
+    confirmation
+  });
+  return response.data || response;
+};
+
 export default {
   getProfile,
   updateProfile,
   getAccountStatus,
+  toggleAccountStatus,
+  deleteAccount,
 };
