@@ -7,12 +7,18 @@ import {
     Text,
     TouchableOpacity,
     View,
+    Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { CustomButton, CustomTextInput, HotelCard, ThemedText, TripDetailsModal } from '../../../components';
+import { Calendar } from 'react-native-calendars';
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Colors } from '../../../constants/Colors';
+import { AccommodationApiService, Accommodation } from '../../../services/accommodationApi';
+import { BookingService, CreateAccommodationBookingRequest } from '../../../services/booking';
+import { StorageService } from '../../../services/storage';
 
 interface Hotel {
   id: string;
@@ -34,7 +40,17 @@ interface TripDay {
   formattedDate: string;
 }
 
-export default function AccommodationBookingScreen() {
+interface AccommodationBookingScreenProps {
+  filters?: {
+    minPrice: string;
+    maxPrice: string;
+    location: string;
+    minRating: number;
+    propertyTypes: string[];
+  };
+}
+
+export default function AccommodationBookingScreen({ filters }: AccommodationBookingScreenProps) {
   const params = useLocalSearchParams();
   const { destination, startPoint, startDate, endDate, destinations } = params;
 
@@ -43,13 +59,156 @@ export default function AccommodationBookingScreen() {
   const [tripDetailsVisible, setTripDetailsVisible] = useState(false);
   const [showDaySelector, setShowDaySelector] = useState(false);
   const [filterVisible, setFilterVisible] = useState(false);
+  
+  // Date picker states
+  const [showCheckInCalendar, setShowCheckInCalendar] = useState(false);
+  const [showCheckOutCalendar, setShowCheckOutCalendar] = useState(false);
+  const [checkInDate, setCheckInDate] = useState(startDate as string || new Date().toISOString().split('T')[0]);
+  const [checkOutDate, setCheckOutDate] = useState(endDate as string || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
 
-  // Filter state
-  const [minPrice, setMinPrice] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
-  const [location, setLocation] = useState('');
-  const [minRating, setMinRating] = useState(0);
-  const [propertyTypes, setPropertyTypes] = useState<string[]>([]);
+  // State for real data
+  const [accommodations, setAccommodations] = useState<Accommodation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [bookingLoading, setBookingLoading] = useState<string | null>(null);
+
+  // Filter state - initialize with passed filters or defaults
+  const [minPrice, setMinPrice] = useState(filters?.minPrice || '');
+  const [maxPrice, setMaxPrice] = useState(filters?.maxPrice || '');
+  const [location, setLocation] = useState(filters?.location || '');
+  const [minRating, setMinRating] = useState(filters?.minRating || 0);
+  const [propertyTypes, setPropertyTypes] = useState<string[]>(filters?.propertyTypes || []);
+
+  // Fetch accommodations data
+  const fetchAccommodations = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🏨 Fetching accommodations for booking...');
+      const response = await AccommodationApiService.getAllAccommodations();
+      
+      if (response.success && response.data) {
+        setAccommodations(response.data);
+        console.log('✅ Accommodations loaded:', response.data.length);
+      } else {
+        throw new Error(response.message || 'Failed to fetch accommodations');
+      }
+    } catch (err: any) {
+      console.error('❌ Error fetching accommodations:', err);
+      setError(err.message || 'Failed to load accommodations');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAccommodations();
+  }, []);
+
+  // Date picker handlers
+  const handleSelectCheckInDate = (dateString: string) => {
+    setCheckInDate(dateString);
+    setShowCheckInCalendar(false);
+    
+    // If check-in date is after check-out date, adjust check-out date
+    const checkIn = new Date(dateString);
+    const checkOut = new Date(checkOutDate);
+    if (checkIn >= checkOut) {
+      const newCheckOut = new Date(checkIn);
+      newCheckOut.setDate(checkIn.getDate() + 1);
+      setCheckOutDate(newCheckOut.toISOString().split('T')[0]);
+    }
+  };
+
+  const handleSelectCheckOutDate = (dateString: string) => {
+    setCheckOutDate(dateString);
+    setShowCheckOutCalendar(false);
+  };
+
+  // Booking functionality
+  const handleBookAccommodation = async (accommodation: Accommodation) => {
+    try {
+      setBookingLoading(accommodation._id);
+      
+      // Get user data for contact info
+      const userData = await StorageService.getUserData();
+      if (!userData) {
+        throw new Error('Please log in to make a booking');
+      }
+
+      // Calculate trip duration using selected dates
+      const start = new Date(checkInDate);
+      const end = new Date(checkOutDate);
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      // Calculate total amount
+      const totalAmount = accommodation.price * nights;
+
+      const bookingPayload: CreateAccommodationBookingRequest = {
+        serviceType: 'accommodation',
+        serviceId: accommodation._id,
+        serviceName: accommodation.name,
+        serviceProvider: accommodation.userId || 'unknown',
+        totalAmount: totalAmount,
+        currency: 'LKR',
+        bookingDetails: {
+          checkInDate: checkInDate,
+          checkOutDate: checkOutDate,
+          rooms: 1, // Default rooms, could be made configurable
+          adults: 2, // Default adults, could be made configurable
+          children: 0, // Default children
+          nights: nights,
+          roomBreakdown: [{
+            roomType: accommodation.accommodationType || 'Standard',
+            quantity: 1,
+            pricePerNight: accommodation.price
+          }]
+        },
+        contactInfo: {
+          email: userData.email || '',
+          phone: userData.phone || '',
+          firstName: userData.firstName || userData.name || '',
+          lastName: userData.lastName || '',
+          emergencyContact: userData.phone || ''
+        }
+      };
+
+      console.log('🏨 Creating accommodation booking:', bookingPayload);
+      
+      // Create booking through API gateway to booking service
+      const response = await BookingService.createAccommodationBooking(bookingPayload);
+      
+      if (response.success) {
+        Alert.alert(
+          'Booking Successful!',
+          `Your accommodation booking for ${accommodation.name} has been confirmed.`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Navigate back or to booking summary
+                console.log('✅ Accommodation booking created successfully');
+              }
+            }
+          ]
+        );
+      } else {
+        throw new Error(response.error || 'Failed to create booking');
+      }
+      
+    } catch (error: any) {
+      console.error('❌ Error creating accommodation booking:', error);
+      Alert.alert(
+        'Booking Failed',
+        error.message || 'Failed to create booking. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setBookingLoading(null);
+    }
+  };
 
   // Calculate trip duration and generate days
   const generateTripDays = (): TripDay[] => {
@@ -102,80 +261,87 @@ export default function AccommodationBookingScreen() {
     setFilterVisible(false);
   };
 
-  const hotels: Hotel[] = [
-    {
-      id: '1',
-      name: 'Galle Heritage Villa',
-      rating: 4.8,
-      reviewCount: 142,
-      pricePerNight: 85,
-      location: 'Galle Fort',
-      distance: '0.2 km from Galle Fort',
-      image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945',
-      amenities: ['Free WiFi', 'Pool', 'Breakfast', 'AC'],
-      description: 'Charming heritage villa in the heart of Galle Fort with stunning ocean views.',
-      availability: true,
-    },
-    {
-      id: '2',
-      name: 'Kandy Hills Resort',
-      rating: 4.6,
-      reviewCount: 89,
-      pricePerNight: 120,
-      location: 'Kandy',
-      distance: '1.5 km from Temple of Tooth',
-      image: 'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa',
-      amenities: ['Mountain View', 'Spa', 'Restaurant', 'Free WiFi'],
-      description: 'Luxury resort with panoramic views of Kandy hills and the sacred temple.',
-      availability: true,
-    },
-    {
-      id: '3',
-      name: 'Ella Rock View Hotel',
-      rating: 4.7,
-      reviewCount: 76,
-      pricePerNight: 95,
-      location: 'Ella',
-      distance: '0.8 km from Ella Rock',
-      image: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4',
-      amenities: ['Hiking Trails', 'Tea Garden', 'Breakfast', 'Balcony'],
-      description: 'Boutique hotel with direct access to hiking trails and tea plantations.',
-      availability: true,
-    },
-    {
-      id: '4',
-      name: 'Sigiriya Eco Lodge',
-      rating: 4.5,
-      reviewCount: 124,
-      pricePerNight: 110,
-      location: 'Sigiriya',
-      distance: '2.0 km from Sigiriya Rock',
-      image: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d',
-      amenities: ['Eco-friendly', 'Safari Tours', 'Pool', 'Restaurant'],
-      description: 'Sustainable eco lodge offering authentic Sri Lankan experiences.',
-      availability: false,
-    },
-  ];
+  // Convert Accommodation to Hotel format for display
+  const hotels: Hotel[] = accommodations.map(accommodation => ({
+    id: accommodation._id,
+    name: accommodation.name,
+    rating: accommodation.rating || 4.5, // Default rating if not available
+    reviewCount: 0, // Default review count
+    pricePerNight: accommodation.price,
+    location: accommodation.location,
+    distance: 'Near city center', // Default distance
+    image: accommodation.images && accommodation.images.length > 0 ? accommodation.images[0] : 'https://images.unsplash.com/photo-1566073771259-6a8506099945',
+    amenities: accommodation.amenities || [],
+    description: accommodation.description || `${accommodation.name} - ${accommodation.accommodationType}`,
+    availability: accommodation.availability === 'available',
+  }));
 
-  const renderHotelCard = ({ item: hotel }: { item: Hotel }) => (
-    <HotelCard
-      hotel={hotel}
-      selectedDay={tripDays[selectedDayIndex]}
-      destination={destination as string}
-      startDate={startDate as string}
-      endDate={endDate as string}
-      destinations={destinations as string}
-      startPoint={startPoint as string}
-    />
-  );
+  const renderHotelCard = ({ item: hotel }: { item: Hotel }) => {
+    const originalAccommodation = accommodations.find(a => a._id === hotel.id);
+    
+    return (
+      <View style={styles.hotelCardContainer}>
+        <HotelCard
+          hotel={hotel}
+          selectedDay={tripDays[selectedDayIndex]}
+          destination={destination as string}
+          startDate={startDate as string}
+          endDate={endDate as string}
+          destinations={destinations as string}
+          startPoint={startPoint as string}
+        />
+        {hotel.availability && originalAccommodation && (
+          <View style={styles.bookingContainer}>
+            <CustomButton
+              title={bookingLoading === hotel.id ? "Booking..." : "Book Now"}
+              variant="primary"
+              size="small"
+              onPress={() => handleBookAccommodation(originalAccommodation)}
+              disabled={bookingLoading === hotel.id}
+              style={styles.bookButton}
+            />
+            {bookingLoading === hotel.id && (
+              <ActivityIndicator size="small" color={Colors.primary600} style={styles.loadingIndicator} />
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.primary600} />
+        <ThemedText style={styles.loadingText}>Loading accommodation options...</ThemedText>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle-outline" size={48} color={Colors.error} />
+        <ThemedText style={styles.errorText}>{error}</ThemedText>
+        <CustomButton
+          title="Retry"
+          variant="primary"
+          size="small"
+          onPress={fetchAccommodations}
+          style={styles.retryButton}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       {/* Booking Details Section */}
       <View style={styles.bookingDetailsContainer}>
+        {/* Check-in Date */}
         <TouchableOpacity 
           style={styles.bookingCard}
-          onPress={() => setShowDaySelector(!showDaySelector)}
+          onPress={() => setShowCheckInCalendar(true)}
           activeOpacity={0.8}
         >
           <View style={styles.bookingCardContent}>
@@ -184,82 +350,48 @@ export default function AccommodationBookingScreen() {
             </View>
             <View style={styles.bookingInfo}>
               <ThemedText style={styles.bookingLabel}>Check-in Date</ThemedText>
-              <ThemedText style={styles.bookingDay}>
-                Day {tripDays[selectedDayIndex]?.dayNumber}
-              </ThemedText>
               <ThemedText style={styles.bookingDate}>
-                {tripDays[selectedDayIndex]?.formattedDate}
+                {new Date(checkInDate).toLocaleDateString('en-US', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric'
+                })}
               </ThemedText>
             </View>
             <View style={styles.changeButtonContainer}>
-              <View style={styles.changeButton}>
-                <ThemedText style={styles.changeButtonText}>Change</ThemedText>
-                <Ionicons 
-                  name={showDaySelector ? 'chevron-up' : 'chevron-down'} 
-                  size={16} 
-                  color={Colors.primary600} 
-                />
-              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.primary600} />
             </View>
           </View>
         </TouchableOpacity>
 
-        {showDaySelector && (
-          <>
-            <View style={styles.daySelectionBackdrop} />
-            <View style={styles.daySelectionOverlay}>
-              <View style={styles.daySelectionContainer}>
-                <View style={styles.daySelectionHeader}>
-                  <Ionicons name="calendar" size={16} color={Colors.primary600} />
-                  <ThemedText style={styles.daySelectionTitle}>Select Check-in Day</ThemedText>
-                  <TouchableOpacity 
-                    style={styles.closeButton}
-                    onPress={() => setShowDaySelector(false)}
-                  >
-                    <Ionicons name="close" size={16} color={Colors.secondary500} />
-                  </TouchableOpacity>
-                </View>
-                <ScrollView style={styles.daysList} showsVerticalScrollIndicator={false}>
-                  {tripDays.map((day, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      style={[
-                        styles.dayItem,
-                        selectedDayIndex === index && styles.selectedDayItem
-                      ]}
-                      onPress={() => {
-                        setSelectedDayIndex(index);
-                        setShowDaySelector(false);
-                      }}
-                    >
-                      <View style={styles.dayItemContent}>
-                        <View style={styles.dayItemLeft}>
-                          <ThemedText style={[
-                            styles.dayItemNumber,
-                            selectedDayIndex === index && styles.selectedDayItemText
-                          ]}>
-                            Day {day.dayNumber}
-                          </ThemedText>
-                          <ThemedText style={[
-                            styles.dayItemDate,
-                            selectedDayIndex === index && styles.selectedDayItemText
-                          ]}>
-                            {day.formattedDate}
-                          </ThemedText>
-                        </View>
-                        {selectedDayIndex === index && (
-                          <View style={styles.dayItemCheckmark}>
-                            <Ionicons name="checkmark" size={16} color={Colors.white} />
-                          </View>
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
+        {/* Check-out Date */}
+        <TouchableOpacity 
+          style={styles.bookingCard}
+          onPress={() => setShowCheckOutCalendar(true)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.bookingCardContent}>
+            <View style={styles.calendarIconContainer}>
+              <Ionicons name="calendar" size={20} color={Colors.white} />
             </View>
-          </>
-        )}
+            <View style={styles.bookingInfo}>
+              <ThemedText style={styles.bookingLabel}>Check-out Date</ThemedText>
+              <ThemedText style={styles.bookingDate}>
+                {new Date(checkOutDate).toLocaleDateString('en-US', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric'
+                })}
+              </ThemedText>
+            </View>
+            <View style={styles.changeButtonContainer}>
+              <Ionicons name="chevron-forward" size={16} color={Colors.primary600} />
+            </View>
+          </View>
+        </TouchableOpacity>
+
       </View>
 
       {/* Search Area */}
@@ -299,6 +431,118 @@ export default function AccommodationBookingScreen() {
         tripDays={tripDays}
         selectedDayIndex={selectedDayIndex}
       />
+
+      {/* Check-in Date Calendar Modal */}
+      <Modal
+        visible={showCheckInCalendar}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowCheckInCalendar(false)}
+      >
+        <View style={styles.calendarModalContainer}>
+          <View style={styles.calendarModalHeader}>
+            <ThemedText style={styles.calendarModalTitle}>Select Check-in Date</ThemedText>
+            <TouchableOpacity onPress={() => setShowCheckInCalendar(false)}>
+              <Ionicons name="close" size={24} color={Colors.secondary700} />
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.calendarContainer}>
+            <Calendar
+              style={styles.calendar}
+              theme={{
+                backgroundColor: Colors.white,
+                calendarBackground: Colors.white,
+                textSectionTitleColor: Colors.secondary700,
+                selectedDayBackgroundColor: Colors.primary600,
+                selectedDayTextColor: Colors.white,
+                todayTextColor: Colors.primary600,
+                dayTextColor: Colors.secondary700,
+                textDisabledColor: Colors.secondary400,
+                dotColor: Colors.primary600,
+                selectedDotColor: Colors.white,
+                arrowColor: Colors.primary600,
+                disabledArrowColor: Colors.secondary400,
+                monthTextColor: Colors.secondary700,
+                indicatorColor: Colors.primary600,
+                textDayFontWeight: '500',
+                textMonthFontWeight: '600',
+                textDayHeaderFontWeight: '500',
+                textDayFontSize: 16,
+                textMonthFontSize: 18,
+                textDayHeaderFontSize: 14,
+              }}
+              minDate={new Date().toISOString().split('T')[0]}
+              onDayPress={(day) => {
+                handleSelectCheckInDate(day.dateString);
+              }}
+              markedDates={{
+                [checkInDate]: {
+                  selected: true,
+                  selectedColor: Colors.primary600,
+                  selectedTextColor: Colors.white,
+                },
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Check-out Date Calendar Modal */}
+      <Modal
+        visible={showCheckOutCalendar}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowCheckOutCalendar(false)}
+      >
+        <View style={styles.calendarModalContainer}>
+          <View style={styles.calendarModalHeader}>
+            <ThemedText style={styles.calendarModalTitle}>Select Check-out Date</ThemedText>
+            <TouchableOpacity onPress={() => setShowCheckOutCalendar(false)}>
+              <Ionicons name="close" size={24} color={Colors.secondary700} />
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.calendarContainer}>
+            <Calendar
+              style={styles.calendar}
+              theme={{
+                backgroundColor: Colors.white,
+                calendarBackground: Colors.white,
+                textSectionTitleColor: Colors.secondary700,
+                selectedDayBackgroundColor: Colors.primary600,
+                selectedDayTextColor: Colors.white,
+                todayTextColor: Colors.primary600,
+                dayTextColor: Colors.secondary700,
+                textDisabledColor: Colors.secondary400,
+                dotColor: Colors.primary600,
+                selectedDotColor: Colors.white,
+                arrowColor: Colors.primary600,
+                disabledArrowColor: Colors.secondary400,
+                monthTextColor: Colors.secondary700,
+                indicatorColor: Colors.primary600,
+                textDayFontWeight: '500',
+                textMonthFontWeight: '600',
+                textDayHeaderFontWeight: '500',
+                textDayFontSize: 16,
+                textMonthFontSize: 18,
+                textDayHeaderFontSize: 14,
+              }}
+              minDate={checkInDate}
+              onDayPress={(day) => {
+                handleSelectCheckOutDate(day.dateString);
+              }}
+              markedDates={{
+                [checkOutDate]: {
+                  selected: true,
+                  selectedColor: Colors.primary600,
+                  selectedTextColor: Colors.white,
+                },
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={filterVisible}
@@ -756,5 +1000,72 @@ const styles = StyleSheet.create({
   },
   filterModalActionBtn: {
     flex: 1,
+  },
+  hotelCardContainer: {
+    marginBottom: 16,
+  },
+  bookingContainer: {
+    marginTop: 12,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  bookButton: {
+    minWidth: 120,
+  },
+  loadingIndicator: {
+    marginTop: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.secondary50,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: Colors.secondary600,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.secondary50,
+    padding: 20,
+  },
+  errorText: {
+    marginTop: 16,
+    marginBottom: 20,
+    fontSize: 16,
+    color: Colors.error,
+    textAlign: 'center',
+  },
+  retryButton: {
+    minWidth: 100,
+  },
+  calendarModalContainer: {
+    flex: 1,
+    backgroundColor: Colors.white,
+  },
+  calendarModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.secondary200,
+  },
+  calendarModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.secondary700,
+  },
+  calendarContainer: {
+    flex: 1,
+    padding: 20,
+  },
+  calendar: {
+    borderRadius: 10,
   },
 });
