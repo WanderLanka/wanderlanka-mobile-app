@@ -103,6 +103,14 @@ export class ApiService {
         throw new Error('Server returned invalid response format');
       }
 
+      // Handle rate-limiting explicitly to avoid retry loops
+  if (response.status === 429) {
+        const rateMsg = data?.message || data?.error || 'Too many requests. Please try again later.';
+        const rateErr = new ApiError(rateMsg, 429, data?.code || 'RATE_LIMIT_EXCEEDED', data);
+        (rateErr as any).noRetry = true; // prevent retry/backoff
+        throw rateErr;
+      }
+
       // If unauthorized/forbidden, attempt token refresh before throwing
       const isAuthError =
         (response.status === HTTP_STATUS.UNAUTHORIZED || response.status === HTTP_STATUS.FORBIDDEN) &&
@@ -187,6 +195,11 @@ export class ApiService {
         console.error('API request failed:', error);
       }
 
+      // If error is already an ApiError, surface its message
+      if (error instanceof ApiError) {
+        throw error;
+      }
+
       // On network-related failures, try to re-detect the server and retry once
       const errorInfo = classifyNetworkError(error as Error);
       // No automatic server discovery or fallback; rely on configured BASE_URL
@@ -201,10 +214,10 @@ export class ApiService {
         }
       } catch {}
 
-  // Classify error and provide user-friendly message
-  const err: any = new ApiError(message, undefined, errorInfo.type);
-  if (errorInfo.type === 'NO_INTERNET') err.noRetry = true;
-  throw err;
+      // Classify error and provide user-friendly message
+      const err: any = new ApiError(message, undefined, errorInfo.type);
+      if (errorInfo.type === 'NO_INTERNET') err.noRetry = true;
+      throw err;
     }
   }
 
