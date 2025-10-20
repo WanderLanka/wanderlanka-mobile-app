@@ -1176,7 +1176,6 @@ export default function CommunityScreen() {
       <StatusBar style="light" translucent />
       <TopBar
         onProfilePress={() => { /* handle profile/account */ }}
-        onNotificationsPress={() => { /* handle notifications */ }}
       />
 
       {/* Header Section */}

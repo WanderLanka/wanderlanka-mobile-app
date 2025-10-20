@@ -28,7 +28,17 @@ interface Guide {
   availability: boolean;
 }
 
-export default function GuidesBookingScreen() {
+interface GuidesBookingScreenProps {
+  filters?: {
+    minPrice: string;
+    maxPrice: string;
+    location: string;
+    minRating: number;
+    propertyTypes: string[];
+  };
+}
+
+export default function GuidesBookingScreen({ filters }: GuidesBookingScreenProps) {
   const params = useLocalSearchParams();
   const { destination, startDate, endDate, destinations, startPoint } = params;
 

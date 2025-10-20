@@ -27,7 +27,7 @@ import {
 import { Colors } from '../../constants/Colors';
 import { useAuth } from '../../context/AuthContext';
 
-interface GuideRegistrationData {
+interface GuideFormData {
   firstName: string;
   lastName: string;
   nicNumber: string;
@@ -44,10 +44,11 @@ export default function GuideRegistrationScreen() {
   const params = useLocalSearchParams() as {
     username: string;
     email: string;
+    phone?: string;
     password: string;
   };
 
-  const [formData, setFormData] = useState<GuideRegistrationData>({
+  const [formData, setFormData] = useState<GuideFormData>({
     firstName: '',
     lastName: '',
     nicNumber: '',
@@ -199,6 +200,7 @@ export default function GuideRegistrationScreen() {
         email: params.email,
         password: params.password,
         role: 'guide',
+        phone: params.phone,
         guideDetails: {
           firstName: formData.firstName,
           lastName: formData.lastName,
@@ -274,6 +276,8 @@ export default function GuideRegistrationScreen() {
               leftIcon="person"
               autoCapitalize="words"
             />
+
+            {/* Contact number removed; using phone passed from signup */}
 
             <CustomTextInput
               label="NIC Number"

@@ -18,6 +18,75 @@ export type CreateTourPackageBookingRequest = {
   paymentMethod?: 'mock' | 'card';
 };
 
+// Enhanced booking interfaces for accommodation and transportation
+export type CreateAccommodationBookingRequest = {
+  serviceType: 'accommodation';
+  serviceId: string; // accommodation ID
+  serviceName: string;
+  serviceProvider: string; // accommodation provider ID
+  totalAmount: number;
+  currency?: string;
+  bookingDetails: {
+    checkInDate: string; // ISO date
+    checkOutDate: string; // ISO date
+    rooms: number;
+    adults: number;
+    children?: number;
+    nights: number;
+    roomBreakdown: Array<{
+      roomType: string;
+      quantity: number;
+      pricePerNight: number;
+    }>;
+  };
+  contactInfo: {
+    email: string;
+    phone: string;
+    firstName: string;
+    lastName: string;
+    emergencyContact?: string;
+  };
+  paymentDetails: {
+    cardNumber: string;
+    expiryDate: string;
+    cvv: string;
+    cardholderName: string;
+  };
+};
+
+export type CreateTransportationBookingRequest = {
+  serviceType: 'transportation';
+  serviceId: string; // transportation ID
+  serviceName: string;
+  serviceProvider: string; // transportation provider ID
+  totalAmount: number;
+  currency?: string;
+  bookingDetails: {
+    startDate: string; // ISO date
+    days: number;
+    passengers: number;
+    pickupLocation: string;
+    dropoffLocation: string;
+    estimatedDistance?: number;
+    pricingPerKm: number;
+    vehicleType: string;
+    departureTime?: string;
+  };
+  contactInfo: {
+    email: string;
+    phone: string;
+    firstName: string;
+    lastName: string;
+    emergencyContact?: string;
+  };
+  paymentDetails: {
+    cardNumber: string;
+    expiryDate: string;
+    cvv: string;
+    cardholderName: string;
+  };
+};
+
 export type BookingResponse<T = any> = {
   success: boolean;
   data?: T;
@@ -51,6 +120,43 @@ export const BookingService = {
   async createTourPackageBooking(payload: CreateTourPackageBookingRequest): Promise<BookingResponse> {
     // Gateway path
     return ApiService.post<BookingResponse>(`/api/booking/tourpackage_booking/create`, payload);
+  },
+
+  // Enhanced booking methods for accommodation and transportation
+  async createAccommodationBooking(payload: CreateAccommodationBookingRequest): Promise<BookingResponse> {
+    try {
+      console.log('🏨 Creating accommodation booking:', payload);
+      const response = await ApiService.post<BookingResponse>('/api/booking/enhanced', payload);
+      console.log('✅ Accommodation booking created:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Error creating accommodation booking:', error);
+      throw error;
+    }
+  },
+
+  async createTransportationBooking(payload: CreateTransportationBookingRequest): Promise<BookingResponse> {
+    try {
+      console.log('🚗 Creating transportation booking:', payload);
+      const response = await ApiService.post<BookingResponse>('/api/booking/enhanced', payload);
+      console.log('✅ Transportation booking created:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Error creating transportation booking:', error);
+      throw error;
+    }
+  },
+
+  async createCheckoutSession(payload: CreateAccommodationBookingRequest | CreateTransportationBookingRequest): Promise<BookingResponse> {
+    try {
+      console.log('💳 Creating checkout session:', payload);
+      const response = await ApiService.post<BookingResponse>('/api/booking/payments/create-session', payload);
+      console.log('✅ Checkout session created:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Error creating checkout session:', error);
+      throw error;
+    }
   },
   async getBooking(id: string): Promise<BookingResponse> {
     return ApiService.get<BookingResponse>(`/api/booking/tourpackage_booking/get/${encodeURIComponent(id)}`);

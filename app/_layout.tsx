@@ -11,8 +11,12 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Stack } from "expo-router";
 import { View } from 'react-native';
+import { StripeProvider } from '@stripe/stripe-react-native';
 // Removed automatic server detection & network monitoring
 import useFontLoader from '../hooks/useFontLoader';
+
+// Stripe publishable key (test mode)
+const STRIPE_PUBLISHABLE_KEY = 'pk_test_51SJuV30wtdJrCVBfaNLyQ4R1ojfXgqUUGzqCD2K0qanflcQ5BQAuR3YhezP84YOK7qPXsmDo7jwBpSWZWQR70B0400Xm1LRF51';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -41,13 +45,15 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <BottomSheetModalProvider>
-          <AuthProvider>
-            <BookingProvider>
-              <Stack screenOptions={{ headerShown: false }} />
-            </BookingProvider>
-          </AuthProvider>
-        </BottomSheetModalProvider>
+        <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
+          <BottomSheetModalProvider>
+            <AuthProvider>
+              <BookingProvider>
+                <Stack screenOptions={{ headerShown: false }} />
+              </BookingProvider>
+            </AuthProvider>
+          </BottomSheetModalProvider>
+        </StripeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

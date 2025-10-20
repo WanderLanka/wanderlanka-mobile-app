@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/Colors';
+import { StarRating } from './StarRating';
 
 interface ItemCardProps {
   image: string;
@@ -12,22 +13,24 @@ interface ItemCardProps {
   rating?: number;
   buttonText?: string;
   type: 'accommodation' | 'vehicle' | 'guide';
+  id?: string; // Add ID prop for navigation
   onPress?: () => void; 
   style?: any;
 }
 
-export const ItemCard: React.FC<ItemCardProps> = ({ image, title, price, city, rating, onPress, buttonText = 'View Details', type, style }: ItemCardProps) => {
+export const ItemCard: React.FC<ItemCardProps> = ({ image, title, price, city, rating, onPress, buttonText = 'View Details', type, id, style }: ItemCardProps) => {
   const router = useRouter();
 
   const handlePress = () => {
-    const encodedTitle = encodeURIComponent(title);
+    // Use ID if available, otherwise fall back to encoded title
+    const identifier = id || encodeURIComponent(title);
     let route = '';
     if (type === 'accommodation') {
-      route = `/accomodation/${encodedTitle}`;
+      route = `/accomodation/${identifier}`;
     } else if (type === 'vehicle') {
-      route = `/transportation/${encodedTitle}`;
+      route = `/transportation/${identifier}`;
     } else if (type === 'guide') {
-      route = `/tour_guides/${encodedTitle}`;
+      route = `/tour_guides/${identifier}`;
     }
     router.push(route as any);
     if (onPress) {
@@ -42,13 +45,14 @@ export const ItemCard: React.FC<ItemCardProps> = ({ image, title, price, city, r
         <Text style={styles.name} numberOfLines={1}> {title.trim() || ' '}</Text>
         {city && <Text style={styles.city} numberOfLines={1}>{city.trim()}</Text>}      
         <View style={styles.row}>
-          {typeof rating === 'number' ? (
-            <View style={styles.ratingContainer}>
-              <Ionicons name="star" size={14} color={Colors.primary500} />
-              <Text style={styles.rating}>
-                {rating.toFixed(1)}
-              </Text>
-            </View>
+          {typeof rating === 'number' && rating > 0 ? (
+            <StarRating 
+              rating={rating}
+              size={14}
+              showNumber={true}
+              color={Colors.warning}
+              emptyColor={Colors.secondary300}
+            />
           ) : null}
           
           {price ? (

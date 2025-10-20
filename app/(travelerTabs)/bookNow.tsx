@@ -3,6 +3,7 @@ import { useScrollToTop } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, ScrollView, StyleSheet, View, TouchableOpacity, RefreshControl } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import vehicleIcon from '../../assets/images/car.png';
 import guideIcon from '../../assets/images/guide.png';
@@ -21,6 +22,7 @@ export default function BookNowScreen() {
   const [upcomingBookings, setUpcomingBookings] = useState<ConfirmedBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadUpcomingBookings();
@@ -35,13 +37,24 @@ export default function BookNowScreen() {
 
   const loadUpcomingBookings = async () => {
     try {
+      setError(null);
+      
       // Prefer backend data
       const user = await StorageService.getUserData();
       const userId = user?.id || user?._id;
-      if (!userId) throw new Error('Not logged in');
+      if (!userId) {
+        throw new Error('Please log in to view your bookings');
+      }
 
+      console.log('📋 Fetching bookings for user:', userId);
       const res = await BookingService.listTourPackageBookings({ userId: String(userId) });
-      const items: TourPackageBookingItem[] = (res?.success && Array.isArray(res.data)) ? (res.data as any) : [];
+      
+      if (!res?.success) {
+        throw new Error(res?.error || 'Failed to load bookings');
+      }
+      
+      const items: TourPackageBookingItem[] = Array.isArray(res.data) ? res.data : [];
+      console.log('✅ Bookings loaded:', items.length);
 
       const now = new Date();
       const mapped: ConfirmedBooking[] = items.map((it) => {
@@ -87,12 +100,14 @@ export default function BookNowScreen() {
         };
       })
       // Filter to upcoming section: future and not cancelled
-  .filter(b => (['upcoming','pending','approved','confirmed'] as ConfirmedBooking['status'][]).includes(b.status))
+      .filter(b => (['upcoming','pending','approved','confirmed'] as ConfirmedBooking['status'][]).includes(b.status))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
       setUpcomingBookings(mapped);
-    } catch (error) {
-      console.error('Error loading bookings:', error);
+    } catch (error: any) {
+      console.error('❌ Error loading bookings:', error);
+      const errorMessage = error?.message || 'Failed to load bookings. Please try again.';
+      setError(errorMessage);
       setUpcomingBookings([]);
     } finally {
       setLoading(false);
@@ -296,6 +311,19 @@ export default function BookNowScreen() {
             {loading ? (
               <View style={styles.loadingContainer}>
                 <ThemedText style={styles.loadingText}>Loading bookings...</ThemedText>
+              </View>
+            ) : error ? (
+              <View style={styles.errorContainer}>
+                <Ionicons name="alert-circle-outline" size={48} color={Colors.secondary400} style={styles.errorIcon} />
+                <ThemedText style={styles.errorText}>{error}</ThemedText>
+                <ThemedText style={styles.errorSubtext}>Please check again later</ThemedText>
+                <CustomButton
+                  title="Retry"
+                  variant="primary"
+                  size="small"
+                  onPress={loadUpcomingBookings}
+                  style={styles.retryButton}
+                />
               </View>
             ) : upcomingBookings.length > 0 ? (
               upcomingBookings.slice(0, 5).map((booking) => (
@@ -680,6 +708,29 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 14,
     color: Colors.secondary500,
+  },
+  errorContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  errorIcon: {
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: Colors.secondary600,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: Colors.secondary500,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    minWidth: 120,
   },
   emptyContainer: {
     padding: 20,

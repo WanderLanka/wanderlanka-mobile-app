@@ -7,14 +7,12 @@ import { Colors } from '../constants/Colors';
 interface ServicesTopBarProps {
   onBackPress?: () => void;
   onProfilePress?: () => void;
-  onNotificationsPress?: () => void;
   profileImage?: string; // URL or local image path
 }
 
 export const ServicesTopBar: React.FC<ServicesTopBarProps> = ({
   onBackPress,
   onProfilePress,
-  onNotificationsPress,
   profileImage,
 }) => {
   return (
@@ -23,9 +21,6 @@ export const ServicesTopBar: React.FC<ServicesTopBarProps> = ({
         <Ionicons name="arrow-back" size={26} color={Colors.white} />
       </TouchableOpacity>
       <View style={styles.rightGroup}>
-        <TouchableOpacity style={styles.iconButton} onPress={onNotificationsPress}>
-          <Ionicons name="notifications-outline" size={26} color={Colors.white} />
-        </TouchableOpacity>
         <TouchableOpacity style={styles.profileContainer} onPress={onProfilePress}>
           {profileImage ? (
             <Image source={{ uri: profileImage }} style={styles.profileImage} />

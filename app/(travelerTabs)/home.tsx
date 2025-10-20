@@ -482,7 +482,6 @@ export default function TravelerHomeScreen() {
 
       <TopBar
         onProfilePress={() => {}}
-        onNotificationsPress={() => {}}
       />
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.greetingContainer}>

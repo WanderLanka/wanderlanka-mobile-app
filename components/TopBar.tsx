@@ -5,13 +5,11 @@ import { Colors } from '../constants/Colors';
 
 interface TopBarProps {
   onProfilePress?: () => void;
-  onNotificationsPress?: () => void;
   profileImage?: string; // URL or local image path
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
   onProfilePress,
-  onNotificationsPress,
   profileImage,
 }) => {
   return (
@@ -24,9 +22,6 @@ export const TopBar: React.FC<TopBarProps> = ({
             <Ionicons name="person" size={22} color={Colors.primary700} />
           </View>
         )}
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.iconButton} onPress={onNotificationsPress}>
-        <Ionicons name="notifications-outline" size={26} color={Colors.white} />
       </TouchableOpacity>
     </View>
   );

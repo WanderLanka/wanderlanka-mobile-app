@@ -694,9 +694,6 @@ export default function CommunityScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Community</Text>
-        <TouchableOpacity>
-          <Ionicons name="notifications-outline" size={24} color={Colors.black} />
-        </TouchableOpacity>
       </View>
 
       {/* Tabs */}

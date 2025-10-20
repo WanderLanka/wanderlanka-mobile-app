@@ -1,14 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
-import { Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CustomButton, CustomTextInput, ServicesTopBar, ThemedText } from '../../components';
 import { ItemCard } from '../../components/ItemCard';
 import { Colors } from '../../constants/Colors';
+import { AccommodationApiService, Accommodation } from '../../services/accommodationApi';
 
 export default function AccomodationHomeScreen() {
   const insets = useSafeAreaInsets();
+  
+  // API data state
+  const [accommodations, setAccommodations] = useState<Accommodation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
   // Modal and filter state
   const [filterVisible, setFilterVisible] = useState(false);
   const [minPrice, setMinPrice] = useState('');
@@ -17,6 +24,33 @@ export default function AccomodationHomeScreen() {
   const [minRating, setMinRating] = useState(0);
   const [propertyTypes, setPropertyTypes] = useState<string[]>([]);
   const propertyTypeOptions = ['Hotel', 'Villa', 'Guest House', 'Hostel', 'Apartment'];
+
+  // Fetch accommodations data
+  const fetchAccommodations = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🏨 Fetching accommodations...');
+      const response = await AccommodationApiService.getAllAccommodations();
+      
+      if (response.success && response.data) {
+        setAccommodations(response.data);
+        console.log('✅ Accommodations loaded:', response.data.length);
+      } else {
+        throw new Error(response.message || 'Failed to fetch accommodations');
+      }
+    } catch (err: any) {
+      console.error('❌ Error fetching accommodations:', err);
+      setError(err.message || 'Failed to load accommodations');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAccommodations();
+  }, []);
 
   const togglePropertyType = (type: string) => {
     setPropertyTypes((prev) =>
@@ -33,18 +67,73 @@ export default function AccomodationHomeScreen() {
     setFilterVisible(false);
   };
 
-  const renderItemCard = (item: any, prefix: string, index: number) => (
+  const renderItemCard = (item: Accommodation, prefix: string, index: number) => (
   <ItemCard
     key={`${prefix}-${index}`}
-    image={item.image || ''}
-    title={item.title || ' '}
-    city={item.city}
-    price={item.price}
+    id={item._id}
+    image={item.images && item.images.length > 0 ? item.images[0] : 'https://via.placeholder.com/300x200/3b82f6/ffffff?text=Hotel+Image'}
+    title={item.name || ' '}
+    city={item.location}
+    price={`$${item.price}/night`}
     rating={item.rating}
     type="accommodation"
     style={styles.carouselCard}
   />
   );
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={[styles.statusBarBackground, { height: insets.top }]} />
+        <StatusBar style="light" translucent />
+        <ServicesTopBar 
+          onProfilePress={() => {}}
+          onNotificationsPress={() => {}}
+        />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary600} />
+          <ThemedText style={styles.loadingText}>Loading accommodations...</ThemedText>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={[styles.statusBarBackground, { height: insets.top }]} />
+        <StatusBar style="light" translucent />
+        <ServicesTopBar 
+          onProfilePress={() => {}}
+          onNotificationsPress={() => {}}
+        />
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color={Colors.error} />
+          <ThemedText style={styles.errorText}>{error}</ThemedText>
+          <CustomButton
+            title="Retry"
+            variant="primary"
+            size="small"
+            onPress={fetchAccommodations}
+            style={styles.retryButton}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Get top rated accommodations (rating >= 4.5)
+  const topRatedAccommodations = accommodations
+    .filter(acc => acc.rating >= 4.5)
+    .slice(0, 5);
+
+  // Get budget friendly accommodations (price <= 100)
+  const budgetAccommodations = accommodations
+    .filter(acc => acc.price <= 100)
+    .slice(0, 5);
+
+  // Get recent accommodations (last 5)
+  const recentAccommodations = accommodations.slice(0, 5);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -83,15 +172,7 @@ export default function AccomodationHomeScreen() {
           <ThemedText variant = 'caption' style={styles.seeMore}>See more →</ThemedText>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
-           {featuredData.map((item, i) => renderItemCard(item, 'featured', i))}
-            <ItemCard
-        image="https://images.unsplash.com/photo-1506744038136-46273834b3fb"
-        title="Test Hotel"
-        city="Colombo"
-        price="$100/night"
-        rating={4.5}
-        type="accommodation"
-      />
+          {topRatedAccommodations.map((item, i) => renderItemCard(item, 'top-rated', i))}
         </ScrollView>
 
         <View style={styles.sectionHeader}>
@@ -99,9 +180,7 @@ export default function AccomodationHomeScreen() {
           <ThemedText variant = 'subtitle' style={styles.seeMore}>See more →</ThemedText>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
-          {featuredData.map((item, i) => (
-            <ItemCard key={i} {...item} style={styles.carouselCard} type="accommodation" />
-          ))}
+          {budgetAccommodations.map((item, i) => renderItemCard(item, 'budget', i))}
         </ScrollView>
 
         <View style={styles.sectionHeader}>
@@ -109,9 +188,7 @@ export default function AccomodationHomeScreen() {
           <ThemedText  variant = 'subtitle' style={styles.seeMore}>See more →</ThemedText>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
-          {recentData.map((item, i) => (
-            <ItemCard key={i} {...item} style={styles.carouselCard} type="accommodation" />
-          ))}
+          {recentAccommodations.map((item, i) => renderItemCard(item, 'recent', i))}
         </ScrollView>
       </ScrollView>
 
@@ -401,6 +478,38 @@ const styles = StyleSheet.create({
   },
   modalActionBtn: {
     flex: 1,
+  },
+  
+  // Loading and Error States
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 16,
+    color: Colors.primary600,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 60,
+  },
+  errorText: {
+    marginTop: 16,
+    marginBottom: 24,
+    color: Colors.error,
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  retryButton: {
+    minWidth: 120,
   }
   // dateInputs: {
   //   flexDirection: 'row',
@@ -409,31 +518,3 @@ const styles = StyleSheet.create({
   // }
 
 });
-
-// Mock data
-const featuredData = [
-  {
-    image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb',
-    title: 'Luxury Beach Resort',
-    city: 'Galle',
-    price: '$220/night',
-    rating: 4.8,
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd',
-    title: 'Mountain View Hotel',
-    city: 'Kandy',
-    price: '$180/night',
-    rating: 4.7,
-  },
-];
-
-const recentData = [
-  {
-    image: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca',
-    title: 'City Center Inn',
-    city: 'Ella',
-    price: '$120/night',
-    rating: 4.5,
-  },
-];
