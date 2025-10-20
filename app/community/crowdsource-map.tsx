@@ -13,15 +13,52 @@ import {
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import React, { useEffect, useState } from 'react';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 
+import { AddReviewModal } from '../../components/AddReviewModal';
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
+import { ReviewList } from '../../components/ReviewList';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { StarRating } from '../../components/StarRating';
+import { mapPointsApi } from '../../services/mapPointsApi';
 
+// API MapPoint interface (from backend)
+interface APIMapPoint {
+  _id: string;
+  title: string;
+  description: string;
+  location: {
+    type: 'Point';
+    coordinates: [number, number]; // [longitude, latitude]
+  };
+  category: 'attraction' | 'restaurant' | 'hotel' | 'viewpoint' | 'beach' | 'temple' | 'nature' | 'adventure' | 'shopping' | 'nightlife' | 'transport' | 'other';
+  address?: string;
+  placeName?: string;
+  author: {
+    userId: string;
+    username: string;
+    avatar?: string;
+    role: 'traveler' | 'traveller' | 'guide';
+  };
+  images?: Array<{
+    url: string;
+    thumbnailUrl?: string;
+    mediumUrl?: string;
+  }>;
+  rating?: number;
+  likesCount?: number;
+  savesCount?: number;
+  commentsCount?: number;
+  tags?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Local MapPoint interface (used in this component)
 interface MapPoint {
   id: string;
-  type: 'washroom' | 'wifi' | 'restaurant' | 'poi' | 'parking';
+  type: 'washroom' | 'wifi' | 'restaurant' | 'poi' | 'parking' | 'attraction' | 'hotel' | 'viewpoint' | 'beach' | 'temple' | 'nature' | 'adventure' | 'shopping' | 'nightlife' | 'transport' | 'other';
   title: string;
   description: string;
   latitude: number;
@@ -32,6 +69,7 @@ interface MapPoint {
   rating: number;
   reviews: number;
 }
+
 
 // Mock crowdsourced data - easily replaceable with backend API
 const MOCK_MAP_POINTS: MapPoint[] = [
@@ -311,13 +349,18 @@ const AddPointModal: React.FC<AddPointModalProps> = ({ visible, onClose, onSubmi
 
 interface MapPointCardProps {
   point: MapPoint;
+  onPress?: () => void;
 }
 
-const MapPointCard: React.FC<MapPointCardProps> = ({ point }) => {
+const MapPointCard: React.FC<MapPointCardProps> = ({ point, onPress }) => {
   const pointType = POINT_TYPES.find(type => type.id === point.type);
   
   return (
-    <View style={styles.pointCard}>
+    <TouchableOpacity 
+      style={styles.pointCard}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
       <View style={styles.pointHeader}>
         <View style={styles.pointTypeContainer}>
           <View style={[styles.pointTypeIcon, { backgroundColor: pointType?.color + '20' }]}>
@@ -343,14 +386,28 @@ const MapPointCard: React.FC<MapPointCardProps> = ({ point }) => {
       <Text style={styles.pointDescription}>{point.description}</Text>
       
       <View style={styles.pointFooter}>
-        <View style={styles.pointRating}>
-          <Ionicons name="star" size={14} color={Colors.warning} />
-          <Text style={styles.ratingText}>{point.rating}</Text>
-          <Text style={styles.reviewsText}>({point.reviews} reviews)</Text>
+        <View style={styles.pointRatingSection}>
+          {point.rating > 0 ? (
+            <View style={styles.pointRatingWithStars}>
+              <StarRating rating={point.rating} size={16} />
+              <Text style={styles.ratingValue}>{point.rating.toFixed(1)}</Text>
+            </View>
+          ) : (
+            <View style={styles.noRatingContainer}>
+              <Ionicons name="star-outline" size={16} color={Colors.secondary400} />
+              <Text style={styles.noRatingText}>No ratings yet</Text>
+            </View>
+          )}
+          <Text style={styles.reviewCount}>
+            {point.reviews} {point.reviews === 1 ? 'review' : 'reviews'}
+          </Text>
         </View>
-        <Text style={styles.addedBy}>Added by {point.addedBy}</Text>
+        <View style={styles.pointMeta}>
+          <Ionicons name="person-circle-outline" size={14} color={Colors.secondary400} />
+          <Text style={styles.addedBy}>{point.addedBy}</Text>
+        </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -364,9 +421,14 @@ export default function CrowdsourceMapScreen() {
   };
   const [showAddModal, setShowAddModal] = useState(false);
   const [filterType, setFilterType] = useState<string>(filter || 'all');
-  const [mapPoints, setMapPoints] = useState<MapPoint[]>(MOCK_MAP_POINTS);
+  const [mapPoints, setMapPoints] = useState<MapPoint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<Location.LocationObject | null>(null);
   const [selectedPoint, setSelectedPoint] = useState<MapPoint | null>(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewRefresh, setReviewRefresh] = useState(0);
+  const [showReviewsList, setShowReviewsList] = useState(false);
   const [region, setRegion] = useState(() => {
     // If we have specific coordinates from params, use them immediately
     if (lat && lng) {
@@ -387,6 +449,58 @@ export default function CrowdsourceMapScreen() {
     };
   });
   const mapRef = React.useRef<MapView>(null);
+
+  // Fetch map points from API
+  const fetchMapPoints = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('🗺️ Fetching map points from API...');
+      
+      const response = await mapPointsApi.getMapPoints({});
+      console.log('✅ Fetched map points:', response);
+      
+      if (response.success && response.data && response.data.mapPoints) {
+        // Convert API MapPoint format to local format
+        const convertedPoints: MapPoint[] = response.data.mapPoints.map((apiPoint: APIMapPoint) => ({
+          id: apiPoint._id,
+          type: apiPoint.category, // map category to type for compatibility
+          title: apiPoint.title,
+          description: apiPoint.description,
+          latitude: apiPoint.location.coordinates[1], // coordinates are [lng, lat]
+          longitude: apiPoint.location.coordinates[0],
+          addedBy: apiPoint.author.username,
+          addedDate: new Date(apiPoint.createdAt).toISOString().split('T')[0],
+          verified: (apiPoint.likesCount || 0) > 5, // Consider verified if has many likes
+          rating: apiPoint.rating || 0,
+          reviews: apiPoint.commentsCount || 0,
+        }));
+        
+        setMapPoints(convertedPoints);
+        console.log(`📍 Loaded ${convertedPoints.length} map points`);
+      } else {
+        // No map points available or response structure unexpected
+        console.log('ℹ️ No map points found or unexpected response structure');
+        setMapPoints([]);
+      }
+    } catch (err: any) {
+      console.error('❌ Error fetching map points:', err);
+      setError(err.message || 'Failed to load map points');
+      // Don't show alert on error, just log it and show empty map
+      console.log('ℹ️ Showing empty map, user can add new points');
+      setMapPoints([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Fetch map points when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🔄 Screen focused, fetching map points...');
+      fetchMapPoints();
+    }, [fetchMapPoints])
+  );
 
   // Handle initial setup and filter
   useEffect(() => {
@@ -506,6 +620,15 @@ export default function CrowdsourceMapScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Loading Indicator */}
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading map points...</Text>
+          </View>
+        </View>
+      )}
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -602,7 +725,7 @@ export default function CrowdsourceMapScreen() {
         )}
 
         {/* Selected Point Info */}
-        {selectedPoint && (
+        {selectedPoint && !showReviewsList && (
           <View style={styles.selectedPointInfo}>
             <View style={styles.selectedPointHeader}>
               <View style={styles.selectedPointTitleContainer}>
@@ -619,12 +742,75 @@ export default function CrowdsourceMapScreen() {
               </TouchableOpacity>
             </View>
             <Text style={styles.selectedPointDescription}>{selectedPoint.description}</Text>
+            
+            {/* Rating Display */}
             <View style={styles.selectedPointFooter}>
-              <View style={styles.selectedPointRating}>
-                <Ionicons name="star" size={14} color={Colors.warning} />
-                <Text style={styles.selectedPointRatingText}>{selectedPoint.rating}</Text>
+              <View style={styles.selectedPointRatingContainer}>
+                {selectedPoint.rating > 0 ? (
+                  <>
+                    <StarRating rating={selectedPoint.rating} size={18} />
+                    <Text style={styles.selectedPointRatingText}>
+                      {selectedPoint.rating.toFixed(1)}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="star-outline" size={18} color={Colors.secondary400} />
+                    <Text style={styles.selectedPointNoRating}>No ratings yet</Text>
+                  </>
+                )}
               </View>
-              <Text style={styles.selectedPointAddedBy}>by {selectedPoint.addedBy}</Text>
+              <View style={styles.selectedPointMetaInfo}>
+                <View style={styles.selectedPointReviewsContainer}>
+                  <Ionicons name="chatbox-outline" size={14} color={Colors.primary600} />
+                  <Text style={styles.selectedPointReviews}>
+                    {selectedPoint.reviews} {selectedPoint.reviews === 1 ? 'review' : 'reviews'}
+                  </Text>
+                </View>
+                <View style={styles.selectedPointAuthorContainer}>
+                  <Ionicons name="person-circle-outline" size={14} color={Colors.secondary400} />
+                  <Text style={styles.selectedPointAddedBy}>{selectedPoint.addedBy}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Review Actions */}
+            <View style={styles.reviewActionsSection}>
+              <Text style={styles.reviewActionsSectionTitle}>Reviews</Text>
+              
+              <View style={styles.reviewActionsContainer}>
+                <TouchableOpacity
+                  style={styles.reviewActionCard}
+                  onPress={() => setShowReviewsList(true)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.reviewActionIconContainer, { backgroundColor: Colors.primary600 + '15' }]}>
+                    <Ionicons name="chatbox-ellipses" size={26} color={Colors.primary600} />
+                  </View>
+                  <View style={styles.reviewActionContent}>
+                    <Text style={styles.reviewActionTitle}>View All Reviews</Text>
+                    <Text style={styles.reviewActionSubtitle}>
+                      {selectedPoint.reviews} {selectedPoint.reviews === 1 ? 'review' : 'reviews'} available
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={22} color={Colors.secondary400} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.reviewActionCard, styles.writeReviewCard]}
+                  onPress={() => setShowReviewModal(true)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.reviewActionIconContainer, { backgroundColor: Colors.warning + '15' }]}>
+                    <Ionicons name="create" size={26} color={Colors.warning} />
+                  </View>
+                  <View style={styles.reviewActionContent}>
+                    <Text style={styles.reviewActionTitle}>Write a Review</Text>
+                    <Text style={styles.reviewActionSubtitle}>Share your experience</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={22} color={Colors.secondary400} />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         )}
@@ -669,7 +855,25 @@ export default function CrowdsourceMapScreen() {
       {/* Points List */}
       <ScrollView style={styles.pointsList} showsVerticalScrollIndicator={false}>
         {filteredPoints.map((point) => (
-          <MapPointCard key={point.id} point={point} />
+          <MapPointCard 
+            key={point.id} 
+            point={point}
+            onPress={() => {
+              // Focus on the point on the map
+              const newRegion = {
+                latitude: point.latitude,
+                longitude: point.longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              };
+              setRegion(newRegion);
+              if (mapRef.current) {
+                mapRef.current.animateToRegion(newRegion, 500);
+              }
+              // Select the point to show reviews
+              setSelectedPoint(point);
+            }}
+          />
         ))}
         {filteredPoints.length === 0 && (
           <View style={styles.emptyState}>
@@ -809,6 +1013,89 @@ export default function CrowdsourceMapScreen() {
           <Ionicons name="add" size={24} color={Colors.white} />
         </TouchableOpacity>
       )}
+
+      {/* Reviews List Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showReviewsList}
+        onRequestClose={() => setShowReviewsList(false)}
+      >
+        <View style={styles.reviewsModalOverlay}>
+          <View style={styles.reviewsModalContent}>
+            {/* Handle Bar */}
+            <View style={styles.reviewsModalHandle} />
+            
+            {/* Header */}
+            <View style={styles.reviewsModalHeader}>
+              <Text style={styles.reviewsModalTitle}>
+                {selectedPoint?.title}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowReviewsList(false)}
+                style={styles.reviewsModalCloseButton}
+              >
+                <Ionicons name="close" size={24} color={Colors.secondary600} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Rating Summary */}
+            {selectedPoint && (
+              <View style={styles.reviewsModalRatingSummary}>
+                <View style={styles.reviewsModalRatingDisplay}>
+                  <Text style={styles.reviewsModalRatingNumber}>
+                    {selectedPoint.rating > 0 ? selectedPoint.rating.toFixed(1) : 'N/A'}
+                  </Text>
+                  <StarRating rating={selectedPoint.rating} size={20} />
+                  <Text style={styles.reviewsModalRatingCount}>
+                    Based on {selectedPoint.reviews} {selectedPoint.reviews === 1 ? 'review' : 'reviews'}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Reviews List */}
+            <View style={styles.reviewsModalListContainer}>
+              {selectedPoint && (
+                <ReviewList
+                  mapPointId={selectedPoint.id}
+                  refreshTrigger={reviewRefresh}
+                />
+              )}
+            </View>
+
+            {/* Write Review Button */}
+            <View style={styles.reviewsModalFooter}>
+              <TouchableOpacity
+                style={styles.reviewsModalWriteButton}
+                onPress={() => {
+                  setShowReviewsList(false);
+                  setTimeout(() => setShowReviewModal(true), 300);
+                }}
+              >
+                <Ionicons name="create" size={20} color={Colors.white} />
+                <Text style={styles.reviewsModalWriteButtonText}>Write a Review</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Add Review Modal */}
+      {selectedPoint && (
+        <AddReviewModal
+          visible={showReviewModal}
+          mapPointId={selectedPoint.id}
+          mapPointName={selectedPoint.title}
+          onClose={() => setShowReviewModal(false)}
+          onReviewAdded={() => {
+            setShowReviewModal(false);
+            setReviewRefresh(prev => prev + 1);
+            // Optionally refresh map points to get updated ratings
+            fetchMapPoints();
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -817,6 +1104,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.secondary50,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    zIndex: 1000,
+  },
+  loadingContainer: {
+    backgroundColor: Colors.white,
+    paddingHorizontal: 32,
+    paddingVertical: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: Colors.secondary700,
+    fontWeight: '500',
   },
   header: {
     flexDirection: 'row',
@@ -967,23 +1277,56 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   selectedPointFooter: {
+    flexDirection: 'column',
+    gap: 8,
+    paddingTop: 12,
+    marginTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.light200,
+  },
+  selectedPointRatingContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
   },
   selectedPointRating: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   selectedPointRatingText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.warning,
+  },
+  selectedPointNoRating: {
+    fontSize: 14,
+    color: Colors.secondary400,
+    fontStyle: 'italic',
+  },
+  selectedPointMetaInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  selectedPointReviewsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  selectedPointReviews: {
     fontSize: 12,
+    color: Colors.primary600,
     fontWeight: '600',
-    color: Colors.black,
-    marginLeft: 2,
+  },
+  selectedPointAuthorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   selectedPointAddedBy: {
     fontSize: 12,
     color: Colors.secondary500,
+    fontWeight: '500',
   },
   mapPlaceholderText: {
     fontSize: 16,
@@ -1104,7 +1447,46 @@ const styles = StyleSheet.create({
   pointFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingTop: 12,
+    marginTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.light200,
+  },
+  pointRatingSection: {
+    flex: 1,
+  },
+  pointRatingWithStars: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  ratingValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.warning,
+  },
+  noRatingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  noRatingText: {
+    fontSize: 12,
+    color: Colors.secondary400,
+    fontStyle: 'italic',
+  },
+  reviewCount: {
+    fontSize: 11,
+    color: Colors.secondary500,
+    fontWeight: '500',
+  },
+  pointMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   pointRating: {
     flexDirection: 'row',
@@ -1122,8 +1504,9 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   addedBy: {
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.secondary500,
+    fontWeight: '500',
   },
   emptyState: {
     alignItems: 'center',
@@ -1402,5 +1785,155 @@ const styles = StyleSheet.create({
   },
   viewingBannerClose: {
     padding: 4,
+  },
+  // Review Actions Section
+  reviewActionsSection: {
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: Colors.light200,
+  },
+  reviewActionsSectionTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: Colors.black,
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  reviewActionsContainer: {
+    gap: 12,
+  },
+  reviewActionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: Colors.light200,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  writeReviewCard: {
+    borderColor: Colors.warning + '30',
+    backgroundColor: Colors.warning + '05',
+  },
+  reviewActionIconContainer: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  reviewActionContent: {
+    flex: 1,
+  },
+  reviewActionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.black,
+    marginBottom: 4,
+    letterSpacing: 0.2,
+  },
+  reviewActionSubtitle: {
+    fontSize: 13,
+    color: Colors.secondary600,
+    lineHeight: 18,
+  },
+  // Reviews Modal
+  reviewsModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  reviewsModalContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '90%',
+    minHeight: '80%',
+  },
+  reviewsModalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: Colors.secondary400,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  reviewsModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.light200,
+  },
+  reviewsModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.black,
+    flex: 1,
+    paddingRight: 12,
+  },
+  reviewsModalCloseButton: {
+    padding: 4,
+  },
+  reviewsModalRatingSummary: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    backgroundColor: Colors.secondary50,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.light200,
+  },
+  reviewsModalRatingDisplay: {
+    alignItems: 'center',
+  },
+  reviewsModalRatingNumber: {
+    fontSize: 48,
+    fontWeight: '700',
+    color: Colors.warning,
+    marginBottom: 8,
+  },
+  reviewsModalRatingCount: {
+    fontSize: 13,
+    color: Colors.secondary600,
+    marginTop: 8,
+  },
+  reviewsModalListContainer: {
+    flex: 1,
+  },
+  reviewsModalFooter: {
+    padding: 16,
+    paddingBottom: 24,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.light200,
+    backgroundColor: Colors.white,
+  },
+  reviewsModalWriteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary600,
+    borderRadius: 12,
+    paddingVertical: 16,
+    gap: 10,
+    shadowColor: Colors.primary600,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  reviewsModalWriteButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.white,
+    letterSpacing: 0.5,
   },
 });

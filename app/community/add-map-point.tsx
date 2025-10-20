@@ -18,15 +18,21 @@ import React, { useEffect, useState } from 'react';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { mapPointsApi } from '@/services/mapPointsApi';
 
 const { width, height } = Dimensions.get('window');
 
 const POINT_TYPES = [
-  { id: 'washroom', name: 'Restroom', icon: 'business-outline', color: Colors.primary600 },
-  { id: 'wifi', name: 'WiFi Spot', icon: 'wifi-outline', color: Colors.info },
-  { id: 'restaurant', name: 'Local Eatery', icon: 'restaurant-outline', color: Colors.warning },
-  { id: 'poi', name: 'Point of Interest', icon: 'location-outline', color: Colors.success },
-  { id: 'parking', name: 'Parking', icon: 'car-outline', color: Colors.secondary600 },
+  { id: 'attraction', name: 'Attraction', icon: 'star-outline', color: Colors.primary600 },
+  { id: 'restaurant', name: 'Restaurant', icon: 'restaurant-outline', color: Colors.warning },
+  { id: 'viewpoint', name: 'Viewpoint', icon: 'eye-outline', color: Colors.info },
+  { id: 'beach', name: 'Beach', icon: 'water-outline', color: Colors.secondary600 },
+  { id: 'temple', name: 'Temple', icon: 'business-outline', color: Colors.error },
+  { id: 'nature', name: 'Nature', icon: 'leaf-outline', color: Colors.success },
+  { id: 'hotel', name: 'Hotel', icon: 'bed-outline', color: Colors.primary600 },
+  { id: 'transport', name: 'Transport', icon: 'car-outline', color: Colors.secondary600 },
+  { id: 'shopping', name: 'Shopping', icon: 'cart-outline', color: Colors.warning },
+  { id: 'other', name: 'Other', icon: 'ellipsis-horizontal', color: Colors.secondary400 },
 ];
 
 interface LocationData {
@@ -217,7 +223,7 @@ const LocationSelectionModal: React.FC<LocationSelectionModalProps> = ({
 };
 
 export default function AddMapPointScreen() {
-  const [selectedType, setSelectedType] = useState<string>('washroom');
+  const [selectedType, setSelectedType] = useState<string>('attraction');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedLocation, setSelectedLocation] = useState<LocationData | null>(null);
@@ -279,26 +285,27 @@ export default function AddMapPointScreen() {
     setIsSubmitting(true);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      console.log('🚀 Submitting map point...');
+      console.log('📍 Type:', selectedType);
+      console.log('📝 Title:', title.trim());
+      console.log('📄 Description:', description.trim());
+      console.log('🗺️ Location:', selectedLocation);
 
-      // In a real app, this would submit to your backend
-      const newPoint = {
+      // Call the API to create the map point
+      const response = await mapPointsApi.createMapPoint({
         type: selectedType,
         title: title.trim(),
         description: description.trim(),
         latitude: selectedLocation!.latitude,
         longitude: selectedLocation!.longitude,
-        addedBy: 'You',
-        addedDate: new Date().toISOString().split('T')[0],
-        verified: false,
-        rating: 0,
-        reviews: 0,
-      };
+        address: selectedLocation!.address,
+      });
+
+      console.log('✅ Map point created successfully:', response);
 
       Alert.alert(
-        'Point Added Successfully!',
-        'Your map point has been submitted and will be visible to other travelers after verification.',
+        '🎉 Success!',
+        'Your map point has been added successfully and is now visible to other travelers.',
         [
           {
             text: 'Add Another',
@@ -306,18 +313,43 @@ export default function AddMapPointScreen() {
               setTitle('');
               setDescription('');
               setSelectedLocation(null);
-              setSelectedType('washroom');
+              setSelectedType('attraction');
             },
           },
           {
-            text: 'Done',
-            onPress: () => router.back(),
+            text: 'View Map Points',
+            onPress: () => router.push('/community/crowdsource-map' as any),
             style: 'default',
           },
         ]
       );
-    } catch (error) {
-      Alert.alert('Error', 'Failed to add map point. Please try again.');
+    } catch (error: any) {
+      console.error('❌ Failed to create map point:', error);
+      
+      let errorMessage = 'Failed to add map point. Please try again.';
+      
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      if (error.message?.includes('authentication') || error.message?.includes('log in')) {
+        Alert.alert(
+          'Authentication Required',
+          'Please log in to add map points.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Log In', 
+              onPress: () => {
+                // Navigate to login screen
+                router.push('/login' as any);
+              }
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
     } finally {
       setIsSubmitting(false);
     }
