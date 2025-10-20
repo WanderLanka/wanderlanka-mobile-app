@@ -139,7 +139,6 @@ export default function TourGuideHomeScreen() {
   const recentBookings = [...bookings].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
   const formatTime = (isoDate: string) => new Date(isoDate).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
   const formatDate = (isoDate: string) => new Date(isoDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const formatResponseTime = (ms: number) => { if (ms < 3600000) return '<1h'; if (ms < 7200000) return '<2h'; return `<${Math.round(ms / 3600000)}h`; };
   const completionRate = stats.totalBookings > 0 ? Math.round((stats.completedTours / stats.totalBookings) * 100) : 0;
   const displayUser = user || guideData || { username: 'Tour Guide', role: 'guide' };
   const firstName = guideData?.details?.firstName || displayUser.username;
@@ -223,9 +222,30 @@ export default function TourGuideHomeScreen() {
               <ThemedText style={styles.sectionTitle}>Performance Matrix</ThemedText>
               <View style={[styles.card, styles.performanceListContainer]}>
                  <View style={styles.performanceItem}><View style={styles.performanceItemLeft}><View style={[styles.performanceIcon, { backgroundColor: '#fef3c7' }]}><Ionicons name="star-outline" size={20} color={Colors.warning} /></View><Text style={styles.performanceLabel}>Average Rating</Text></View><Text style={styles.performanceValue}>{(stats.averageRating || 0).toFixed(1)}</Text></View>
-                 <View style={styles.performanceItem}><View style={styles.performanceItemLeft}><View style={[styles.performanceIcon, { backgroundColor: Colors.primary100 }]}><Ionicons name="chatbubbles-outline" size={20} color={Colors.primary600} /></View><Text style={styles.performanceLabel}>Total Reviews</Text></View><Text style={styles.performanceValue}>{guideData?.metrics?.totalReviews || 0}</Text></View>
-                 <View style={styles.performanceItem}><View style={styles.performanceItemLeft}><View style={[styles.performanceIcon, { backgroundColor: Colors.success100 }]}><Ionicons name="checkmark-circle-outline" size={20} color={Colors.success} /></View><Text style={styles.performanceLabel}>Completion Rate</Text></View><Text style={styles.performanceValue}>{completionRate}%</Text></View>
-                 <View style={[styles.performanceItem, { borderBottomWidth: 0 }]}><View style={styles.performanceItemLeft}><View style={[styles.performanceIcon, { backgroundColor: '#e0e7ff' }]}><Ionicons name="flash-outline" size={20} color={Colors.info} /></View><Text style={styles.performanceLabel}>Response Time</Text></View><Text style={styles.performanceValue}>{guideData?.metrics?.responseTimeMs ? formatResponseTime(guideData.metrics.responseTimeMs) : 'N/A'}</Text></View>
+                 <TouchableOpacity style={styles.performanceItem} onPress={() => {
+                   const guideId = guideData?._id || user?.id;
+                   const guideName = guideData?.username || user?.username || 'Guide';
+                   console.log('🔗 Navigating to reviews with guideId:', guideId, 'guideName:', guideName);
+                   router.push({
+                     pathname: '/tour_guides/reviews',
+                     params: {
+                       guideId,
+                       guideName
+                     }
+                   });
+                 }}>
+                   <View style={styles.performanceItemLeft}>
+                     <View style={[styles.performanceIcon, { backgroundColor: Colors.primary100 }]}>
+                       <Ionicons name="chatbubbles-outline" size={20} color={Colors.primary600} />
+                     </View>
+                     <Text style={styles.performanceLabel}>Total Reviews</Text>
+                   </View>
+                   <View style={styles.performanceValueContainer}>
+                     <Text style={styles.performanceValue}>{guideData?.metrics?.totalReviews || 0}</Text>
+                     <Ionicons name="chevron-forward" size={16} color={Colors.secondary500} />
+                   </View>
+                 </TouchableOpacity>
+                 <View style={[styles.performanceItem, { borderBottomWidth: 0 }]}><View style={styles.performanceItemLeft}><View style={[styles.performanceIcon, { backgroundColor: Colors.success100 }]}><Ionicons name="checkmark-circle-outline" size={20} color={Colors.success} /></View><Text style={styles.performanceLabel}>Completion Rate</Text></View><Text style={styles.performanceValue}>{completionRate}%</Text></View>
               </View>
             </View>
             
@@ -424,6 +444,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: Colors.secondary700,
+  },
+  performanceValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
 
   // List Styles (Schedule & Bookings)
