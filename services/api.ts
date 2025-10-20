@@ -170,8 +170,21 @@ export class ApiService {
     try {
       // Use retry mechanism for network requests
       return await retryWithBackoff(makeRequest, 2, 1000); // 2 retries, 1 second base delay
-    } catch (error) {
-      console.error('API request failed:', error);
+    } catch (error: any) {
+      // Don't log alarming errors for expected auth failures or profile not found
+      const isExpectedAuthError = error?.status === 401 || 
+                                   error?.status === 404 ||
+                                   error?.message?.includes('token') || 
+                                   error?.message?.includes('Authentication required') ||
+                                   error?.message?.includes('Access denied') ||
+                                   error?.message?.includes('Profile not found');
+      
+      if (isExpectedAuthError) {
+        // Silently handle expected authentication/profile errors
+        console.log('ℹ️ Authentication check failed (expected on first launch or after logout)');
+      } else {
+        console.error('API request failed:', error);
+      }
 
       // On network-related failures, try to re-detect the server and retry once
       const errorInfo = classifyNetworkError(error as Error);

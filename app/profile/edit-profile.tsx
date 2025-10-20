@@ -1,4 +1,5 @@
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -9,40 +10,13 @@ import {
   View,
 } from 'react-native';
 import { CustomButton, CustomTextInput, ProfileAvatar } from '../../components';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-
-// Mock user data - in real app, this would come from the auth context or API
-const MOCK_USER_DATA = {
-  id: 'user123',
-  username: 'john_traveler',
-  email: 'john@example.com',
-  fullName: 'John Doe',
-  phone: '+94 77 123 4567',
-  avatar: null,
-  bio: 'Adventure enthusiast exploring the beautiful island of Sri Lanka',
-  dateOfBirth: '1990-05-15',
-  gender: 'Male',
-  nationality: 'Sri Lankan',
-  isActive: true,
-  phoneVerified: true,
-  passportNumber: 'N1234567',
-  emergencyContact: {
-    name: 'Jane Doe',
-    phone: '+94 77 987 6543',
-    relationship: 'Sister',
-  },
-  preferences: {
-    budget: 'Mid-range',
-    accommodation: 'Hotel',
-    dietary: 'No restrictions',
-    interests: ['Culture', 'Adventure', 'Photography', 'Food'],
-  },
-};
+import { getProfile, updateProfile, UserProfile, UpdateProfileData } from '../../services/profileApi';
 
 interface EditSectionProps {
   title: string;
@@ -57,27 +31,68 @@ const EditSection: React.FC<EditSectionProps> = ({ title, children }) => (
 );
 
 export default function EditProfileScreen() {
+  const [userData, setUserData] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
-    fullName: MOCK_USER_DATA.fullName,
-    username: MOCK_USER_DATA.username,
-    email: MOCK_USER_DATA.email,
-    phone: MOCK_USER_DATA.phone,
-    bio: MOCK_USER_DATA.bio,
-    dateOfBirth: MOCK_USER_DATA.dateOfBirth,
-    gender: MOCK_USER_DATA.gender,
-    nationality: MOCK_USER_DATA.nationality,
-    passportNumber: MOCK_USER_DATA.passportNumber,
-    emergencyContactName: MOCK_USER_DATA.emergencyContact.name,
-    emergencyContactPhone: MOCK_USER_DATA.emergencyContact.phone,
-    emergencyContactRelationship: MOCK_USER_DATA.emergencyContact.relationship,
-    budget: MOCK_USER_DATA.preferences.budget,
-    accommodation: MOCK_USER_DATA.preferences.accommodation,
-    dietary: MOCK_USER_DATA.preferences.dietary,
+    fullName: '',
+    username: '',
+    email: '',
+    phone: '',
+    bio: '',
+    dateOfBirth: '',
+    gender: '',
+    nationality: '',
+    passportNumber: '',
+    emergencyContactName: '',
+    emergencyContactPhone: '',
+    emergencyContactRelationship: '',
+    budget: '',
+    accommodation: '',
+    dietary: '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(MOCK_USER_DATA.avatar);
+
+  // Fetch user profile data on mount
+  useEffect(() => {
+    fetchUserData();
+  }, []);
+
+  const fetchUserData = async () => {
+    try {
+      setLoading(true);
+      const profile = await getProfile();
+      setUserData(profile);
+      setSelectedAvatar(profile.avatar);
+      
+      // Populate form with existing data
+      setFormData({
+        fullName: profile.fullName || '',
+        username: profile.username || '',
+        email: profile.email || '',
+        phone: profile.phone || '',
+        bio: profile.bio || '',
+        dateOfBirth: profile.dateOfBirth || '',
+        gender: profile.gender || '',
+        nationality: profile.nationality || '',
+        passportNumber: profile.passportNumber || '',
+        emergencyContactName: profile.emergencyContact?.name || '',
+        emergencyContactPhone: profile.emergencyContact?.phone || '',
+        emergencyContactRelationship: profile.emergencyContact?.relationship || '',
+        budget: profile.preferences?.budget || '',
+        accommodation: profile.preferences?.accommodation || '',
+        dietary: profile.preferences?.dietary || '',
+      });
+    } catch (error: any) {
+      console.error('Error fetching profile:', error);
+      Alert.alert('Error', 'Failed to load profile data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -90,14 +105,14 @@ export default function EditProfileScreen() {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    // Full name validation
+    // Full name validation (REQUIRED)
     if (!formData.fullName.trim()) {
       newErrors.fullName = 'Full name is required';
     } else if (formData.fullName.length < 2) {
       newErrors.fullName = 'Full name must be at least 2 characters';
     }
 
-    // Username validation
+    // Username validation (REQUIRED)
     if (!formData.username.trim()) {
       newErrors.username = 'Username is required';
     } else if (formData.username.length < 3) {
@@ -106,35 +121,27 @@ export default function EditProfileScreen() {
       newErrors.username = 'Username can only contain letters, numbers, and underscores';
     }
 
-    // Email validation
+    // Email validation (REQUIRED)
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
 
-    // Phone validation
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'Phone number is required';
-    } else if (!/^\+94\s\d{2}\s\d{3}\s\d{4}$/.test(formData.phone)) {
-      newErrors.phone = 'Please enter a valid Sri Lankan phone number (+94 XX XXX XXXX)';
+    // Phone validation (OPTIONAL - Basic validation for international numbers)
+    if (formData.phone.trim() && formData.phone.length < 8) {
+      newErrors.phone = 'Please enter a valid phone number';
     }
 
-    // Passport number validation
-    if (!formData.passportNumber.trim()) {
-      newErrors.passportNumber = 'Passport number is required';
-    } else if (!/^[A-Z]\d{7}$/.test(formData.passportNumber)) {
-      newErrors.passportNumber = 'Please enter a valid passport number (e.g., N1234567)';
+    // Passport number validation (OPTIONAL - No validation if empty)
+    // Only validate format if user enters a value
+    if (formData.passportNumber.trim() && formData.passportNumber.length < 6) {
+      newErrors.passportNumber = 'Passport number must be at least 6 characters';
     }
 
-    // Emergency contact validation
-    if (!formData.emergencyContactName.trim()) {
-      newErrors.emergencyContactName = 'Emergency contact name is required';
-    }
-
-    if (!formData.emergencyContactPhone.trim()) {
-      newErrors.emergencyContactPhone = 'Emergency contact phone is required';
-    } else if (!/^\+94\s\d{2}\s\d{3}\s\d{4}$/.test(formData.emergencyContactPhone)) {
+    // Emergency contact validation (OPTIONAL)
+    // Only validate if user starts filling emergency contact
+    if (formData.emergencyContactPhone.trim() && formData.emergencyContactPhone.length < 8) {
       newErrors.emergencyContactPhone = 'Please enter a valid phone number';
     }
 
@@ -151,8 +158,32 @@ export default function EditProfileScreen() {
     setIsLoading(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Prepare update data
+      const updateData: UpdateProfileData = {
+        username: formData.username,
+        email: formData.email,
+        fullName: formData.fullName,
+        phone: formData.phone,
+        bio: formData.bio,
+        dateOfBirth: formData.dateOfBirth,
+        gender: formData.gender as 'Male' | 'Female' | 'Other' | undefined,
+        nationality: formData.nationality,
+        passportNumber: formData.passportNumber,
+        emergencyContact: {
+          name: formData.emergencyContactName || null,
+          phone: formData.emergencyContactPhone || null,
+          relationship: formData.emergencyContactRelationship || null,
+        },
+        preferences: {
+          budget: formData.budget as any || null,
+          accommodation: formData.accommodation as any || null,
+          dietary: formData.dietary || null,
+          interests: userData?.preferences?.interests || [],
+        },
+      };
+
+      // Call API to update profile
+      await updateProfile(updateData);
       
       Alert.alert(
         'Profile Updated',
@@ -164,8 +195,9 @@ export default function EditProfileScreen() {
           },
         ]
       );
-    } catch (error) {
-      Alert.alert('Error', 'Failed to update profile. Please try again.');
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      Alert.alert('Error', error.message || 'Failed to update profile. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -197,7 +229,13 @@ export default function EditProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary600} />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </View>
+      ) : (
+        <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoidingView}
       >
@@ -228,10 +266,18 @@ export default function EditProfileScreen() {
             <Text style={styles.avatarHint}>Tap to change profile photo</Text>
           </View>
 
+          {/* Required Fields Notice */}
+          <View style={styles.noticeContainer}>
+            <Ionicons name="information-circle-outline" size={20} color={Colors.primary600} />
+            <Text style={styles.noticeText}>
+              Fields marked with * are required
+            </Text>
+          </View>
+
           {/* Basic Information */}
           <EditSection title="Basic Information">
             <CustomTextInput
-              label="Full Name"
+              label="Full Name *"
               value={formData.fullName}
               onChangeText={(value: string) => handleInputChange('fullName', value)}
               error={errors.fullName}
@@ -240,7 +286,7 @@ export default function EditProfileScreen() {
             />
 
             <CustomTextInput
-              label="Username"
+              label="Username *"
               value={formData.username}
               onChangeText={(value: string) => handleInputChange('username', value)}
               error={errors.username}
@@ -250,7 +296,7 @@ export default function EditProfileScreen() {
             />
 
             <CustomTextInput
-              label="Email"
+              label="Email *"
               value={formData.email}
               onChangeText={(value: string) => handleInputChange('email', value)}
               error={errors.email}
@@ -265,7 +311,7 @@ export default function EditProfileScreen() {
               value={formData.phone}
               onChangeText={(value: string) => handleInputChange('phone', value)}
               error={errors.phone}
-              placeholder="+94 XX XXX XXXX"
+              placeholder="Enter your phone number (e.g., +1 234 567 8900)"
               leftIcon="call-outline"
               keyboardType="phone-pad"
             />
@@ -283,7 +329,7 @@ export default function EditProfileScreen() {
           </EditSection>
 
           {/* Personal Details */}
-          <EditSection title="Personal Details">
+          <EditSection title="Personal Details (Optional)">
             <CustomTextInput
               label="Date of Birth"
               value={formData.dateOfBirth}
@@ -311,19 +357,19 @@ export default function EditProfileScreen() {
               leftIcon="flag-outline"
             />
 
-            <CustomTextInput
+                        <CustomTextInput
               label="Passport Number"
               value={formData.passportNumber}
               onChangeText={(value: string) => handleInputChange('passportNumber', value)}
               error={errors.passportNumber}
-              placeholder="N1234567"
+              placeholder="e.g., N1234567"
               leftIcon="document-outline"
               autoCapitalize="characters"
             />
           </EditSection>
 
           {/* Emergency Contact */}
-          <EditSection title="Emergency Contact">
+          <EditSection title="Emergency Contact (Optional)">
             <CustomTextInput
               label="Contact Name"
               value={formData.emergencyContactName}
@@ -338,7 +384,7 @@ export default function EditProfileScreen() {
               value={formData.emergencyContactPhone}
               onChangeText={(value: string) => handleInputChange('emergencyContactPhone', value)}
               error={errors.emergencyContactPhone}
-              placeholder="+94 XX XXX XXXX"
+              placeholder="Emergency contact phone"
               leftIcon="call-outline"
               keyboardType="phone-pad"
             />
@@ -354,7 +400,7 @@ export default function EditProfileScreen() {
           </EditSection>
 
           {/* Travel Preferences */}
-          <EditSection title="Travel Preferences">
+          <EditSection title="Travel Preferences (Optional)">
             <CustomTextInput
               label="Budget Range"
               value={formData.budget}
@@ -401,6 +447,7 @@ export default function EditProfileScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      )}
     </SafeAreaView>
   );
 }
@@ -409,6 +456,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.secondary50,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: Colors.secondary600,
   },
   keyboardAvoidingView: {
     flex: 1,
@@ -453,6 +510,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.secondary500,
     marginTop: 8,
+  },
+  noticeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary100,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 20,
+    marginBottom: 10,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primary600,
+  },
+  noticeText: {
+    fontSize: 13,
+    color: Colors.primary700,
+    marginLeft: 8,
+    flex: 1,
   },
   section: {
     backgroundColor: Colors.white,

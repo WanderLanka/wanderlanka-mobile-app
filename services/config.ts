@@ -1,9 +1,9 @@
 /**
  * API Configuration with dynamic IP support
  */
-export const API_CONFIG = {
-  // Static BASE_URL for development/testing
-  BASE_URL: __DEV__ ? 'http://192.168.1.12:3000' : 'https://your-production-api.com',
+export const config = {
+  // BASE_URL reads from .env file (EXPO_PUBLIC_API_BASE_URL) or falls back to hardcoded IP
+  BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || (__DEV__ ? 'http://192.168.1.41:3000' : 'https://your-production-api.com'),
   ENDPOINTS: {
     AUTH: '/api/auth', // Gateway namespace for auth endpoints
     HEALTH: '/health',
@@ -11,6 +11,9 @@ export const API_CONFIG = {
   },
   TIMEOUT: 30000, // 30 seconds - increased for mobile networks
 } as const;
+
+// Export as API_CONFIG for backward compatibility
+export const API_CONFIG = config;
 
 /**
  * HTTP Status codes
