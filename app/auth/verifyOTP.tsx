@@ -17,61 +17,102 @@ import {
     ThemedView
 } from '../../components';
 
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/Colors';
 import { AuthService } from '../../services/auth';
 
-export default function ForgotPasswordScreen() {
-  const [email, setEmail] = useState('');
+export default function VerifyOTPScreen() {
+  const { email } = useLocalSearchParams<{ email: string }>();
+  const [otp, setOtp] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
-  const validateEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+  useEffect(() => {
+    // Start resend cooldown timer
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => {
+        setResendCooldown(resendCooldown - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCooldown]);
+
+  const validateOTP = (otp: string): boolean => {
+    // OTP should be 6 digits
+    const otpRegex = /^\d{6}$/;
+    return otpRegex.test(otp);
   };
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    // Email validation
-    if (!email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!validateEmail(email)) {
-      newErrors.email = 'Please enter a valid email address';
+    // OTP validation
+    if (!otp.trim()) {
+      newErrors.otp = 'OTP is required';
+    } else if (!validateOTP(otp)) {
+      newErrors.otp = 'Please enter a valid 6-digit OTP';
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSendResetEmail = async () => {
-    if (!validateForm()) return;
+  const handleVerifyOTP = async () => {
+    if (!validateForm() || !email) return;
 
     setIsLoading(true);
     try {
-      const result = await AuthService.requestPasswordReset(email);
+      const result = await AuthService.verifyPasswordResetOTP(email, otp);
       
       if (result.success) {
         Alert.alert(
-          'Reset Email Sent',
-          'We&apos;ve sent password reset instructions to your email address. Please check your inbox and follow the instructions.',
+          'OTP Verified',
+          'Your OTP has been verified successfully. You can now reset your password.',
           [
             {
-              text: 'OK',
+              text: 'Continue',
               onPress: () => router.push({
-                pathname: './verifyOTP',
-                params: { email: email }
+                pathname: './resetPassword',
+                params: { email: email, otp: otp }
               })
             }
           ]
         );
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to send reset email. Please try again.';
+      const errorMessage = error instanceof Error ? error.message : 'Failed to verify OTP. Please try again.';
+      
+      Alert.alert(
+        'Verification Failed',
+        errorMessage,
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    if (!email || resendCooldown > 0) return;
+
+    setIsLoading(true);
+    try {
+      const result = await AuthService.requestPasswordReset(email);
+      
+      if (result.success) {
+        setResendCooldown(60); // 60 seconds cooldown
+        Alert.alert(
+          'OTP Resent',
+          'A new OTP has been sent to your email address.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to resend OTP. Please try again.';
       
       Alert.alert(
         'Error',
@@ -84,10 +125,13 @@ export default function ForgotPasswordScreen() {
   };
 
   const handleFieldChange = (value: string) => {
-    setEmail(value);
+    // Only allow digits and limit to 6 characters
+    const numericValue = value.replace(/[^0-9]/g, '').slice(0, 6);
+    setOtp(numericValue);
+    
     // Clear error when user starts typing
-    if (errors.email) {
-      setErrors(prev => ({ ...prev, email: '' }));
+    if (errors.otp) {
+      setErrors(prev => ({ ...prev, otp: '' }));
     }
   };
 
@@ -117,32 +161,51 @@ export default function ForgotPasswordScreen() {
               resizeMode="contain"
             />
             <ThemedText variant="title" style={styles.title}>
-              Forgot Password?
+              Verify OTP
             </ThemedText>
             <ThemedText variant="default" style={styles.subtitle}>
-              Don&apos;t worry! Enter your email address and we&apos;ll send you instructions to reset your password.
+              We&apos;ve sent a 6-digit verification code to{'\n'}
+              <Text style={styles.emailText}>{email}</Text>
             </ThemedText>
           </ThemedView>
 
           <View style={styles.form}>
             <CustomTextInput
-              label="Email Address"
-              value={email}
+              label="Verification Code"
+              value={otp}
               onChangeText={handleFieldChange}
-              error={errors.email}
-              placeholder="Enter your registered email"
-              leftIcon="mail"
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
+              error={errors.otp}
+              placeholder="Enter 6-digit code"
+              leftIcon="keypad"
+              keyboardType="numeric"
+              maxLength={6}
+              style={styles.otpInput}
             />
 
             <CustomButton
-              title="Send Reset Instructions"
-              onPress={handleSendResetEmail}
+              title="Verify Code"
+              onPress={handleVerifyOTP}
               loading={isLoading}
-              style={styles.sendButton}
+              style={styles.verifyButton}
             />
+
+            <View style={styles.resendSection}>
+              <Text style={styles.resendText}>
+                Didn&apos;t receive the code?{' '}
+              </Text>
+              <TouchableOpacity 
+                onPress={handleResendOTP}
+                disabled={resendCooldown > 0 || isLoading}
+                style={styles.resendButton}
+              >
+                <Text style={[
+                  styles.resendButtonText,
+                  (resendCooldown > 0 || isLoading) && styles.resendButtonDisabled
+                ]}>
+                  {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code'}
+                </Text>
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.helpText}>
               <Text style={styles.helpTextContent}>
@@ -212,12 +275,45 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     paddingHorizontal: 20,
   },
+  emailText: {
+    fontWeight: '600',
+    color: Colors.primary600,
+  },
   form: {
     flex: 1,
   },
-  sendButton: {
+  otpInput: {
+    textAlign: 'center',
+    fontSize: 18,
+    letterSpacing: 8,
+  },
+  verifyButton: {
     marginTop: 8,
     marginBottom: 24,
+  },
+  resendSection: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    flexWrap: 'wrap',
+  },
+  resendText: {
+    fontSize: 14,
+    color: Colors.secondary500,
+    fontFamily: 'Inter',
+  },
+  resendButton: {
+    paddingVertical: 4,
+  },
+  resendButtonText: {
+    fontSize: 14,
+    color: Colors.primary600,
+    fontWeight: '600',
+    fontFamily: 'Inter',
+  },
+  resendButtonDisabled: {
+    color: Colors.secondary400,
   },
   helpText: {
     flexDirection: 'row',

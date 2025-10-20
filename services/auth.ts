@@ -116,8 +116,12 @@ export class AuthService {
       // Ensure server connection before login
       // Proceed without automatic server detection
       
+      const loginUrl = `${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/login`;
+      console.log('🔐 Attempting login to:', loginUrl);
+      console.log('🔐 Credentials:', { identifier: credentials.identifier });
+      
       // Use direct fetch for login to handle 403 responses properly
-  const response = await fetch(`${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/login`, {
+  const response = await fetch(loginUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -519,5 +523,194 @@ export class AuthService {
    */
   static async isGuide(): Promise<boolean> {
     return this.hasRole('guide');
+  }
+
+  /**
+   * Request password reset - send OTP to email
+   */
+  static async requestPasswordReset(email: string): Promise<{ success: boolean; message: string }> {
+    try {
+      console.log('🔗 Password reset request for email:', email);
+      
+      const response = await fetch(`${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/forgot-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-client-type': 'mobile',
+          'x-platform': 'mobile',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      console.log('📡 Password reset response status:', response.status);
+
+      const data = await response.json();
+      console.log('📡 Password reset response data:', data);
+
+      if (response.ok && data.success) {
+        return {
+          success: true,
+          message: data.message || 'Password reset instructions sent to your email'
+        };
+      }
+
+      // Handle error responses
+      if (!response.ok) {
+        const errorMessage = data.message || data.error || `HTTP ${response.status}`;
+        console.error('❌ Password reset error:', errorMessage);
+        throw new Error(errorMessage);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Password reset request error:', error);
+      
+      if (error instanceof Error) {
+        const errorMessage = error.message.toLowerCase();
+        
+        // Network or timeout errors
+        if (errorMessage.includes('network') || errorMessage.includes('timeout') || errorMessage.includes('fetch')) {
+          throw new Error('Network error. Please check your internet connection and try again.');
+        }
+        
+        // Server errors (5xx)
+        if (errorMessage.includes('http 5') || errorMessage.includes('internal server error')) {
+          throw new Error('Server error. Please try again later.');
+        }
+        
+        // Use original message for other errors
+        throw error;
+      }
+      
+      throw new Error('Password reset request failed. Please try again.');
+    }
+  }
+
+  /**
+   * Verify OTP for password reset
+   */
+  static async verifyPasswordResetOTP(email: string, otp: string): Promise<{ success: boolean; message: string; resetToken?: string }> {
+    try {
+      console.log('🔗 OTP verification for email:', email);
+      
+      const response = await fetch(`${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/verify-reset-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-client-type': 'mobile',
+          'x-platform': 'mobile',
+        },
+        body: JSON.stringify({ email, otp }),
+      });
+
+      console.log('📡 OTP verification response status:', response.status);
+
+      const data = await response.json();
+      console.log('📡 OTP verification response data:', data);
+
+      if (response.ok && data.success) {
+        return {
+          success: true,
+          message: data.message || 'OTP verified successfully',
+          resetToken: data.resetToken
+        };
+      }
+
+      // Handle error responses
+      if (!response.ok) {
+        const errorMessage = data.message || data.error || `HTTP ${response.status}`;
+        console.error('❌ OTP verification error:', errorMessage);
+        throw new Error(errorMessage);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('OTP verification error:', error);
+      
+      if (error instanceof Error) {
+        const errorMessage = error.message.toLowerCase();
+        
+        // Network or timeout errors
+        if (errorMessage.includes('network') || errorMessage.includes('timeout') || errorMessage.includes('fetch')) {
+          throw new Error('Network error. Please check your internet connection and try again.');
+        }
+        
+        // Invalid OTP
+        if (errorMessage.includes('invalid') || errorMessage.includes('expired') || errorMessage.includes('incorrect')) {
+          throw new Error('Invalid or expired OTP. Please check your email and try again.');
+        }
+        
+        // Use original message for other errors
+        throw error;
+      }
+      
+      throw new Error('OTP verification failed. Please try again.');
+    }
+  }
+
+  /**
+   * Reset password with new password
+   */
+  static async resetPassword(email: string, otp: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    try {
+      console.log('🔗 Password reset for email:', email);
+      
+      const response = await fetch(`${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-client-type': 'mobile',
+          'x-platform': 'mobile',
+        },
+        body: JSON.stringify({ email, otp, newPassword }),
+      });
+
+      console.log('📡 Password reset response status:', response.status);
+
+      const data = await response.json();
+      console.log('📡 Password reset response data:', data);
+
+      if (response.ok && data.success) {
+        return {
+          success: true,
+          message: data.message || 'Password reset successfully'
+        };
+      }
+
+      // Handle error responses
+      if (!response.ok) {
+        const errorMessage = data.message || data.error || `HTTP ${response.status}`;
+        console.error('❌ Password reset error:', errorMessage);
+        throw new Error(errorMessage);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Password reset error:', error);
+      
+      if (error instanceof Error) {
+        const errorMessage = error.message.toLowerCase();
+        
+        // Network or timeout errors
+        if (errorMessage.includes('network') || errorMessage.includes('timeout') || errorMessage.includes('fetch')) {
+          throw new Error('Network error. Please check your internet connection and try again.');
+        }
+        
+        // Invalid OTP or expired
+        if (errorMessage.includes('invalid') || errorMessage.includes('expired') || errorMessage.includes('incorrect')) {
+          throw new Error('Invalid or expired OTP. Please request a new password reset.');
+        }
+        
+        // Password validation errors
+        if (errorMessage.includes('password') && (errorMessage.includes('weak') || errorMessage.includes('invalid'))) {
+          throw new Error('Password does not meet requirements. Please choose a stronger password.');
+        }
+        
+        // Use original message for other errors
+        throw error;
+      }
+      
+      throw new Error('Password reset failed. Please try again.');
+    }
   }
 }
