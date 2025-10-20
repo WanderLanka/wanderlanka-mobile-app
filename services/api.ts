@@ -261,8 +261,11 @@ export class ApiService {
   /**
    * DELETE request
    */
-  static async delete<T>(url: string): Promise<T> {
-    return this.request<T>(url, { method: 'DELETE' });
+  static async delete<T>(url: string, data?: any): Promise<T> {
+    return this.request<T>(url, { 
+      method: 'DELETE',
+      body: data ? JSON.stringify(data) : undefined,
+    });
   }
 
   /**

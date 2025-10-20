@@ -1,16 +1,18 @@
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { DeleteAccountModal, ProfileAvatar } from '../../components';
 import React, { useEffect, useState } from 'react';
-import { UserProfile, getProfile } from '../../services/profileApi';
+import { UserProfile, deleteAccount, getProfile } from '../../services/profileApi';
 
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
@@ -60,7 +62,7 @@ const MOCK_RECENT_TRIPS = [
   {
     id: 'trip1',
     destination: 'Kandy Cultural Triangle',
-    date: '2024-06-15',
+    date: '2025-10-15',
     duration: '3 days',
     rating: 4.8,
     photos: 15,
@@ -68,7 +70,7 @@ const MOCK_RECENT_TRIPS = [
   {
     id: 'trip2',
     destination: 'Ella Hill Country',
-    date: '2024-05-20',
+    date: '2025-10-20',
     duration: '2 days',
     rating: 4.9,
     photos: 23,
@@ -146,6 +148,10 @@ export default function ProfileScreen() {
   const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch user profile data
   const fetchUserProfile = async (isRefreshing = false) => {
@@ -304,20 +310,51 @@ export default function ProfileScreen() {
 
   const confirmDeleteAccount = () => {
     setShowDeleteModal(false);
-    // Here you would call the delete account API
-    Alert.alert(
-      'Account Deletion Process Started',
-      'Your account deletion request has been submitted. You will receive a confirmation email shortly.',
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            // Navigate to login or close app
-            console.log('Account deletion confirmed');
+    // Show password confirmation modal
+    setShowPasswordModal(true);
+  };
+
+  const handleFinalDeleteConfirmation = async () => {
+    if (!deletePassword) {
+      Alert.alert('Error', 'Please enter your password');
+      return;
+    }
+
+    if (deleteConfirmation !== 'DELETE MY ACCOUNT') {
+      Alert.alert('Error', 'Please type "DELETE MY ACCOUNT" to confirm');
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      await deleteAccount(deletePassword, deleteConfirmation);
+      
+      setShowPasswordModal(false);
+      setDeletePassword('');
+      setDeleteConfirmation('');
+      
+      Alert.alert(
+        'Account Deleted',
+        'Your account has been successfully deleted. You will be logged out.',
+        [
+          {
+            text: 'OK',
+            onPress: async () => {
+              await logout();
+              router.replace('/auth/login');
+            }
           }
-        }
-      ]
-    );
+        ]
+      );
+    } catch (error: any) {
+      Alert.alert(
+        'Delete Failed',
+        error.message || 'Failed to delete account. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -506,7 +543,7 @@ export default function ProfileScreen() {
         </ProfileSection>
 
         {/* App Settings */}
-        <ProfileSection title="Preferences & Settings">
+        {/* <ProfileSection title="Preferences & Settings">
           <ProfileItem
             icon="notifications-outline"
             label="Notifications"
@@ -544,10 +581,10 @@ export default function ProfileScreen() {
             label="Privacy & Security"
             onPress={handleSettings}
           />
-        </ProfileSection>
+        </ProfileSection> */}
 
         {/* Loyalty & Rewards */}
-        <ProfileSection title="Loyalty & Rewards">
+        {/* <ProfileSection title="Loyalty & Rewards">
           <ProfileItem
             icon="gift-outline"
             label="Loyalty Points"
@@ -566,10 +603,10 @@ export default function ProfileScreen() {
             value="3 available"
             onPress={handleDiscountCoupons}
           />
-        </ProfileSection>
+        </ProfileSection> */}
 
         {/* Support & Help */}
-        <ProfileSection title="Support & Help">
+        {/* <ProfileSection title="Support & Help">
           <ProfileItem
             icon="chatbubble-outline"
             label="Customer Support"
@@ -585,7 +622,7 @@ export default function ProfileScreen() {
             label="Rate App"
             onPress={handleRateApp}
           />
-        </ProfileSection>
+        </ProfileSection> */}
 
         {/* Account Management */}
         <ProfileSection title="Account Management">
@@ -638,6 +675,67 @@ export default function ProfileScreen() {
         onClose={() => setShowDeleteModal(false)}
         onConfirm={confirmDeleteAccount}
       />
+
+      {/* Password Confirmation Modal */}
+      <Modal
+        visible={showPasswordModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPasswordModal(false)}
+      >
+        <View style={styles.passwordModalOverlay}>
+          <View style={styles.passwordModalContainer}>
+            <Text style={styles.passwordModalTitle}>Final Confirmation</Text>
+            
+            <Text style={styles.passwordModalSubtitle}>
+              Enter your password and type "DELETE MY ACCOUNT" to confirm
+            </Text>
+            
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Enter your password"
+              secureTextEntry
+              value={deletePassword}
+              onChangeText={setDeletePassword}
+              autoCapitalize="none"
+            />
+            
+            <TextInput
+              style={styles.confirmationInput}
+              placeholder='Type "DELETE MY ACCOUNT"'
+              value={deleteConfirmation}
+              onChangeText={setDeleteConfirmation}
+              autoCapitalize="characters"
+            />
+            
+            <View style={styles.passwordModalButtons}>
+              <TouchableOpacity
+                style={styles.passwordCancelButton}
+                onPress={() => {
+                  setShowPasswordModal(false);
+                  setDeletePassword('');
+                  setDeleteConfirmation('');
+                }}
+                disabled={isDeleting}
+              >
+                <Text style={styles.passwordCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.passwordConfirmButton, isDeleting && styles.passwordConfirmButtonDisabled]}
+                onPress={handleFinalDeleteConfirmation}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator size="small" color={Colors.white} />
+                ) : (
+                  <Text style={styles.passwordConfirmButtonText}>Delete Account</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -853,5 +951,83 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 14,
     color: Colors.secondary500,
+  },
+  passwordModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  passwordModalContainer: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 24,
+    maxWidth: 400,
+    width: '100%',
+  },
+  passwordModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.black,
+    marginBottom: 8,
+  },
+  passwordModalSubtitle: {
+    fontSize: 14,
+    color: Colors.secondary500,
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  passwordInput: {
+    borderWidth: 1,
+    borderColor: Colors.light300,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 16,
+    backgroundColor: Colors.light100,
+  },
+  confirmationInput: {
+    borderWidth: 1,
+    borderColor: Colors.light300,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 24,
+    backgroundColor: Colors.light100,
+  },
+  passwordModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  passwordCancelButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: Colors.light300,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+  },
+  passwordCancelButtonText: {
+    fontSize: 16,
+    color: Colors.secondary600,
+    fontWeight: '500',
+  },
+  passwordConfirmButton: {
+    flex: 1,
+    backgroundColor: Colors.error,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+  },
+  passwordConfirmButtonDisabled: {
+    backgroundColor: Colors.light300,
+    opacity: 0.6,
+  },
+  passwordConfirmButtonText: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: '600',
   },
 });
