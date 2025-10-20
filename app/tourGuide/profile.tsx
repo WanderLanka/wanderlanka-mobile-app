@@ -1,84 +1,28 @@
 import {
+  ActivityIndicator,
   Alert,
+  Modal,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { DeleteAccountModal, ProfileAvatar } from '../../components';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
-
-// Utility function to format numbers professionally
-const formatNumber = (num: number): string => {
-  if (num >= 1000000) {
-    return `${(num / 1000000).toFixed(1)}M`;
-  } else if (num >= 1000) {
-    return `${(num / 1000).toFixed(1)}K`;
-  }
-  return num.toString();
-};
-
-// Hardcoded user data - easily replaceable with backend calls
-const MOCK_USER_DATA = {
-  id: 'user123',
-  username: 'praneesh_traveler',
-  email: 'praneesh@example.com',
-  fullName: 'Praneesh',
-  phone: '+94 77 123 4567',
-  avatar: null, // placeholder for profile image
-  memberSince: '2023-01-15',
-  verified: true,
-  isActive: true,
-  phoneVerified: true,
-  passportNumber: 'N1234567',
-  loyaltyPoints: 2450,
-  tripsCompleted: 12,
-  countriesVisited: 8,
-  totalDistance: 15420, // in km
-  achievements: ['Explorer', 'Adventure Seeker', 'Culture Enthusiast'],
-  preferences: {
-    budget: 'Mid-range',
-    accommodation: 'Hotel',
-    dietary: 'No restrictions',
-    notifications: true,
-    darkMode: false,
-  }
-};
-
-const MOCK_RECENT_TRIPS = [
-  {
-    id: 'trip1',
-    destination: 'Kandy Cultural Triangle',
-    date: '2024-06-15',
-    duration: '3 days',
-    rating: 4.8,
-    photos: 15,
-  },
-  {
-    id: 'trip2',
-    destination: 'Ella Hill Country',
-    date: '2024-05-20',
-    duration: '2 days',
-    rating: 4.9,
-    photos: 23,
-  },
-  {
-    id: 'trip3',
-    destination: 'Galle Fort Heritage',
-    date: '2024-04-10',
-    duration: '1 day',
-    rating: 4.7,
-    photos: 12,
-  },
-];
+import { GuideService } from '../../services/guide';
+import * as ImagePicker from 'expo-image-picker';
+import { toAbsoluteImageUrl } from '../../utils/imageUrl';
+import { API_CONFIG } from '../../services/config';
+import { StorageService } from '../../services/storage';
 
 interface ProfileSectionProps {
   title: string;
@@ -88,7 +32,7 @@ interface ProfileSectionProps {
 const ProfileSection: React.FC<ProfileSectionProps> = ({ title, children }) => (
   <View style={styles.section}>
     <Text style={styles.sectionTitle}>{title}</Text>
-    {children}
+    <View style={styles.sectionContent}>{children}</View>
   </View>
 );
 
@@ -99,6 +43,7 @@ interface ProfileItemProps {
   onPress?: () => void;
   showArrow?: boolean;
   rightComponent?: React.ReactNode;
+  danger?: boolean;
 }
 
 const ProfileItem: React.FC<ProfileItemProps> = ({ 
@@ -107,23 +52,37 @@ const ProfileItem: React.FC<ProfileItemProps> = ({
   value, 
   onPress, 
   showArrow = true,
-  rightComponent 
+  rightComponent,
+  danger = false
 }) => (
   <TouchableOpacity 
     style={styles.profileItem} 
     onPress={onPress}
     disabled={!onPress}
+    activeOpacity={onPress ? 0.7 : 1}
   >
     <View style={styles.profileItemLeft}>
-      <Ionicons name={icon} size={20} color={Colors.primary600} />
-      <Text style={styles.profileItemLabel}>{label}</Text>
+      <View style={[styles.iconContainer, danger && styles.iconContainerDanger]}>
+        <Ionicons 
+          name={icon} 
+          size={20} 
+          color={danger ? Colors.error : Colors.primary600} 
+        />
+      </View>
+      <Text style={[styles.profileItemLabel, danger && styles.profileItemLabelDanger]}>
+        {label}
+      </Text>
     </View>
     <View style={styles.profileItemRight}>
       {rightComponent || (
         <>
           {value && <Text style={styles.profileItemValue}>{value}</Text>}
           {showArrow && onPress && (
-            <Ionicons name="chevron-forward" size={16} color={Colors.secondary400} />
+            <Ionicons 
+              name="chevron-forward" 
+              size={20} 
+              color={Colors.secondary400} 
+            />
           )}
         </>
       )}
@@ -133,20 +92,272 @@ const ProfileItem: React.FC<ProfileItemProps> = ({
 
 export default function ProfileScreen() {
   const { logout } = useAuth();
-  const [darkMode, setDarkMode] = useState(MOCK_USER_DATA.preferences.darkMode);
-  const [notifications, setNotifications] = useState(MOCK_USER_DATA.preferences.notifications);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [notifications, setNotifications] = useState(true);
+  
+  // Real data states
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [userData, setUserData] = useState<any>(null);
+  const [guideData, setGuideData] = useState<any>(null);
+  const fetchingRef = useRef(false);
+  
+  // Edit modal states
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editField, setEditField] = useState<'contact' | 'languages' | 'bio' | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [languagesList, setLanguagesList] = useState<string[]>([]);
+  const [tempLanguage, setTempLanguage] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  // Fetch user and guide data from listing-service (combines both services)
+  const fetchProfileData = useCallback(async () => {
+    // Prevent multiple simultaneous fetches using ref
+    if (fetchingRef.current) {
+      console.log('Already fetching data, skipping...');
+      return;
+    }
+
+    try {
+      fetchingRef.current = true;
+      setLoading(true);
+      
+      // Get user data from storage to get userId
+      const user = await StorageService.getUserData();
+      
+      if (!user) {
+        throw new Error('User not logged in');
+      }
+
+      // Use userId (ObjectId) to fetch profile
+      const userId = user.id || user._id;
+      const username = user.username;
+      
+      if (!userId && !username) {
+        throw new Error('User identifier not found');
+      }
+
+      // Fetch combined profile from listing-service with ONE request
+      // Use userId as query param if available, otherwise use username in path
+      const accessToken = await StorageService.getAccessToken();
+      const endpoint = userId 
+        ? `${API_CONFIG.BASE_URL}/api/listing/service/tourguide-listing/guide/me?userId=${encodeURIComponent(userId)}`
+        : `${API_CONFIG.BASE_URL}/api/listing/service/tourguide-listing/guide/${encodeURIComponent(username)}`;
+      
+      const response = await fetch(endpoint, {
+        headers: {
+          'Accept': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        const profileData = result.data;
+        
+        // Set combined data
+        setGuideData(profileData);
+        // Fallback to stored user email if missing from combined response
+        const storedUser = await StorageService.getUserData();
+        setUserData({
+          email: profileData.email || storedUser?.email || '',
+          emailVerified: typeof profileData.emailVerified === 'boolean' ? profileData.emailVerified : !!storedUser?.emailVerified,
+          username: profileData.username || storedUser?.username,
+          createdAt: profileData.createdAt || storedUser?.createdAt,
+        });
+      } else {
+        throw new Error('Failed to load profile data');
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch profile data:', error);
+      
+      // Handle rate limiting error specifically
+      if (error?.status === 429 || error?.message?.includes('Too many requests')) {
+        Alert.alert(
+          'Too Many Requests',
+          'Please wait a moment before refreshing your profile.',
+          [{ text: 'OK' }]
+        );
+      } else if (error?.message?.includes('authentication') || error?.message?.includes('401')) {
+        Alert.alert(
+          'Authentication Error',
+          'There was an issue with your session. Please try logging in again.',
+          [
+            {
+              text: 'OK',
+              onPress: () => router.replace('/auth/login')
+            }
+          ]
+        );
+      } else {
+        // Only show error if we don't have cached data
+        if (!guideData) {
+          Alert.alert('Error', 'Failed to load profile. Please try again later.');
+        }
+      }
+    } finally {
+      setLoading(false);
+      fetchingRef.current = false;
+    }
+  }, []); // Empty dependencies - only create once
+
+  // Load data on mount only
+  useEffect(() => {
+    fetchProfileData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependencies - run only once on mount
+
+  const handleAvatarEdit = async () => {
+    try {
+      // Request permission
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (!permissionResult.granted) {
+        Alert.alert('Permission Required', 'Please allow access to your photos to upload an avatar.');
+        return;
+      }
+
+      // Pick image
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setUploading(true);
+        const asset = result.assets[0];
+        
+        // Upload avatar
+        const uploadResponse = await GuideService.uploadGuideAvatar(
+          asset.uri,
+          asset.fileName || 'avatar.jpg',
+          asset.type || 'image/jpeg'
+        );
+
+        if (uploadResponse.success) {
+          // Normalize URL to absolute (in case backend returns relative path)
+          const newAvatar = toAbsoluteImageUrl(uploadResponse.url);
+          // Update guide profile with new avatar URL
+          await GuideService.updateGuideProfile(guideData?._id || guideData?.username, {
+            details: {
+              ...guideData.details,
+              avatar: newAvatar,
+            },
+          });
+
+          // Refresh profile data
+          await fetchProfileData();
+          Alert.alert('Success', 'Profile picture updated successfully');
+        } else {
+          throw new Error('Upload failed');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to upload avatar:', error);
+      Alert.alert('Error', 'Failed to upload profile picture');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleEditProfile = () => {
-    router.push('/profile/edit-profile');
+    router.push('/guideProfile/edit-profile');
   };
 
-  const handleTravelHistory = () => {
-    router.push('/profile/trip-timeline');
+  const handleEditField = (field: 'contact' | 'languages' | 'bio') => {
+    setEditField(field);
+    
+    if (field === 'contact') {
+      setEditValue(guideData?.details?.contactNumber || '');
+    } else if (field === 'bio') {
+      setEditValue(guideData?.details?.bio || '');
+    } else if (field === 'languages') {
+      setLanguagesList(guideData?.details?.languages || []);
+      setTempLanguage('');
+    }
+    
+    setEditModalVisible(true);
   };
 
-  const handleTripMemories = () => {
-    router.push('/profile/trip-memories');
+  const handleSaveField = async () => {
+    try {
+      setSaving(true);
+      
+      const guideId = guideData?._id || guideData?.username;
+      if (!guideId) {
+        Alert.alert('Error', 'Guide profile not found');
+        return;
+      }
+
+      let updateData: any = {};
+
+      if (editField === 'contact') {
+        if (!editValue.trim()) {
+          Alert.alert('Error', 'Contact number cannot be empty');
+          return;
+        }
+        updateData = {
+          details: {
+            ...guideData.details,
+            contactNumber: editValue.trim(),
+          },
+        };
+      } else if (editField === 'bio') {
+        updateData = {
+          details: {
+            ...guideData.details,
+            bio: editValue.trim(),
+          },
+        };
+      } else if (editField === 'languages') {
+        if (languagesList.length === 0) {
+          Alert.alert('Error', 'Please add at least one language');
+          return;
+        }
+        updateData = {
+          details: {
+            ...guideData.details,
+            languages: languagesList,
+          },
+        };
+      }
+
+      await GuideService.updateGuideProfile(guideId, updateData);
+      
+      // Refresh profile data
+      await fetchProfileData();
+      
+      setEditModalVisible(false);
+      setEditField(null);
+      setEditValue('');
+      setLanguagesList([]);
+      
+      Alert.alert('Success', 'Profile updated successfully');
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      Alert.alert('Error', 'Failed to update profile. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddLanguage = () => {
+    if (tempLanguage.trim() && !languagesList.includes(tempLanguage.trim())) {
+      setLanguagesList([...languagesList, tempLanguage.trim()]);
+      setTempLanguage('');
+    }
+  };
+
+  const handleRemoveLanguage = (language: string) => {
+    setLanguagesList(languagesList.filter(lang => lang !== language));
   };
 
   const handleSettings = () => {
@@ -154,31 +365,11 @@ export default function ProfileScreen() {
   };
 
   const handleSupport = () => {
-    router.push('/profile/faq-help');
-  };
-
-  const handleRateApp = () => {
-    router.push('/profile/rate-app');
-  };
-
-  const handleAchievements = () => {
-    router.push('/profile/achievements');
-  };
-
-  const handleLanguage = () => {
     Alert.alert(
-      'Language Settings',
-      'App is currently available in English only. More languages will be added in upcoming versions.',
+      'Support',
+      'For assistance, please email us at support@wanderlanka.com',
       [{ text: 'OK' }]
     );
-  };
-
-  const handleLoyaltyPoints = () => {
-    router.push('/profile/loyalty-points');
-  };
-
-  const handleDiscountCoupons = () => {
-    router.push('/profile/discount-coupons');
   };
 
   const handleLogout = () => {
@@ -229,308 +420,214 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <ProfileAvatar
-            imageUri={MOCK_USER_DATA.avatar}
-            size={80}
-            onEdit={handleEditProfile}
-          />
-          
-          <View style={styles.profileInfo}>
-            <Text style={styles.userName}>{MOCK_USER_DATA.fullName}</Text>
-            <Text style={styles.userEmail}>{MOCK_USER_DATA.email}</Text>
-            {MOCK_USER_DATA.verified && (
-              <View style={styles.verifiedBadge}>
-                <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
-                <Text style={styles.verifiedText}>Verified</Text>
-              </View>
-            )}
-          </View>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary600} />
+          <Text style={styles.loadingText}>Loading profile...</Text>
         </View>
-
-        {/* Stats Cards */}
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={styles.statsScrollView}
-          contentContainerStyle={styles.statsContainer}
-        >
-          <View style={styles.statCard}>
-            <View style={styles.statIconContainer}>
-              <Ionicons name="map-outline" size={24} color={Colors.primary600} />
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Profile Header */}
+          <View style={styles.header}>
+            <View style={styles.headerTop}>
+              <Text style={styles.headerTitle}>Profile</Text>
             </View>
-            <View style={styles.statContent}>
-              <Text style={styles.statNumber}>{MOCK_USER_DATA.tripsCompleted}</Text>
-              <Text style={styles.statLabel}>Trips Completed</Text>
-            </View>
-          </View>
-          
-          <View style={styles.statCard}>
-            <View style={styles.statIconContainer}>
-              <Ionicons name="location-outline" size={24} color={Colors.primary600} />
-            </View>
-            <View style={styles.statContent}>
-              <Text style={styles.statNumber}>{MOCK_USER_DATA.countriesVisited}</Text>
-              <Text style={styles.statLabel}>Places Visited</Text>
-            </View>
-          </View>
-          
-          <View style={styles.statCard}>
-            <View style={styles.statIconContainer}>
-              <Ionicons name="gift-outline" size={24} color={Colors.primary600} />
-            </View>
-            <View style={styles.statContent}>
-              <Text style={styles.statNumber}>
-                {formatNumber(MOCK_USER_DATA.loyaltyPoints)}
-              </Text>
-              <Text style={styles.statLabel}>Loyalty Points</Text>
-            </View>
-          </View>
-          
-          <View style={styles.statCard}>
-            <View style={styles.statIconContainer}>
-              <Ionicons name="speedometer-outline" size={24} color={Colors.primary600} />
-            </View>
-            <View style={styles.statContent}>
-              <Text style={styles.statNumber}>
-                {formatNumber(Math.round(MOCK_USER_DATA.totalDistance / 1000))}
-              </Text>
-              <Text style={styles.statLabel}>KM Traveled</Text>
-            </View>
-          </View>
-        </ScrollView>
-
-        {/* Personal Information */}
-        <ProfileSection title="Personal Information">
-          <ProfileItem
-            icon="person-outline"
-            label="Edit Profile"
-            value="Update details"
-            onPress={handleEditProfile}
-          />
-          {/* <ProfileItem
-            icon="shield-checkmark-outline"
-            label="Account Status"
-            value={MOCK_USER_DATA.isActive ? "Active" : "Inactive"}
-            showArrow={false}
-            rightComponent={
-              <View style={styles.verifiedBadge}>
-                <Ionicons 
-                  name={MOCK_USER_DATA.isActive ? "checkmark-circle" : "alert-circle"} 
-                  size={16} 
-                  color={MOCK_USER_DATA.isActive ? Colors.success : Colors.warning} 
+            
+            <View style={styles.profileCard}>
+              <View style={styles.avatarSection}>
+                <ProfileAvatar
+                  imageUri={guideData?.details?.avatar ? toAbsoluteImageUrl(guideData.details.avatar) : null}
+                  size={100}
+                  onEdit={handleAvatarEdit}
                 />
-                <Text style={[styles.verifiedText, { color: MOCK_USER_DATA.isActive ? Colors.success : Colors.warning }]}>
-                  {MOCK_USER_DATA.isActive ? "Active" : "Inactive"}
-                </Text>
+                
+                {uploading && (
+                  <View style={styles.uploadingOverlay}>
+                    <ActivityIndicator size="small" color={Colors.white} />
+                  </View>
+                )}
               </View>
-            }
-          /> */}
-          <ProfileItem
-            icon="call-outline"
-            label="Phone Verification"
-            value={MOCK_USER_DATA.phoneVerified ? "Verified" : "Not Verified"}
-            showArrow={false}
-            rightComponent={
-              <View style={styles.verifiedBadge}>
-                <Ionicons 
-                  name={MOCK_USER_DATA.phoneVerified ? "checkmark-circle" : "alert-circle"} 
-                  size={16} 
-                  color={MOCK_USER_DATA.phoneVerified ? Colors.success : Colors.warning} 
+              
+              <View style={styles.profileDetails}>
+                <Text style={styles.userName}>
+                  {(
+                    (guideData?.details?.firstName || '') +
+                    (guideData?.details?.lastName ? ` ${guideData.details.lastName}` : '')
+                  ).trim() || userData?.username || 'Guide'}
+                </Text>
+                
+                <View style={styles.emailContainer}>
+                  <Ionicons name="mail-outline" size={16} color={Colors.secondary500} />
+                  <Text style={styles.userEmail}>
+                    {userData?.email || guideData?.email || 'No email'}
+                  </Text>
+                  {userData?.emailVerified && (
+                    <View style={styles.verifiedBadge}>
+                      <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
+                    </View>
+                  )}
+                </View>
+                
+                {guideData?.username && (
+                  <View style={styles.usernameContainer}>
+                    <Ionicons name="at" size={16} color={Colors.secondary500} />
+                    <Text style={styles.usernameText}>{guideData.username}</Text>
+                  </View>
+                )}
+                
+                {/* Status Badge */}
+                <View style={styles.statusBadgeContainer}>
+                  <View style={[
+                    styles.statusBadge,
+                    guideData?.status === 'active' && styles.statusBadgeActive,
+                    guideData?.status === 'pending' && styles.statusBadgePending
+                  ]}>
+                    <Ionicons 
+                      name={guideData?.status === 'active' ? "checkmark-circle" : "time-outline"} 
+                      size={14} 
+                      color={guideData?.status === 'active' ? Colors.success : Colors.warning} 
+                    />
+                    <Text style={[
+                      styles.statusText,
+                      guideData?.status === 'active' && styles.statusTextActive,
+                      guideData?.status === 'pending' && styles.statusTextPending
+                    ]}>
+                      {guideData?.status === 'active' ? 'Active' : 
+                       guideData?.status === 'pending' ? 'Pending Approval' : 
+                       guideData?.status || 'Inactive'}
+                    </Text>
+                  </View>
+                  {guideData?.featured && (
+                    <View style={styles.featuredBadge}>
+                      <Ionicons name="star" size={14} color={Colors.primary600} />
+                      <Text style={styles.featuredText}>Featured</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+              
+              <TouchableOpacity 
+                style={styles.editProfileButton} 
+                onPress={handleEditProfile}
+              >
+                <Ionicons name="create-outline" size={20} color={Colors.primary600} />
+                <Text style={styles.editProfileText}>Edit Profile</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Guide Information */}
+          <ProfileSection title="Guide Information">
+            <ProfileItem
+              icon="call-outline"
+              label="Contact Number"
+              value={guideData?.details?.contactNumber || 'Add contact'}
+              onPress={() => handleEditField('contact')}
+            />
+            <ProfileItem
+              icon="globe-outline"
+              label="Languages"
+              value={Array.isArray(guideData?.details?.languages) && guideData.details.languages.length
+                ? guideData.details.languages.join(', ')
+                : 'Add languages'}
+              onPress={() => handleEditField('languages')}
+            />
+            <ProfileItem
+              icon="document-text-outline"
+              label="Bio"
+              value={guideData?.details?.bio 
+                ? (guideData.details.bio.length > 40 
+                  ? guideData.details.bio.substring(0, 40) + '...' 
+                  : guideData.details.bio)
+                : 'Add your bio'}
+              onPress={() => handleEditField('bio')}
+            />
+          </ProfileSection>
+
+          {/* Guide Stats */}
+          {(guideData?.metrics?.rating || guideData?.metrics?.totalBookings) && (
+            <ProfileSection title="Statistics">
+              <View style={styles.statsRow}>
+                <View style={styles.statBox}>
+                  <Ionicons name="star" size={24} color={Colors.primary600} />
+                  <Text style={styles.statValue}>
+                    {guideData?.metrics?.rating?.toFixed(1) || '0.0'}
+                  </Text>
+                  <Text style={styles.statLabel}>Rating</Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statBox}>
+                  <Ionicons name="briefcase" size={24} color={Colors.primary600} />
+                  <Text style={styles.statValue}>
+                    {guideData?.metrics?.totalBookings || 0}
+                  </Text>
+                  <Text style={styles.statLabel}>Bookings</Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statBox}>
+                  <Ionicons name="people" size={24} color={Colors.primary600} />
+                  <Text style={styles.statValue}>
+                    {guideData?.metrics?.totalReviews || 0}
+                  </Text>
+                  <Text style={styles.statLabel}>Reviews</Text>
+                </View>
+              </View>
+            </ProfileSection>
+          )}
+
+          {/* Settings */}
+          <ProfileSection title="Settings">
+            <ProfileItem
+              icon="notifications-outline"
+              label="Notifications"
+              showArrow={false}
+              rightComponent={
+                <Switch
+                  value={notifications}
+                  onValueChange={setNotifications}
+                  trackColor={{ false: Colors.secondary200, true: Colors.primary300 }}
+                  thumbColor={notifications ? Colors.primary600 : Colors.secondary400}
+                  ios_backgroundColor={Colors.secondary200}
                 />
-                <Text style={[styles.verifiedText, { color: MOCK_USER_DATA.phoneVerified ? Colors.success : Colors.warning }]}>
-                  {MOCK_USER_DATA.phoneVerified ? "Verified" : "Not Verified"}
-                </Text>
-              </View>
-            }
-          />
-          <ProfileItem
-            icon="document-outline"
-            label="Passport Number"
-            value={MOCK_USER_DATA.passportNumber}
-            onPress={handleEditProfile}
-          />
-          <ProfileItem
-            icon="heart-outline"
-            label="Travel Preferences"
-            value={MOCK_USER_DATA.preferences.budget}
-            onPress={handleEditProfile}
-          />
-        </ProfileSection>
+              }
+            />
+            <ProfileItem
+              icon="shield-outline"
+              label="Privacy & Security"
+              onPress={handleSettings}
+            />
+            <ProfileItem
+              icon="help-circle-outline"
+              label="Help & Support"
+              onPress={handleSupport}
+            />
+          </ProfileSection>
 
-        {/* Travel History */}
-        <ProfileSection title="Travel History">
-          <ProfileItem
-            icon="map-outline"
-            label="Trip Timeline"
-            value={`${MOCK_USER_DATA.tripsCompleted} completed`}
-            onPress={handleTravelHistory}
-          />
-          <ProfileItem
-            icon="images-outline"
-            label="Trip Memories"
-            value="Photos & Videos"
-            onPress={handleTripMemories}
-          />
-          {/* <ProfileItem
-            icon="trophy-outline"
-            label="Achievements"
-            value={`${MOCK_USER_DATA.achievements.length} badges`}
-            onPress={handleTravelHistory}
-          /> */}
-        </ProfileSection>
-
-        {/* Recent Trips Preview */}
-        <ProfileSection title="Recent Trips">
-          {MOCK_RECENT_TRIPS.slice(0, 2).map((trip) => (
-            <TouchableOpacity key={trip.id} style={styles.tripItem}>
-              <View style={styles.tripIcon}>
-                <Ionicons name="location" size={20} color={Colors.primary600} />
-              </View>
-              <View style={styles.tripInfo}>
-                <Text style={styles.tripDestination}>{trip.destination}</Text>
-                <Text style={styles.tripDate}>{trip.date} • {trip.duration}</Text>
-              </View>
-              <View style={styles.tripRating}>
-                <Ionicons name="star" size={14} color={Colors.warning} />
-                <Text style={styles.tripRatingText}>{trip.rating}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-          <ProfileItem
-            icon="list-outline"
-            label="View All Trips"
-            onPress={handleTravelHistory}
-          />
-        </ProfileSection>
-
-        {/* App Settings */}
-        <ProfileSection title="Preferences & Settings">
-          <ProfileItem
-            icon="notifications-outline"
-            label="Notifications"
-            showArrow={false}
-            rightComponent={
-              <Switch
-                value={notifications}
-                onValueChange={setNotifications}
-                trackColor={{ false: Colors.secondary200, true: Colors.primary100 }}
-                thumbColor={notifications ? Colors.primary600 : Colors.secondary400}
-              />
-            }
-          />
-          <ProfileItem
-            icon="moon-outline"
-            label="Dark Mode"
-            showArrow={false}
-            rightComponent={
-              <Switch
-                value={darkMode}
-                onValueChange={setDarkMode}
-                trackColor={{ false: Colors.secondary200, true: Colors.primary100 }}
-                thumbColor={darkMode ? Colors.primary600 : Colors.secondary400}
-              />
-            }
-          />
-          <ProfileItem
-            icon="language-outline"
-            label="Language"
-            value="English"
-            onPress={handleLanguage}
-          />
-          <ProfileItem
-            icon="shield-outline"
-            label="Privacy & Security"
-            onPress={handleSettings}
-          />
-        </ProfileSection>
-
-        {/* Loyalty & Rewards */}
-        <ProfileSection title="Loyalty & Rewards">
-          <ProfileItem
-            icon="gift-outline"
-            label="Loyalty Points"
-            value={`${MOCK_USER_DATA.loyaltyPoints} points`}
-            onPress={handleLoyaltyPoints}
-          />
-          <ProfileItem
-            icon="ribbon-outline"
-            label="Achievement Badges"
-            value={`${MOCK_USER_DATA.achievements.length} earned`}
-            onPress={handleAchievements}
-          />
-          <ProfileItem
-            icon="pricetag-outline"
-            label="Discount Coupons"
-            value="3 available"
-            onPress={handleDiscountCoupons}
-          />
-        </ProfileSection>
-
-        {/* Support & Help */}
-        <ProfileSection title="Support & Help">
-          <ProfileItem
-            icon="chatbubble-outline"
-            label="Customer Support"
-            onPress={handleSupport}
-          />
-          <ProfileItem
-            icon="help-circle-outline"
-            label="FAQ & Help"
-            onPress={handleSupport}
-          />
-          <ProfileItem
-            icon="star-outline"
-            label="Rate App"
-            onPress={handleRateApp}
-          />
-        </ProfileSection>
-
-        {/* Account Management */}
-        <ProfileSection title="Account Management">
-          <ProfileItem
-            icon="shield-outline"
-            label="Account Status"
-            value={MOCK_USER_DATA.isActive ? "Active Account" : "Deactivated"}
-            showArrow={false}
-            rightComponent={
-              <View style={styles.verifiedBadge}>
-                <Ionicons 
-                  name={MOCK_USER_DATA.isActive ? "shield-checkmark" : "shield-outline"} 
-                  size={16} 
-                  color={MOCK_USER_DATA.isActive ? Colors.success : Colors.warning} 
-                />
-                <Text style={[styles.verifiedText, { color: MOCK_USER_DATA.isActive ? Colors.success : Colors.warning }]}>
-                  {MOCK_USER_DATA.isActive ? "Active" : "Inactive"}
-                </Text>
-              </View>
-            }
-          />
-          {MOCK_USER_DATA.isActive && (
+          {/* Account Actions */}
+          <ProfileSection title="Account">
+            <ProfileItem
+              icon="log-out-outline"
+              label="Logout"
+              onPress={handleLogout}
+              showArrow={false}
+            />
             <ProfileItem
               icon="trash-outline"
               label="Delete Account"
-              value="Permanently delete"
               onPress={handleDeleteAccount}
+              showArrow={false}
+              danger
             />
-          )}
-        </ProfileSection>
+          </ProfileSection>
 
-        {/* Logout Button */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={20} color={Colors.error} />
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Member since {new Date(MOCK_USER_DATA.memberSince).getFullYear()}
-          </Text>
-          <Text style={styles.versionText}>WanderLanka v1.0.0</Text>
-        </View>
-      </ScrollView>
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              Member since {userData?.createdAt ? new Date(userData.createdAt).getFullYear() : new Date().getFullYear()}
+            </Text>
+            <Text style={styles.versionText}>WanderLanka v1.0.0</Text>
+          </View>
+        </ScrollView>
+      )}
 
       {/* Delete Account Modal */}
       <DeleteAccountModal
@@ -538,6 +635,132 @@ export default function ProfileScreen() {
         onClose={() => setShowDeleteModal(false)}
         onConfirm={confirmDeleteAccount}
       />
+
+      {/* Edit Field Modal */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {editField === 'contact' ? 'Edit Contact Number' :
+                 editField === 'languages' ? 'Edit Languages' :
+                 editField === 'bio' ? 'Edit Bio' : ''}
+              </Text>
+              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                <Ionicons name="close" size={24} color={Colors.secondary600} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              {editField === 'contact' && (
+                <View>
+                  <Text style={styles.modalLabel}>Contact Number</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={editValue}
+                    onChangeText={setEditValue}
+                    placeholder="Enter contact number"
+                    keyboardType="phone-pad"
+                    placeholderTextColor={Colors.secondary400}
+                  />
+                  <Text style={styles.modalHint}>
+                    Enter your phone number with country code (e.g., +94771234567)
+                  </Text>
+                </View>
+              )}
+
+              {editField === 'bio' && (
+                <View>
+                  <Text style={styles.modalLabel}>Bio</Text>
+                  <TextInput
+                    style={[styles.modalInput, styles.modalTextArea]}
+                    value={editValue}
+                    onChangeText={setEditValue}
+                    placeholder="Tell tourists about yourself..."
+                    multiline
+                    numberOfLines={6}
+                    maxLength={500}
+                    placeholderTextColor={Colors.secondary400}
+                  />
+                  <Text style={styles.modalHint}>
+                    {editValue.length}/500 characters
+                  </Text>
+                </View>
+              )}
+
+              {editField === 'languages' && (
+                <View>
+                  <Text style={styles.modalLabel}>Languages You Speak</Text>
+                  
+                  {/* Add Language Input */}
+                  <View style={styles.addLanguageContainer}>
+                    <TextInput
+                      style={[styles.modalInput, styles.languageInput]}
+                      value={tempLanguage}
+                      onChangeText={setTempLanguage}
+                      placeholder="Add a language"
+                      placeholderTextColor={Colors.secondary400}
+                      onSubmitEditing={handleAddLanguage}
+                    />
+                    <TouchableOpacity 
+                      style={styles.addLanguageButton}
+                      onPress={handleAddLanguage}
+                    >
+                      <Ionicons name="add" size={24} color={Colors.white} />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Languages List */}
+                  <View style={styles.languagesList}>
+                    {languagesList.map((language, index) => (
+                      <View key={index} style={styles.languageChip}>
+                        <Text style={styles.languageChipText}>{language}</Text>
+                        <TouchableOpacity
+                          onPress={() => handleRemoveLanguage(language)}
+                          style={styles.removeLanguageButton}
+                        >
+                          <Ionicons name="close-circle" size={20} color={Colors.error} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    {languagesList.length === 0 && (
+                      <Text style={styles.emptyLanguagesText}>
+                        No languages added yet. Add at least one language.
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setEditModalVisible(false)}
+                disabled={saving}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalSaveButton, saving && styles.modalSaveButtonDisabled]}
+                onPress={handleSaveField}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator size="small" color={Colors.white} />
+                ) : (
+                  <Text style={styles.modalSaveButtonText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -547,122 +770,211 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.secondary50,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: Colors.white,
-    marginBottom: 10,
-  },
-  profileInfo: {
+  loadingContainer: {
     flex: 1,
-    marginLeft: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  userName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.black,
-    marginBottom: 4,
-  },
-  userEmail: {
+  loadingText: {
     fontSize: 14,
     color: Colors.secondary500,
-    marginBottom: 8,
+    marginTop: 12,
   },
-  verifiedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  verifiedText: {
-    fontSize: 12,
-    color: Colors.success,
-    marginLeft: 4,
-    fontWeight: '500',
-  },
-  statsScrollView: {
-    marginBottom: 10,
-  },
-  statsContainer: {
-    paddingHorizontal: 20,
-    alignItems: 'center',
-  },
-  statCard: {
+  header: {
     backgroundColor: Colors.white,
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    width: 120,
-    marginRight: 12,
+    paddingBottom: 20,
+    marginBottom: 16,
     shadowColor: Colors.black,
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 4,
-    elevation: 5,
-    minHeight: 120,
-    justifyContent: 'space-between',
+    elevation: 2,
   },
-  statIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.primary100,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
+  headerTop: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
-  statContent: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  statNumber: {
-    fontSize: 18,
+  headerTitle: {
+    fontSize: 28,
     fontWeight: '700',
-    color: Colors.primary600,
-    marginBottom: 4,
-    textAlign: 'center',
-    lineHeight: 22,
+    color: Colors.black,
   },
-  statLabel: {
-    fontSize: 11,
-    color: Colors.secondary500,
+  profileCard: {
+    paddingHorizontal: 20,
+  },
+  avatarSection: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  profileDetails: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  userName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Colors.black,
+    marginBottom: 8,
     textAlign: 'center',
-    lineHeight: 14,
-    fontWeight: '500',
+  },
+  emailContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  userEmail: {
+    fontSize: 14,
+    color: Colors.secondary500,
+    marginLeft: 6,
+    marginRight: 6,
+  },
+  usernameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  usernameText: {
+    fontSize: 14,
+    color: Colors.secondary500,
+    marginLeft: 4,
+  },
+  statusBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: Colors.secondary100,
+  },
+  statusBadgeActive: {
+    backgroundColor: Colors.success + '15',
+  },
+  statusBadgePending: {
+    backgroundColor: Colors.warning + '15',
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+    color: Colors.secondary600,
+  },
+  statusTextActive: {
+    color: Colors.success,
+  },
+  statusTextPending: {
+    color: Colors.warning,
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  featuredBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: Colors.primary100,
+  },
+  featuredText: {
+    fontSize: 12,
+    color: Colors.primary600,
+    marginLeft: 4,
+    fontWeight: '600',
+  },
+  editProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary100,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.primary300,
+  },
+  editProfileText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.primary600,
+    marginLeft: 8,
   },
   section: {
     backgroundColor: Colors.white,
-    marginBottom: 10,
-    paddingVertical: 10,
+    marginBottom: 12,
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    shadowColor: Colors.black,
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: Colors.black,
     paddingHorizontal: 20,
-    paddingBottom: 10,
+    marginBottom: 12,
+  },
+  sectionContent: {
+    gap: 0,
   },
   profileItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.light200,
+    borderBottomColor: Colors.secondary100,
   },
   profileItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
+  iconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Colors.primary100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconContainerDanger: {
+    backgroundColor: Colors.error + '10',
+  },
   profileItemLabel: {
-    fontSize: 14,
+    fontSize: 15,
     color: Colors.black,
     marginLeft: 12,
+    fontWeight: '500',
+  },
+  profileItemLabelDanger: {
+    color: Colors.error,
   },
   profileItemRight: {
     flexDirection: 'row',
@@ -672,75 +984,184 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.secondary500,
     marginRight: 8,
+    maxWidth: 150,
   },
-  tripItem: {
+  statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-around',
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.light200,
   },
-  tripIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.primary100,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  tripInfo: {
+  statBox: {
     flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
   },
-  tripDestination: {
-    fontSize: 14,
-    fontWeight: '500',
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: Colors.secondary200,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '700',
     color: Colors.black,
-    marginBottom: 2,
+    marginTop: 8,
+    marginBottom: 4,
   },
-  tripDate: {
+  statLabel: {
     fontSize: 12,
     color: Colors.secondary500,
-  },
-  tripRating: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  tripRatingText: {
-    fontSize: 12,
-    color: Colors.secondary600,
-    marginLeft: 2,
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.white,
-    marginHorizontal: 20,
-    marginVertical: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.error,
-  },
-  logoutText: {
-    fontSize: 14,
-    color: Colors.error,
     fontWeight: '500',
-    marginLeft: 8,
   },
   footer: {
     alignItems: 'center',
-    paddingBottom: 40,
+    paddingVertical: 30,
   },
   footerText: {
-    fontSize: 12,
+    fontSize: 13,
     color: Colors.secondary400,
     marginBottom: 4,
   },
   versionText: {
-    fontSize: 10,
+    fontSize: 11,
     color: Colors.secondary400,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.secondary100,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.black,
+  },
+  modalBody: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  modalLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.black,
+    marginBottom: 8,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: Colors.secondary200,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: Colors.black,
+    backgroundColor: Colors.white,
+  },
+  modalTextArea: {
+    height: 120,
+    textAlignVertical: 'top',
+  },
+  modalHint: {
+    fontSize: 13,
+    color: Colors.secondary400,
+    marginTop: 8,
+  },
+  addLanguageContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  languageInput: {
+    flex: 1,
+  },
+  addLanguageButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: Colors.primary600,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  languagesList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  languageChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary100,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 8,
+  },
+  languageChipText: {
+    fontSize: 14,
+    color: Colors.primary600,
+    fontWeight: '500',
+  },
+  removeLanguageButton: {
+    padding: 2,
+  },
+  emptyLanguagesText: {
+    fontSize: 14,
+    color: Colors.secondary400,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    gap: 12,
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.secondary200,
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+  },
+  modalCancelButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.secondary600,
+  },
+  modalSaveButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: Colors.primary600,
+    alignItems: 'center',
+  },
+  modalSaveButtonDisabled: {
+    opacity: 0.6,
+  },
+  modalSaveButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.white,
   },
 });

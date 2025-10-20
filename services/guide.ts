@@ -271,4 +271,82 @@ export const GuideService = {
     
     return ApiService.get<any>(`/api/guide/featuredguides${qs}`);
   },
+
+  /**
+   * Get current guide's profile from guide-service
+   */
+  async getGuideProfile(userId?: string): Promise<any> {
+    try {
+      const user = await StorageService.getUserData();
+      const targetUserId = userId || user?.id || user?._id;
+      
+      if (!targetUserId) {
+        throw new Error('User ID not found');
+      }
+
+      const res = await fetch(`${API_CONFIG.BASE_URL}/api/guide/guide/get?userId=${encodeURIComponent(targetUserId)}`, {
+        headers: { 'Accept': 'application/json' },
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to fetch guide profile');
+      }
+
+      return await res.json();
+    } catch (error) {
+      console.error('Error fetching guide profile:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update guide profile details (bio, languages, contact, etc.)
+   */
+  async updateGuideProfile(idOrUsername: string, payload: { 
+    details?: {
+      firstName?: string;
+      lastName?: string;
+      bio?: string;
+      languages?: string[];
+      avatar?: string;
+      contactNumber?: string;
+    };
+    status?: string;
+    featured?: boolean;
+  }): Promise<any> {
+    return ApiService.patch<any>(`/api/guide/guide/update/${encodeURIComponent(idOrUsername)}`, payload);
+  },
+
+  /**
+   * Upload guide avatar/profile image
+   */
+  async uploadGuideAvatar(imageUri: string, imageName: string, imageType: string): Promise<{ success: boolean; url?: string; error?: string }> {
+    try {
+      const formData = new FormData();
+      formData.append('image', {
+        uri: imageUri,
+        name: imageName,
+        type: imageType,
+      } as any);
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/guide/uploads/package-image`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          // Don't set Content-Type - let the browser/RN set it with boundary
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Upload failed');
+      }
+
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      throw error;
+    }
+  },
 };
