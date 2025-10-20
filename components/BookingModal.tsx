@@ -293,7 +293,8 @@ export default function BookingModal({ visible, pkg, onClose, onBooked }: Bookin
           ]
         );
       } else {
-        Alert.alert('Booking failed', errorMessage);
+        // Error is already handled by the error state in the UI
+        console.error('Booking failed:', errorMessage);
       }
     } finally {
       setSubmitting(false);
@@ -726,19 +727,25 @@ const styles = StyleSheet.create({
   },
   bookingSheet: {
     backgroundColor: Colors.white,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    maxHeight: '92%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '95%',
     flex: 1,
+    shadowColor: Colors.secondary700,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
   },
   
   // Header & Progress
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 16,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: Colors.secondary100,
+    backgroundColor: Colors.white,
   },
   sheetHandle: {
     alignSelf: 'center',
@@ -761,21 +768,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
+    paddingHorizontal: 20,
   },
   progressStepContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   progressDot: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: Colors.secondary100,
     borderWidth: 2,
     borderColor: Colors.secondary200,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: Colors.secondary700,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   progressDotActive: {
     backgroundColor: Colors.primary600,
@@ -799,10 +812,11 @@ const styles = StyleSheet.create({
     color: Colors.white,
   },
   progressLine: {
-    width: 40,
-    height: 2,
+    width: 50,
+    height: 3,
     backgroundColor: Colors.secondary200,
-    marginHorizontal: 4,
+    marginHorizontal: 6,
+    borderRadius: 2,
   },
   progressLineActive: {
     backgroundColor: Colors.primary600,
@@ -830,7 +844,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stepScrollContent: {
-    padding: 20,
+    padding: 24,
     paddingBottom: 40,
   },
 
@@ -856,7 +870,7 @@ const styles = StyleSheet.create({
 
   // Section Styles
   section: {
-    marginBottom: 24,
+    marginBottom: 28,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -977,29 +991,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 24,
+    padding: 28,
     backgroundColor: Colors.white,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: Colors.secondary200,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowColor: Colors.secondary700,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
   participantBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: Colors.primary600,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: Colors.primary600,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowRadius: 8,
+    elevation: 6,
   },
   participantBtnDisabled: {
     backgroundColor: Colors.secondary200,
@@ -1008,7 +1022,7 @@ const styles = StyleSheet.create({
   },
   participantCenter: {
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 40,
   },
   participantValue: {
     fontSize: 36,
@@ -1233,12 +1247,17 @@ const styles = StyleSheet.create({
   // Navigation Footer
   navigationFooter: {
     flexDirection: 'row',
-    gap: 12,
-    padding: 20,
-    paddingBottom: 24,
+    gap: 16,
+    padding: 24,
+    paddingBottom: 28,
     borderTopWidth: 1,
     borderTopColor: Colors.secondary100,
     backgroundColor: Colors.white,
+    shadowColor: Colors.secondary700,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 4,
   },
   navBtnSecondary: {
     flex: 1,

@@ -1,6 +1,5 @@
-import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import React, { useMemo, useRef, useState } from 'react';
+import { Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Modal } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import { Colors } from '../../constants/Colors';
@@ -8,375 +7,657 @@ import { CustomButton } from '../../components/CustomButton';
 import { CustomTextInput } from '../../components/CustomTextInput';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '../../components/ThemedText';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const vehicleData = [
-  {
-    image: 'https://images.unsplash.com/photo-1619767886558-efdc259cde1a?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    title: 'Luxury Sedan',
-    city: 'Colombo',
-    price: '$60/day',
-    capacity: 4,
-    ac: true,
-    type: 'Sedan',
-    transmission: 'Automatic',
-    fuel: 'Petrol',
-    luggage: '2 Large, 2 Small',
-    offroad: false,
-    inclusions: ['Driver', 'Fuel', 'Insurance'],
-    driver: {
-      name: 'Nimal Silva',
-      photo: 'https://randomuser.me/api/portraits/men/10.jpg',
-      experience: 8,
-      languages: ['English', 'Sinhala'],
-      rating: 4.8,
-      bio: 'Experienced driver with deep knowledge of Colombo and surrounding areas. Friendly and punctual.'
-    }
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1461435218581-ff0972867e90?q=80&w=1174&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    title: 'Family Van',
-    city: 'Kandy',
-    price: '$80/day',
-    capacity: 7,
-    ac: true,
-    type: 'Van',
-    transmission: 'Manual',
-    fuel: 'Diesel',
-    luggage: '4 Large, 4 Small',
-    offroad: false,
-    inclusions: ['Driver', 'Fuel', 'Insurance'],
-    driver: {
-      name: 'Ruwan Jayasuriya',
-      photo: 'https://randomuser.me/api/portraits/men/12.jpg',
-      experience: 12,
-      languages: ['English', 'Sinhala', 'Tamil'],
-      rating: 4.9,
-      bio: 'Family-friendly driver, expert in long-distance routes and tourist attractions.'
-    }
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1622893288761-823ba60f17a6?q=80&w=2128&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    title: 'SUV',
-    city: 'Nuwara Eliya',
-    price: '$90/day',
-    capacity: 6,
-    ac: true,
-    type: 'SUV',
-    transmission: 'Automatic',
-    fuel: 'Petrol',
-    luggage: '3 Large, 3 Small',
-    offroad: true,
-    inclusions: ['Driver', 'Fuel', 'Insurance'],
-    driver: {
-      name: 'Sunil Fernando',
-      photo: 'https://randomuser.me/api/portraits/men/14.jpg',
-      experience: 10,
-      languages: ['English', 'Sinhala'],
-      rating: 4.7,
-      bio: 'SUV specialist, great for hill country and off-road adventures.'
-    }
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1617479625255-43666e3a3509?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    title: 'Tourist Bus',
-    city: 'Jaffna',
-    price: '$150/day',
-    capacity: 30,
-    ac: true,
-    type: 'Bus',
-    transmission: 'Manual',
-    fuel: 'Diesel',
-    luggage: '10 Large, 10 Small',
-    offroad: false,
-    inclusions: ['Driver', 'Fuel', 'Insurance'],
-    driver: {
-      name: 'Kumar Rajapaksha',
-      photo: 'https://randomuser.me/api/portraits/men/16.jpg',
-      experience: 15,
-      languages: ['English', 'Sinhala', 'Tamil'],
-      rating: 4.6,
-      bio: 'Tour bus expert, great for large groups and long journeys.'
-    }
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1655286692463-ab43ef87988f?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    title: 'Hatchback',
-    city: 'Matara',
-    price: '$40/day',
-    capacity: 4,
-    ac: false,
-    type: 'Hatchback',
-    transmission: 'Manual',
-    fuel: 'Petrol',
-    luggage: '1 Large, 2 Small',
-    offroad: false,
-    inclusions: ['Driver', 'Fuel', 'Insurance'],
-    driver: {
-      name: 'Chathura Perera',
-      photo: 'https://randomuser.me/api/portraits/men/18.jpg',
-      experience: 6,
-      languages: ['English', 'Sinhala'],
-      rating: 4.5,
-      bio: 'Young and energetic driver, perfect for city rides.'
-    }
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1554223789-df81106a45ed?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    title: 'Scooter',
-    city: 'Ella',
-    price: '$18/day',
-    capacity: 2,
-    ac: false,
-    type: 'Scooter',
-    transmission: 'Automatic',
-    fuel: 'Petrol',
-    luggage: 'Small',
-    offroad: false,
-    inclusions: ['Helmet', 'Insurance'],
-    driver: {
-      name: 'Self Drive',
-      photo: '',
-      experience: 0,
-      languages: [],
-      rating: '',
-      bio: 'Scooter rental for self-drive.'
-    }
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1465101178521-c1a9136a3c8b?auto=format&fit=crop&w=800&q=https://images.unsplash.com/photo-1502877338535-766e1452684a?auto=format&fit=crop&w=800&q=80',
-    title: 'Budget Car',
-    city: 'Galle',
-    price: '$35/day',
-    capacity: 4,
-    ac: false,
-    type: 'Budget',
-    transmission: 'Manual',
-    fuel: 'Petrol',
-    luggage: '2 Small',
-    offroad: false,
-    inclusions: ['Driver', 'Insurance'],
-    driver: {
-      name: 'Kasun Wijesinghe',
-      photo: 'https://randomuser.me/api/portraits/men/20.jpg',
-      experience: 5,
-      languages: ['English', 'Sinhala'],
-      rating: 4.3,
-      bio: 'Budget-friendly driver, ideal for short trips.'
-    }
-  },
-];
+import { TransportationApiService, Transportation } from '../../services/transportationApi';
+import { BookingService, CreateTransportationBookingRequest } from '../../services/booking';
+import { StorageService } from '../../services/storage';
+import { Calendar } from 'react-native-calendars';
 
 export default function VehicleDetailScreen() {
-  const insets = useSafeAreaInsets();
-  const { title } = useLocalSearchParams();
-  const details = vehicleData.find(item => item.title === title) || vehicleData[0];
-  const bottomSheetRef = useRef<BottomSheet>(null);
-  const snapPoints = useMemo(() => ['85%'], []);
-  const [pickupType, setPickupType] = useState<'address' | 'gps'>('address');
-  const [pickupAddress, setPickupAddress] = useState('');
-  const [pickupGPS, setPickupGPS] = useState('');
-  const [dropSame, setDropSame] = useState(true);
-  const [dropAddress, setDropAddress] = useState('');
-  const [pickupDate, setPickupDate] = useState('');
-  const [pickupTime, setPickupTime] = useState('');
-  const [showErrors, setShowErrors] = useState(false);
+  const { title: id } = useLocalSearchParams(); // Now expecting ID instead of title
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  
+  // API data state
+  const [transportation, setTransportation] = useState<Transportation | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Validation logic
-  const isPickupLocationValid =
-    (pickupType === 'address' && pickupAddress.trim() !== '') ||
-    (pickupType === 'gps' && pickupGPS.trim() !== '');
-  const isFormValid = pickupDate.trim() !== '' && pickupTime.trim() !== '' && isPickupLocationValid;
+  // Booking state
+  const [bookingData, setBookingData] = useState({
+    startDate: new Date().toISOString().split('T')[0], // Default to today
+    days: 1,
+    passengers: 1,
+    pickupLocation: '',
+    dropoffLocation: '',
+    estimatedDistance: 0,
+    guestDetails: {
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      emergencyContact: ''
+    }
+  });
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [showStartDateCalendar, setShowStartDateCalendar] = useState(false);
+  
+  // Map transportation data to display format using actual database fields
+  const details = transportation ? {
+    image: transportation.images && transportation.images.length > 0 ? transportation.images[0] : 'https://via.placeholder.com/400x280/3b82f6/ffffff?text=Vehicle+Image',
+    title: `${transportation.brand}${transportation.model ? ` ${transportation.model}` : ''}`,
+    city: transportation.location || 'Location not specified',
+    price: `LKR ${transportation.pricingPerKm}/km`,
+    capacity: transportation.seats,
+    ac: transportation.ac,
+    type: transportation.vehicleType,
+    year: transportation.year,
+    fuel: transportation.fuelType,
+    licensePlate: transportation.licensePlate,
+    availability: transportation.availability,
+    features: transportation.features || [],
+    description: transportation.description || 'No description available',
+    driver: {
+      name: transportation.driverName || 'Driver information not available',
+      phone: transportation.driverPhone || 'Contact not available',
+      license: transportation.driverLicense || 'License not available',
+      bio: transportation.driverName && transportation.driverPhone 
+        ? `Professional driver: ${transportation.driverName}. Contact: ${transportation.driverPhone}`
+        : 'Driver information will be provided upon booking confirmation.'
+    },
+    insurance: transportation.insuranceNumber || 'Insurance details available upon request'
+  } : null;
 
-  const openBottomSheet = () => {
-    bottomSheetRef.current?.expand();
+  // Fetch transportation data
+  const fetchTransportationDetails = useCallback(async () => {
+    if (!id) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🚗 Fetching transportation details for ID:', id);
+      const response = await TransportationApiService.getTransportationById(id);
+      
+      if (response.success && response.data) {
+        setTransportation(response.data);
+        console.log('✅ Transportation details loaded:', `${response.data.brand} ${response.data.model}`);
+      } else {
+        throw new Error(response.message || 'Failed to fetch transportation details');
+      }
+    } catch (err: any) {
+      console.error('❌ Error fetching transportation details:', err);
+      setError(err.message || 'Failed to load transportation details');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchTransportationDetails();
+  }, [fetchTransportationDetails]);
+
+
+  // Booking functions
+  const handleSelectStartDate = (dateString: string) => {
+    setBookingData(prev => ({ ...prev, startDate: dateString }));
+    setShowStartDateCalendar(false);
   };
 
-  const handleConfirmBooking = () => {
-    if (!isFormValid) {
-      setShowErrors(true);
+  const calculateTotal = () => {
+    if (!transportation || !bookingData.estimatedDistance) return 0;
+    const distancePrice = (transportation.pricingPerKm || 0) * bookingData.estimatedDistance * bookingData.days;
+    const serviceFee = 500; // LKR 500 service fee (matching web app)
+    return distancePrice + serviceFee;
+  };
+
+  const handleBookTransport = async () => {
+    if (!transportation) {
+      console.error('Transportation data not available');
       return;
     }
+
+    if (!bookingData.startDate || !bookingData.pickupLocation || 
+        !bookingData.guestDetails.firstName || !bookingData.guestDetails.lastName || 
+        !bookingData.guestDetails.email || !bookingData.guestDetails.phone) {
+      console.error('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      setBookingLoading(true);
+      
+      const userData = await StorageService.getUserData();
+      if (!userData) {
+        throw new Error('Please log in to make a booking');
+      }
+
+      const totalAmount = calculateTotal();
+
+      const bookingPayload: CreateTransportationBookingRequest = {
+        serviceType: 'transportation',
+        serviceId: transportation._id,
+        serviceName: `${transportation.brand} ${transportation.model}`,
+        serviceProvider: transportation.userId || 'unknown',
+        totalAmount: totalAmount,
+        currency: 'LKR',
+        bookingDetails: {
+          startDate: bookingData.startDate,
+          days: bookingData.days,
+          passengers: bookingData.passengers,
+          pickupLocation: bookingData.pickupLocation,
+          dropoffLocation: bookingData.dropoffLocation,
+          estimatedDistance: bookingData.estimatedDistance,
+          pricingPerKm: transportation.pricingPerKm,
+          vehicleType: transportation.vehicleType,
+          departureTime: '09:00'
+        },
+        contactInfo: {
+          email: bookingData.guestDetails.email,
+          phone: bookingData.guestDetails.phone,
+          firstName: bookingData.guestDetails.firstName,
+          lastName: bookingData.guestDetails.lastName,
+          emergencyContact: bookingData.guestDetails.emergencyContact
+        },
+        paymentDetails: {
+          cardNumber: '4242424242424242', // Mock card number for testing
+          expiryDate: '12/25',
+          cvv: '123',
+          cardholderName: `${bookingData.guestDetails.firstName} ${bookingData.guestDetails.lastName}`
+        }
+      };
+
+      console.log('🚗 Creating transportation booking:', bookingPayload);
+      
+      const response = await BookingService.createTransportationBooking(bookingPayload);
+      
+      if (response.success) {
+        console.log('✅ Transportation booking created successfully');
+        // You can add success handling here (e.g., show success message, navigate, etc.)
+      } else {
+        throw new Error(response.error || 'Failed to create booking');
+      }
+      
+    } catch (error: any) {
+      console.error('❌ Error creating transportation booking:', error);
+      // You can add error handling here (e.g., show error message)
+    } finally {
+      setBookingLoading(false);
+    }
   };
+
+  const openBookingModal = () => {
+    console.log('🔘 Book Now button pressed - opening modal (Transportation)');
+    setShowBookingModal(true);
+  };
+
+  // Loading state
+  if (loading) {
+  return (
+    <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary600} />
+          <ThemedText style={styles.loadingText}>Loading vehicle details...</ThemedText>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color={Colors.secondary400} style={styles.errorIcon} />
+          <ThemedText style={styles.errorText}>{error}</ThemedText>
+          <ThemedText style={styles.errorSubtext}>Please check again later</ThemedText>
+          <CustomButton
+            title="Retry"
+            variant="primary"
+            size="small"
+            onPress={fetchTransportationDetails}
+            style={styles.retryButton}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // No data state
+  if (!loading && !error && !transportation) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="car-outline" size={48} color={Colors.secondary400} style={styles.errorIcon} />
+          <ThemedText style={styles.errorText}>Vehicle not found</ThemedText>
+          <ThemedText style={styles.errorSubtext}>The vehicle you&apos;re looking for doesn&apos;t exist</ThemedText>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!details) return null;
 
   return (
     <SafeAreaView style={styles.container}>
-      <TouchableOpacity style={[styles.backBtn, { top: insets.top + 5}]} onPress={() => router.back()}>
-        <Ionicons name="arrow-back" size={24} color={Colors.primary300} />
-      </TouchableOpacity>
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top }]}> 
-        <Image source={{ uri: details.image }} style={[styles.headerImage, { marginTop: 0 }]} />
+      <View style={styles.imageContainer}>
+        <Image source={{ uri: details.image }} style={styles.headerImage} />
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color={Colors.primary300} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.infoRow}>
           <View style={styles.nameTypeCol}>
             <ThemedText variant="title" style={styles.title}>{details.title}</ThemedText>
-            <View style={styles.typeRow}>
-              <Ionicons name="car-outline" size={16} color={Colors.primary600} />
-              <Text style={styles.type}>{details.type}</Text>
+            <View style={styles.locationRow}>
+              <Ionicons name="location-outline" size={16} color={Colors.primary600} />
+              <ThemedText variant='caption' style={styles.city}>{details.city}</ThemedText>
             </View>
           </View>
           <View style={styles.ratingRow}>
-            <Ionicons name="star" size={16} color={Colors.warning || '#FFD700'} />
-            <Text style={styles.rating}>{details.driver.rating}</Text>
+            <Ionicons name="car" size={16} color={Colors.primary600} />
+            <ThemedText variant='caption' style={styles.rating}>{details.type}</ThemedText>
           </View>
         </View>
-        <View style={styles.basicDetailsRow}>
-          <View style={styles.basicDetailChip}>
-            <Ionicons name="people-outline" size={16} color={Colors.primary600} />
-            <Text style={styles.basicDetailText}>{details.capacity} Seats</Text>
+
+        <Text style={styles.price}>{details.price}</Text>
+
+        <ThemedText variant="subtitle" style={styles.sectionHeading}>Description</ThemedText>
+        <ThemedText variant='caption' style={styles.description}>{details.description}</ThemedText>
+
+        <ThemedText variant="subtitle" style={styles.sectionHeading}>Vehicle Information</ThemedText>
+        <View style={styles.vehicleInfoGrid}>
+          <View style={styles.vehicleInfoItem}>
+            <Ionicons name="car" size={16} color={Colors.primary600} />
+            <ThemedText style={styles.vehicleInfoText}>Model: {details.title}</ThemedText>
           </View>
-          <View style={styles.basicDetailChip}>
-            <Ionicons name="settings-outline" size={16} color={Colors.primary600} />
-            <Text style={styles.basicDetailText}>{details.transmission}</Text>
+          <View style={styles.vehicleInfoItem}>
+            <Ionicons name="people" size={16} color={Colors.primary600} />
+            <ThemedText style={styles.vehicleInfoText}>Capacity: {details.capacity} passengers</ThemedText>
+          </View>
+          <View style={styles.vehicleInfoItem}>
+            <Ionicons name="calendar" size={16} color={Colors.primary600} />
+            <ThemedText style={styles.vehicleInfoText}>Year: {details.year}</ThemedText>
+          </View>
+          <View style={styles.vehicleInfoItem}>
+            <Ionicons name="flash" size={16} color={Colors.primary600} />
+            <ThemedText style={styles.vehicleInfoText}>Fuel: {details.fuel}</ThemedText>
+          </View>
+          <View style={styles.vehicleInfoItem}>
+            <Ionicons name="shield-checkmark" size={16} color={Colors.primary600} />
+            <ThemedText style={styles.vehicleInfoText}>License: {details.licensePlate}</ThemedText>
+          </View>
+          <View style={styles.vehicleInfoItem}>
+            <Ionicons name="snow" size={16} color={Colors.primary600} />
+            <ThemedText style={styles.vehicleInfoText}>AC: {details.ac ? 'Yes' : 'No'}</ThemedText>
           </View>
         </View>
-        <ThemedText variant="subtitle" style={styles.sectionHeading}>Features & Specs</ThemedText>
-        <View style={styles.chipRow}>
-          <View style={styles.chip}><Text style={styles.chipText}>Fuel: {details.fuel}</Text></View>
-          <View style={styles.chip}><Text style={styles.chipText}>Luggage: {details.luggage}</Text></View>
-          <View style={styles.chip}><Text style={styles.chipText}>{details.ac ? 'AC' : 'Non-AC'}</Text></View>
-          <View style={styles.chip}><Text style={styles.chipText}>{details.offroad ? 'Off-road Capable' : 'City Only'}</Text></View>
-        </View>
-        {/* Driver Details section only if there is a driver with a name other than 'Self Drive' and photo */}
-        {details.driver && details.driver.name !== 'Self Drive' && details.driver.photo && (
+
+        {/* Features */}
+        {details.features && details.features.length > 0 && (
           <>
-            <ThemedText variant="subtitle" style={styles.sectionHeading}>Driver Details</ThemedText>
-            <View style={styles.driverSection}>
-              <Image source={{ uri: details.driver.photo }} style={styles.driverPhoto} />
-              <View style={styles.driverInfoCol}>
-                <Text style={styles.driverName}>{details.driver.name}</Text>
-                <Text style={styles.driverExp}>{details.driver.experience} yrs experience</Text>
-                <View style={styles.driverLangRow}>
-                  {details.driver.languages.map((lang, i) => (
-                    <View key={i} style={styles.driverLangChip}><Text style={styles.driverLangText}>{lang}</Text></View>
-                  ))}
+            <ThemedText variant="subtitle" style={styles.sectionHeading}>Features</ThemedText>
+            <View style={styles.amenitiesChipsContainer}>
+              {details.features.map((feature, i) => (
+                <View key={i} style={styles.amenityChip}>
+                  <Ionicons name="checkmark-circle" size={16} color={Colors.primary600} />
+                  <ThemedText variant='caption' style={styles.amenityChipText}>{feature}</ThemedText>
                 </View>
-                <View style={styles.driverRatingRow}>
-                  <Ionicons name="star" size={14} color={Colors.warning || '#FFD700'} />
-                  <Text style={styles.driverRating}>{details.driver.rating}</Text>
-                </View>
-                <Text style={styles.driverBio}>{details.driver.bio}</Text>
-              </View>
+              ))}
             </View>
           </>
         )}
-        <ThemedText variant="subtitle" style={styles.sectionHeading}>Pricing</ThemedText>
-        <View style={styles.priceSection}>
-          <Text style={styles.price}>{details.price}</Text>
-          <View style={styles.inclusionsRow}>
-            {details.inclusions.map((inc, i) => (
-              <View key={i} style={styles.inclusionChip}><Text style={styles.inclusionText}>{inc}</Text></View>
-            ))}
+
+        {/* Driver Information */}
+        <ThemedText variant="subtitle" style={styles.sectionHeading}>Driver Information</ThemedText>
+        <View style={styles.driverCard}>
+          <View style={styles.driverHeader}>
+            <View style={styles.driverAvatar}>
+              <Ionicons name="person" size={24} color={Colors.primary600} />
+            </View>
+            <View style={styles.driverBasicInfo}>
+              <ThemedText style={styles.driverName}>{details.driver.name}</ThemedText>
+              <ThemedText style={styles.driverTitle}>Professional Driver</ThemedText>
+            </View>
           </View>
+          
+          {details.driver.name !== 'Driver information not available' ? (
+            <>
+              <View style={styles.driverDetails}>
+                <View style={styles.driverDetailItem}>
+                  <Ionicons name="call" size={16} color={Colors.primary600} />
+                  <ThemedText style={styles.driverDetailText}>{details.driver.phone}</ThemedText>
+                </View>
+                <View style={styles.driverDetailItem}>
+                  <Ionicons name="card" size={16} color={Colors.primary600} />
+                  <ThemedText style={styles.driverDetailText}>License: {details.driver.license}</ThemedText>
+                </View>
+                <View style={styles.driverDetailItem}>
+                  <Ionicons name="shield-checkmark" size={16} color={Colors.primary600} />
+                  <ThemedText style={styles.driverDetailText}>Verified & Insured</ThemedText>
+                </View>
+              </View>
+              
+              <View style={styles.driverBio}>
+                <ThemedText style={styles.driverBioText}>{details.driver.bio}</ThemedText>
+              </View>
+            </>
+          ) : (
+            <View style={styles.driverInfoUnavailable}>
+              <Ionicons name="information-circle" size={20} color={Colors.secondary500} />
+              <ThemedText style={styles.driverInfoUnavailableText}>
+                Driver details will be provided upon booking confirmation. All our drivers are professionally licensed and insured.
+              </ThemedText>
+            </View>
+          )}
         </View>
-        <View style={{ height: 80 }} />
-      </ScrollView>
-      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 12 }]}> 
+
         <CustomButton
           title="Book Now"
           variant="primary"
           size="large"
-          style={styles.bookBtn}
-          disabled={false}
-          onPress={openBottomSheet}
+          style={styles.bookButton}
+          onPress={openBookingModal}
         />
-      </View>
-      <BottomSheet
-        ref={bottomSheetRef}
-        index={-1}
-        snapPoints={snapPoints}
-        enablePanDownToClose={true}
-        backgroundStyle={{
-          backgroundColor: Colors.white,
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
-        }}
-        handleIndicatorStyle={{
-          backgroundColor: Colors.secondary200,
-          width: 40,
-          height: 4,
-        }}
+      </ScrollView>
+
+      {/* Booking Modal */}
+      <Modal
+        visible={showBookingModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowBookingModal(false)}
       >
-        <BottomSheetScrollView contentContainerStyle={sheetStyles.sheetContent}>
-          <View style={sheetStyles.sheetTitle}>
-            <ThemedText variant="title" style={sheetStyles.sheetTitleText}>Booking Details</ThemedText>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <View style={styles.modalHeaderLeft}>
+              <ThemedText variant="title" style={styles.modalTitle}>Book Vehicle</ThemedText>
+              <ThemedText style={styles.modalSubtitle}>Complete your booking details</ThemedText>
+            </View>
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={() => setShowBookingModal(false)}
+            >
+              <Ionicons name="close" size={24} color={Colors.text} />
+            </TouchableOpacity>
           </View>
-          <View style={sheetStyles.sheetBody}>
+          
+          <ScrollView 
+            contentContainerStyle={styles.modalContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Vehicle Summary */}
+            <View style={styles.vehicleSummaryCard}>
+              <Image source={{ uri: details.image }} style={styles.vehicleSummaryImage} />
+              <View style={styles.vehicleSummaryInfo}>
+                <ThemedText style={styles.vehicleSummaryTitle}>{details.title}</ThemedText>
+                <ThemedText style={styles.vehicleSummaryDetails}>
+                  {details.capacity} passengers • {details.type} • {details.ac ? 'AC' : 'Non-AC'}
+                </ThemedText>
+                <ThemedText style={styles.vehicleSummaryPrice}>{details.price}</ThemedText>
+              </View>
+            </View>
+
+            {/* Trip Details Section */}
+            <View style={styles.sectionHeader}>
+              <ThemedText style={styles.sectionTitle}>Trip Details</ThemedText>
+            </View>
+
+            {/* Start Date Selection */}
+            <TouchableOpacity 
+              style={styles.datePickerButton}
+              onPress={() => setShowStartDateCalendar(true)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.datePickerContent}>
+                <Ionicons name="calendar-outline" size={20} color={Colors.primary600} />
+                <View style={styles.datePickerTextContainer}>
+                  <ThemedText style={styles.datePickerLabel}>Pickup Date</ThemedText>
+                  <ThemedText style={styles.datePickerValue}>
+                    {new Date(bookingData.startDate).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </ThemedText>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={Colors.secondary400} />
+              </View>
+            </TouchableOpacity>
+
+            {/* Duration Selection */}
+            <View style={styles.durationContainer}>
+              <ThemedText style={styles.durationLabel}>Duration</ThemedText>
+              <View style={styles.durationOptions}>
+                {[1, 3, 7, 14].map((days) => (
+                  <TouchableOpacity
+                    key={days}
+                    style={[
+                      styles.durationOption,
+                      bookingData.days === days && styles.durationOptionSelected
+                    ]}
+                    onPress={() => setBookingData(prev => ({ ...prev, days }))}
+                  >
+                    <ThemedText style={[
+                      styles.durationOptionText,
+                      bookingData.days === days && styles.durationOptionTextSelected
+                    ]}>
+                      {days === 1 ? '1 day' : days === 7 ? '1 week' : days === 14 ? '2 weeks' : `${days} days`}
+                    </ThemedText>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Pickup Location */}
             <CustomTextInput
-              label="Pickup Date"
-              placeholder="YYYY-MM-DD"
-              value={pickupDate}
-              onChangeText={val => { setPickupDate(val); if (showErrors) setShowErrors(false); }}
-              leftIcon="calendar-outline"
+              label="Pickup Location"
+              placeholder="Enter pickup address"
+              value={bookingData.pickupLocation}
+              onChangeText={(val) => setBookingData(prev => ({ ...prev, pickupLocation: val }))}
+              leftIcon="location-outline"
               containerStyle={{ marginBottom: 12 }}
-              error={showErrors && pickupDate.trim() === '' ? 'Pickup date is required' : undefined}
             />
+
+            {/* Drop-off Location */}
             <CustomTextInput
-              label="Pickup Time"
-              placeholder="HH:MM"
-              value={pickupTime}
-              onChangeText={val => { setPickupTime(val); if (showErrors) setShowErrors(false); }}
-              leftIcon="time-outline"
+              label="Drop-off Location (Optional)"
+              placeholder="Enter drop-off address"
+              value={bookingData.dropoffLocation}
+              onChangeText={(val) => setBookingData(prev => ({ ...prev, dropoffLocation: val }))}
+              leftIcon="location-outline"
               containerStyle={{ marginBottom: 12 }}
-              error={showErrors && pickupTime.trim() === '' ? 'Pickup time is required' : undefined}
             />
-            <ThemedText style={sheetStyles.label}>Pickup Location</ThemedText>
-            <View style={sheetStyles.pickupTypeRow}>
-              <TouchableOpacity onPress={() => setPickupType('address')} style={[sheetStyles.typeBtn, pickupType === 'address' && sheetStyles.typeBtnActive]}>
-                <Text style={[sheetStyles.typeBtnText, pickupType === 'address' ? sheetStyles.typeBtnActiveText : null]}>Address</Text>
+
+            {/* Estimated Distance */}
+            <CustomTextInput
+              label="Estimated Distance (km)"
+              placeholder="Enter estimated distance"
+              value={bookingData.estimatedDistance.toString()}
+              onChangeText={(val) => setBookingData(prev => ({ ...prev, estimatedDistance: parseInt(val) || 0 }))}
+              leftIcon="speedometer-outline"
+              containerStyle={{ marginBottom: 12 }}
+              keyboardType="numeric"
+            />
+            <ThemedText style={styles.distanceHelper}>
+              This helps calculate the total fare based on LKR {transportation?.pricingPerKm || 0}/km
+            </ThemedText>
+
+            {/* Passengers Selection */}
+            <View style={styles.passengersContainer}>
+              <ThemedText style={styles.passengersLabel}>Passengers</ThemedText>
+              <View style={styles.passengersRow}>
+                <TouchableOpacity
+                  style={styles.passengerButton}
+                  onPress={() => setBookingData(prev => ({ 
+                    ...prev, 
+                    passengers: Math.max(1, prev.passengers - 1) 
+                  }))}
+                >
+                  <Ionicons name="remove" size={16} color={Colors.primary600} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setPickupType('gps')} style={[sheetStyles.typeBtn, pickupType === 'gps' && sheetStyles.typeBtnActive]}>
-                <Text style={[sheetStyles.typeBtnText, pickupType === 'gps' ? sheetStyles.typeBtnActiveText : null]}>GPS</Text>
+                <ThemedText style={styles.passengerValue}>{bookingData.passengers}</ThemedText>
+                <TouchableOpacity
+                  style={styles.passengerButton}
+                  onPress={() => setBookingData(prev => ({ 
+                    ...prev, 
+                    passengers: Math.min(transportation?.seats || 10, prev.passengers + 1) 
+                  }))}
+                >
+                  <Ionicons name="add" size={16} color={Colors.primary600} />
               </TouchableOpacity>
             </View>
-            {pickupType === 'address' && (
-              <CustomTextInput
-                label="Pickup Address"
-                placeholder="Enter address"
-                value={pickupAddress}
-                onChangeText={val => { setPickupAddress(val); if (showErrors) setShowErrors(false); }}
-                leftIcon="location-outline"
-                containerStyle={{ marginBottom: 0 }}
-                error={showErrors && pickupAddress.trim() === '' ? 'Pickup address is required' : undefined}
-              />
-            )}
-            {pickupType === 'gps' && (
-              <TouchableOpacity style={sheetStyles.gpsBtn} onPress={() => { setPickupGPS('GPS Selected'); if (showErrors) setShowErrors(false); }}>
-                <Ionicons name="locate" size={22} color={Colors.primary600} />
-                <Text style={sheetStyles.gpsBtnText}>{pickupGPS ? pickupGPS : 'Select GPS Location'}</Text>
-              </TouchableOpacity>
-            )}
-            {showErrors && !isPickupLocationValid && (
-              <Text style={{ color: Colors.error, marginBottom: 8, marginLeft: 2 }}>Pickup location is required</Text>
-            )}
-            <View style={sheetStyles.divider} />
-            <View style={sheetStyles.dropRow}>
-              <ThemedText style={sheetStyles.label}>Drop-off Location</ThemedText>
-              <TouchableOpacity style={sheetStyles.toggleRow} onPress={() => setDropSame(!dropSame)}>
-                <Ionicons name={dropSame ? 'checkbox' : 'square-outline'} size={22} color={Colors.primary600} />
-                <Text style={sheetStyles.toggleText}>Same as pickup</Text>
-              </TouchableOpacity>
+              <ThemedText style={styles.passengerHelper}>
+                Maximum {transportation?.seats || 10} passengers
+              </ThemedText>
             </View>
-            {!dropSame && (
+
+            {/* Guest Details Section */}
+            <View style={styles.sectionHeader}>
+              <ThemedText style={styles.sectionTitle}>Guest Information</ThemedText>
+            </View>
+
+            {/* Guest Details */}
+            <View style={styles.guestDetailsContainer}>
+              <View style={styles.guestDetailsRow}>
+                <CustomTextInput
+                  label="First Name" 
+                  value={bookingData.guestDetails.firstName} 
+                  onChangeText={(val) => setBookingData(prev => ({ ...prev, guestDetails: { ...prev.guestDetails, firstName: val } }))} 
+                  containerStyle={{ flex: 1, marginRight: 8 }} 
+                />
+                <CustomTextInput 
+                  label="Last Name" 
+                  value={bookingData.guestDetails.lastName} 
+                  onChangeText={(val) => setBookingData(prev => ({ ...prev, guestDetails: { ...prev.guestDetails, lastName: val } }))} 
+                  containerStyle={{ flex: 1, marginLeft: 8 }} 
+                />
+              </View>
               <CustomTextInput
-                label="Drop-off Address"
-                placeholder="Enter drop-off address"
-                value={dropAddress}
-                onChangeText={setDropAddress}
-                leftIcon="location-outline"
-                containerStyle={{ marginBottom: 0 }}
+                label="Email" 
+                value={bookingData.guestDetails.email} 
+                onChangeText={(val) => setBookingData(prev => ({ ...prev, guestDetails: { ...prev.guestDetails, email: val } }))} 
+                keyboardType="email-address" 
+                containerStyle={{ marginBottom: 12 }} 
               />
+              <CustomTextInput 
+                label="Phone Number" 
+                value={bookingData.guestDetails.phone} 
+                onChangeText={(val) => setBookingData(prev => ({ ...prev, guestDetails: { ...prev.guestDetails, phone: val } }))} 
+                keyboardType="phone-pad" 
+                containerStyle={{ marginBottom: 12 }} 
+              />
+              <CustomTextInput 
+                label="Emergency Contact (Optional)" 
+                value={bookingData.guestDetails.emergencyContact} 
+                onChangeText={(val) => setBookingData(prev => ({ ...prev, guestDetails: { ...prev.guestDetails, emergencyContact: val } }))} 
+                keyboardType="phone-pad" 
+                containerStyle={{ marginBottom: 12 }} 
+              />
+            </View>
+
+            {/* Price Breakdown Section */}
+            {bookingData.estimatedDistance > 0 && (
+              <>
+                <View style={styles.sectionHeader}>
+                  <ThemedText style={styles.sectionTitle}>Price Breakdown</ThemedText>
+                </View>
+                <View style={styles.priceBreakdownContainer}>
+                <View style={styles.priceBreakdownContent}>
+                  <View style={styles.priceBreakdownItem}>
+                    <ThemedText style={styles.priceBreakdownDescription}>
+                      LKR {transportation?.pricingPerKm || 0}/km × {bookingData.estimatedDistance} km × {bookingData.days} day(s)
+                    </ThemedText>
+                    <ThemedText style={styles.priceBreakdownAmount}>
+                      LKR {((transportation?.pricingPerKm || 0) * bookingData.estimatedDistance * bookingData.days).toLocaleString()}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.priceBreakdownItem}>
+                    <ThemedText style={styles.priceBreakdownDescription}>Service fee</ThemedText>
+                    <ThemedText style={styles.priceBreakdownAmount}>LKR 500</ThemedText>
+                  </View>
+                  <View style={[styles.priceBreakdownItem, styles.priceBreakdownTotal]}>
+                    <ThemedText style={styles.priceBreakdownTotalText}>Total</ThemedText>
+                    <ThemedText style={styles.priceBreakdownTotalAmount}>
+                      LKR {calculateTotal().toLocaleString()}
+                    </ThemedText>
+                  </View>
+                </View>
+                </View>
+              </>
             )}
+
+            {/* Proceed to Payment Button */}
             <CustomButton
-              title="Confirm Booking"
+              title={bookingLoading ? "Processing..." : "Proceed to Payment"}
               variant="primary"
               size="large"
-              style={{ marginTop: 24, borderRadius: 16 }}
-              onPress={handleConfirmBooking}
-              disabled={false}
+              style={styles.proceedButton}
+              onPress={handleBookTransport}
+              disabled={!bookingData.startDate || !bookingData.pickupLocation || 
+                       !bookingData.guestDetails.firstName || !bookingData.guestDetails.lastName || 
+                       !bookingData.guestDetails.email || !bookingData.guestDetails.phone || 
+                       bookingLoading}
+            />
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Start Date Calendar Modal */}
+      <Modal
+        visible={showStartDateCalendar}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowStartDateCalendar(false)}
+      >
+        <View style={styles.calendarModalContainer}>
+          <View style={styles.calendarModalHeader}>
+            <ThemedText style={styles.calendarModalTitle}>Select Pickup Date</ThemedText>
+            <TouchableOpacity onPress={() => setShowStartDateCalendar(false)}>
+              <Ionicons name="close" size={24} color={Colors.secondary700} />
+              </TouchableOpacity>
+            </View>
+          
+          <View style={styles.calendarContainer}>
+            <Calendar
+              style={styles.calendar}
+              theme={{
+                backgroundColor: Colors.white,
+                calendarBackground: Colors.white,
+                textSectionTitleColor: Colors.secondary700,
+                selectedDayBackgroundColor: Colors.primary600,
+                selectedDayTextColor: Colors.white,
+                todayTextColor: Colors.primary600,
+                dayTextColor: Colors.secondary700,
+                textDisabledColor: Colors.secondary400,
+                dotColor: Colors.primary600,
+                selectedDotColor: Colors.white,
+                arrowColor: Colors.primary600,
+                disabledArrowColor: Colors.secondary400,
+                monthTextColor: Colors.secondary700,
+                indicatorColor: Colors.primary600,
+                textDayFontWeight: '500',
+                textMonthFontWeight: '600',
+                textDayHeaderFontWeight: '500',
+                textDayFontSize: 16,
+                textMonthFontSize: 18,
+                textDayHeaderFontSize: 14,
+              }}
+              minDate={new Date().toISOString().split('T')[0]}
+              onDayPress={(day) => {
+                handleSelectStartDate(day.dateString);
+              }}
+              markedDates={{
+                [bookingData.startDate]: {
+                  selected: true,
+                  selectedColor: Colors.primary600,
+                  selectedTextColor: Colors.white,
+                },
+              }}
             />
           </View>
-        </BottomSheetScrollView>
-      </BottomSheet>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -384,329 +665,599 @@ export default function VehicleDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.secondary50,
+    backgroundColor: '#f8fafc',
   },
-  backBtn: {
-    position: 'absolute',
-    top: 50,
-    left: 20,
-    backgroundColor: Colors.primary700,
-    borderRadius: 20,
-    padding: 6,
-    zIndex: 2,
-  },
-  scrollContent: {
-    paddingBottom: 40,
-    backgroundColor: Colors.secondary50,
+  imageContainer: {
+    position: 'relative',
+    height: 280,
   },
   headerImage: {
     width: '100%',
-    height: 250,
-    marginTop: 50,
-    marginBottom: 10,
-    backgroundColor: Colors.secondary200,
+    height: '100%',
+    backgroundColor: '#e2e8f0',
+  },
+  backBtn: {
+    position: 'absolute',
+    top: 60,
+    left: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 24,
+    padding: 12,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  scrollContent: {
+    paddingBottom: 60,
+    backgroundColor: '#f8fafc',
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 10,
-    marginHorizontal: 16,
-    marginBottom: 6,
+    alignItems: 'flex-start',
+    marginTop: 24,
+    marginHorizontal: 24,
+    marginBottom: 16,
   },
   nameTypeCol: {
     flex: 1,
+    marginRight: 16,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: Colors.primary800,
-    marginBottom: 6,
-    textAlign: 'left',
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#1e293b',
+    marginBottom: 8,
+    lineHeight: 34,
   },
-  typeRow: {
+  locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
-  type: {
+  city: {
     fontSize: 15,
-    color: Colors.primary700,
-    marginLeft: 2,
+    color: '#64748b',
     fontWeight: '500',
   },
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginLeft: 12,
+    gap: 6,
   },
   rating: {
     fontSize: 15,
-    color: Colors.primary700,
-    marginLeft: 2,
+    color: '#64748b',
     fontWeight: '500',
   },
-  basicDetailsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginLeft: 16,
-    marginBottom: 10,
-  },
-  basicDetailChip: {
-    backgroundColor: Colors.primary100,
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  basicDetailText: {
-    color: Colors.primary800,
-    fontWeight: '600',
-    fontSize: 13,
-    marginLeft: 4,
+  price: {
+    fontSize: 24,
+    color: '#059669',
+    fontWeight: '700',
+    marginHorizontal: 24,
+    marginBottom: 24,
   },
   sectionHeading: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: Colors.primary800,
-    marginTop: 14,
-    marginBottom: 8,
-    alignSelf: 'flex-start',
-    marginLeft: 16,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginTop: 32,
+    marginBottom: 20,
+    paddingHorizontal: 24,
   },
-  chipRow: {
+  description: {
+    fontSize: 14,
+    color: Colors.text,
+    lineHeight: 20,
+    marginHorizontal: 24,
+    marginBottom: 8,
+  },
+  amenitiesChipsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 8,
-    marginLeft: 16,
+    paddingHorizontal: 24,
+    marginBottom: 24,
+    gap: 12,
   },
-  chip: {
-    backgroundColor: Colors.primary100,
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginBottom: 4,
-  },
-  chipText: {
-    color: Colors.primary800,
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  driverSection: {
+  amenityChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 16,
-    marginBottom: 10,
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  driverPhoto: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: Colors.secondary200,
-    marginRight: 14,
+  amenityChipText: {
+    color: '#475569',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
   },
-  driverInfoCol: {
+  vehicleInfoGrid: {
+    paddingHorizontal: 24,
+    marginBottom: 24,
+    gap: 12,
+  },
+  vehicleInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  vehicleInfoText: {
+    fontSize: 16,
+    color: Colors.secondary700,
+  },
+  driverCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 24,
+    marginHorizontal: 24,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  driverHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  driverAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+  },
+  driverBasicInfo: {
     flex: 1,
   },
   driverName: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
-    color: Colors.primary800,
-    marginBottom: 2,
+    color: '#1e293b',
+    marginBottom: 4,
   },
-  driverExp: {
+  driverTitle: {
     fontSize: 14,
-    color: Colors.primary700,
-    marginBottom: 2,
+    color: '#64748b',
+    fontWeight: '500',
   },
-  driverLangRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginBottom: 2,
+  driverDetails: {
+    marginBottom: 20,
   },
-  driverLangChip: {
-    backgroundColor: Colors.primary100,
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginRight: 4,
-  },
-  driverLangText: {
-    color: Colors.primary800,
-    fontWeight: '600',
-    fontSize: 12,
-  },
-  driverRatingRow: {
+  driverDetailItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginBottom: 2,
+    marginBottom: 12,
+    gap: 12,
   },
-  driverRating: {
-    fontSize: 13,
-    color: Colors.primary700,
-    marginLeft: 2,
+  driverDetailText: {
+    fontSize: 15,
+    color: '#374151',
     fontWeight: '500',
   },
   driverBio: {
-    fontSize: 13,
-    color: Colors.primary700,
-    marginTop: 4,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.primary600,
   },
-  priceSection: {
-    marginLeft: 16,
-    marginBottom: 10,
+  driverBioText: {
+    fontSize: 14,
+    color: '#64748b',
+    lineHeight: 20,
+    fontStyle: 'italic',
   },
-  price: {
-    fontSize: 22,
-    color: Colors.primary600,
-    fontWeight: '700',
-    marginBottom: 8,
-    textAlign: 'left',
-  },
-  inclusionsRow: {
+  driverInfoUnavailable: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'flex-start',
+    backgroundColor: '#fef3c7',
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#f59e0b',
+    gap: 12,
+  },
+  driverInfoUnavailableText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#92400e',
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+  
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalHeaderLeft: {
+    flex: 1,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1e293b',
     marginBottom: 4,
   },
-  inclusionChip: {
-    backgroundColor: Colors.primary100,
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginRight: 4,
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '500',
   },
-  inclusionText: {
-    color: Colors.primary800,
-    fontWeight: '600',
-    fontSize: 12,
+  closeButton: {
+    padding: 12,
+    borderRadius: 24,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
-  bottomBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: Colors.secondary50,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    alignItems: 'center',
-    zIndex: 10,
+  modalContent: {
+    padding: 24,
+    paddingBottom: 60,
   },
-  bookBtn: {
-    width: '100%',
+  
+  // Vehicle Summary Styles
+  vehicleSummaryCard: {
+    flexDirection: 'row',
+    backgroundColor: '#f8fafc',
     borderRadius: 16,
-  },
-});
-
-const sheetStyles = StyleSheet.create({
-  sheetContent: {
-    alignItems: 'stretch',
-    minHeight: 340,
-    alignSelf: 'center',
-    borderRadius: 18,
-    marginTop: 10,
+    padding: 16,
     marginBottom: 24,
-    width: '95%',
-    backgroundColor: Colors.secondary50,
-    overflow: 'hidden',
-    position: 'relative',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
-  sheetTitle: {
-    width: '100%',
-    backgroundColor: Colors.primary800,
-    paddingVertical: 28,
-    paddingHorizontal: 16,
-    alignItems: 'center',
+  vehicleSummaryImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    backgroundColor: '#e2e8f0',
+  },
+  vehicleSummaryInfo: {
+    flex: 1,
+    marginLeft: 16,
     justifyContent: 'center',
-    zIndex: 2,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
   },
-  sheetTitleText: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: Colors.white,
-    marginBottom: 0,
-    alignSelf: 'center',
+  vehicleSummaryTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: 4,
   },
-  sheetBody: {
-    paddingHorizontal: 24,
-    paddingVertical: 28,
-    backgroundColor: Colors.secondary50,
-    borderBottomLeftRadius: 18,
-    borderBottomRightRadius: 18,
-    alignItems: 'stretch',
-    gap: 0,
+  vehicleSummaryDetails: {
+    fontSize: 14,
+    color: '#64748b',
+    marginBottom: 4,
+    fontWeight: '500',
   },
-  label: {
+  vehicleSummaryPrice: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.primary800,
+    color: '#059669',
+  },
+  
+  // Section Styles
+  sectionHeader: {
+    marginTop: 32,
+    marginBottom: 20,
+    paddingHorizontal: 0,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  bookButton: {
+    marginHorizontal: 24,
+    marginTop: 32,
+    marginBottom: 40,
+    borderRadius: 20,
+    minHeight: 56,
+    shadowColor: Colors.primary600,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: Colors.secondary600,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  errorIcon: {
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: Colors.secondary600,
+    textAlign: 'center',
     marginBottom: 8,
   },
-  pickupTypeRow: {
+  errorSubtext: {
+    fontSize: 14,
+    color: Colors.secondary500,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    minWidth: 120,
+  },
+
+  // Transportation Booking Form Styles
+  datePickerButton: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  datePickerContent: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+  },
+  datePickerTextContainer: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  datePickerLabel: {
+    fontSize: 14,
+    color: '#64748b',
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  datePickerValue: {
+    fontSize: 16,
+    color: '#1e293b',
+    fontWeight: '600',
+  },
+
+  // Duration Selection Styles
+  durationContainer: {
+    marginBottom: 20,
+  },
+  durationLabel: {
+    fontSize: 15,
+    color: '#374151',
     marginBottom: 12,
+    fontWeight: '600',
   },
-  typeBtn: {
-    backgroundColor: Colors.primary100,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  durationOptions: {
+    flexDirection: 'row',
+    gap: 12,
   },
-  typeBtnActive: {
+  durationOption: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  durationOptionSelected: {
+    borderColor: Colors.primary600,
     backgroundColor: Colors.primary600,
+    shadowColor: Colors.primary600,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  typeBtnActiveText: {
-    color: Colors.white,
-  },
-  typeBtnText: {
-    color: Colors.primary800,
-    fontWeight: '600',
+  durationOptionText: {
     fontSize: 14,
+    color: '#64748b',
+    fontWeight: '500',
   },
-  gpsBtn: {
+  durationOptionTextSelected: {
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+
+  // Distance Helper
+  distanceHelper: {
+    fontSize: 12,
+    color: Colors.secondary500,
+    marginTop: -8,
+    marginBottom: 16,
+    marginLeft: 4,
+  },
+
+  // Passengers Selection Styles
+  passengersContainer: {
+    marginBottom: 20,
+  },
+  passengersLabel: {
+    fontSize: 15,
+    color: '#374151',
+    marginBottom: 12,
+    fontWeight: '600',
+  },
+  passengersRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.primary100,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 8,
+    justifyContent: 'center',
+    gap: 20,
   },
-  gpsBtnText: {
-    marginLeft: 8,
-    color: Colors.primary800,
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: Colors.secondary200,
-    marginVertical: 16,
-  },
-  dropRow: {
-    flexDirection: 'row',
+  passengerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: Colors.primary600,
+    backgroundColor: '#ffffff',
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.primary600,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  passengerValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1e293b',
+    minWidth: 32,
+    textAlign: 'center',
+  },
+  passengerHelper: {
+    fontSize: 13,
+    color: '#64748b',
+    textAlign: 'center',
+    marginTop: 12,
+    fontWeight: '500',
+  },
+
+  // Price Breakdown Styles
+  priceBreakdownContainer: {
+    marginBottom: 20,
+  },
+  priceBreakdownContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  priceBreakdownItem: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  toggleRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    paddingVertical: 12,
   },
-  toggleText: {
-    marginLeft: 6,
-    color: Colors.primary800,
+  priceBreakdownDescription: {
+    fontSize: 15,
+    color: '#64748b',
+    flex: 1,
+    fontWeight: '500',
+  },
+  priceBreakdownAmount: {
+    fontSize: 15,
     fontWeight: '600',
-    fontSize: 14,
+    color: '#1e293b',
+  },
+  priceBreakdownTotal: {
+    borderTopWidth: 2,
+    borderTopColor: '#e2e8f0',
+    marginTop: 12,
+    paddingTop: 16,
+  },
+  priceBreakdownTotalText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  priceBreakdownTotalAmount: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#059669',
+  },
+
+  // Calendar Modal Styles
+  calendarModalContainer: {
+    flex: 1,
+    backgroundColor: Colors.white,
+  },
+  calendarModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.secondary200,
+  },
+  calendarModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.secondary700,
+  },
+  calendarContainer: {
+    flex: 1,
+    padding: 20,
+  },
+  calendar: {
+    borderRadius: 10,
+  },
+
+  // Top Book Button Styles
+  topBookButtonContainer: {
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    backgroundColor: Colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.secondary200,
+  },
+  topBookButton: {
+    borderRadius: 16,
+    elevation: 2,
+    shadowColor: Colors.primary600,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
 });

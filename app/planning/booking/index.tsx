@@ -128,6 +128,14 @@ export default function BookingScreen() {
 
   const handleApplyFilters = () => {
     setFilterVisible(false);
+    // Filters are now applied and will be passed to child components
+    console.log('✅ Filters applied:', {
+      minPrice,
+      maxPrice,
+      location,
+      minRating,
+      propertyTypes
+    });
   };
 
   const handleCancelFilters = () => {
@@ -431,13 +439,21 @@ export default function BookingScreen() {
   };
 
   const renderContent = () => {
+    const filterState = {
+      minPrice,
+      maxPrice,
+      location,
+      minRating,
+      propertyTypes
+    };
+
     switch (activeTab) {
       case 'accommodation':
-        return <AccommodationBookingScreen />;
+        return <AccommodationBookingScreen filters={filterState} />;
       case 'transport':
-        return <TransportBookingScreen />;
+        return <TransportBookingScreen filters={filterState} />;
       case 'guides':
-        return <GuidesBookingScreen />;
+        return <GuidesBookingScreen filters={filterState} />;
       case 'summary':
         return <SummaryBookingScreen onNavigateToTab={setActiveTab} />;
       default:
@@ -453,6 +469,12 @@ export default function BookingScreen() {
         </TouchableOpacity>
         <ThemedText style={styles.headerTitle}>Book Your Trip</ThemedText>
         <View style={styles.headerActions}>
+          <TouchableOpacity 
+            style={styles.headerButton}
+            onPress={() => setFilterVisible(true)}
+          >
+            <Ionicons name="filter-outline" size={20} color={Colors.primary600} />
+          </TouchableOpacity>
           {(bookings.accommodation.length > 0 || bookings.transport.length > 0 || bookings.guides.length > 0) && (
             <TouchableOpacity 
               style={[styles.headerButton, styles.newSessionButton]}

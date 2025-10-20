@@ -5,12 +5,19 @@ import {
     StyleSheet,
     TouchableOpacity,
     View,
+    Alert,
+    ActivityIndicator,
+    Modal,
 } from 'react-native';
-import { ThemedText } from '../../../components';
+import { ThemedText, CustomButton } from '../../../components';
+import { Calendar } from 'react-native-calendars';
 
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Colors } from '../../../constants/Colors';
+import { TransportationApiService, Transportation } from '../../../services/transportationApi';
+import { BookingService, CreateTransportationBookingRequest } from '../../../services/booking';
+import { StorageService } from '../../../services/storage';
 
 interface Transport {
   id: string;
@@ -29,9 +36,29 @@ interface Transport {
   availability: boolean;
 }
 
-export default function TransportBookingScreen() {
+interface TransportBookingScreenProps {
+  filters?: {
+    minPrice: string;
+    maxPrice: string;
+    location: string;
+    minRating: number;
+    propertyTypes: string[];
+  };
+}
+
+export default function TransportBookingScreen({ filters }: TransportBookingScreenProps) {
   const params = useLocalSearchParams();
   const { destination, startDate, endDate, destinations, startPoint } = params;
+
+  // State for real data
+  const [transportation, setTransportation] = useState<Transportation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [bookingLoading, setBookingLoading] = useState<string | null>(null);
+  
+  // Date picker states
+  const [showStartDateCalendar, setShowStartDateCalendar] = useState(false);
+  const [selectedStartDate, setSelectedStartDate] = useState(startDate as string || new Date().toISOString().split('T')[0]);
 
   // Calculate trip duration
   const calculateTripDuration = () => {
@@ -47,89 +74,133 @@ export default function TransportBookingScreen() {
 
   const tripDuration = calculateTripDuration();
 
-  // Mock transport data - in real app, this would come from API
-  const transports: Transport[] = [
-    {
-      id: '1',
-      type: 'car',
-      name: 'Toyota Corolla Hybrid',
-      provider: 'Lanka Car Rentals',
-      rating: 4.8,
-      reviewCount: 89,
-      pricePerDay: 35,
-      capacity: '4 passengers',
-      transmission: 'Automatic',
-      fuel: 'Hybrid',
-      features: ['AC', 'GPS', 'Insurance', 'Driver Available'],
-      image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d',
-      description: 'Comfortable and fuel-efficient car perfect for city tours and highway travel.',
-      availability: true,
-    },
-    {
-      id: '2',
-      type: 'van',
-      name: 'Toyota Hiace Van',
-      provider: 'Ceylon Tours',
-      rating: 4.7,
-      reviewCount: 156,
-      pricePerDay: 55,
-      capacity: '8 passengers',
-      transmission: 'Manual',
-      fuel: 'Diesel',
-      features: ['AC', 'Professional Driver', 'Tourism Guide', 'WiFi'],
-      image: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957',
-      description: 'Spacious van with experienced driver, ideal for group tours and long distances.',
-      availability: true,
-    },
-    {
-      id: '3',
-      type: 'tuk-tuk',
-      name: 'Traditional Tuk Tuk',
-      provider: 'Tuk Tuk Adventures',
-      rating: 4.6,
-      reviewCount: 234,
-      pricePerDay: 25,
-      capacity: '3 passengers',
-      transmission: 'Manual',
-      fuel: 'Petrol',
-      features: ['Local Experience', 'City Tours', 'Flexible Routes'],
-      image: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96',
-      description: 'Authentic Sri Lankan experience with local tuk tuk drivers for short trips.',
-      availability: true,
-    },
-    {
-      id: '4',
-      type: 'bike',
-      name: 'Royal Enfield 350',
-      provider: 'Adventure Bikes LK',
-      rating: 4.9,
-      reviewCount: 67,
-      pricePerDay: 30,
-      capacity: '2 passengers',
-      transmission: 'Manual',
-      fuel: 'Petrol',
-      features: ['Helmets', 'Insurance', 'Adventure Routes', 'Support Team'],
-      image: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13',
-      description: 'Perfect for adventure seekers wanting to explore hill country and coastal roads.',
-      availability: false,
-    },
-    {
-      id: '5',
-      type: 'bus',
-      name: 'Luxury Tourist Bus',
-      provider: 'Comfort Travel',
-      rating: 4.5,
-      reviewCount: 45,
-      pricePerDay: 80,
-      capacity: '25 passengers',
-      transmission: 'Automatic',
-      fuel: 'Diesel',
-      features: ['Reclining Seats', 'AC', 'Entertainment', 'Refreshments'],
-      image: 'https://images.unsplash.com/photo-1570125909232-eb263c188f7e',
-      description: 'Luxury bus service for large groups with premium comfort and amenities.',
-      availability: true,
-    },
-  ];
+  // Fetch transportation data
+  const fetchTransportation = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('🚗 Fetching transportation for booking...');
+      const response = await TransportationApiService.getAllTransportation();
+      
+      if (response.success && response.data) {
+        setTransportation(response.data);
+        console.log('✅ Transportation loaded:', response.data.length);
+      } else {
+        throw new Error(response.message || 'Failed to fetch transportation');
+      }
+    } catch (err: any) {
+      console.error('❌ Error fetching transportation:', err);
+      setError(err.message || 'Failed to load transportation');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTransportation();
+  }, []);
+
+  // Date picker handler
+  const handleSelectStartDate = (dateString: string) => {
+    setSelectedStartDate(dateString);
+    setShowStartDateCalendar(false);
+  };
+
+  // Booking functionality
+  const handleBookTransport = async (transport: Transportation) => {
+    try {
+      setBookingLoading(transport._id);
+      
+      // Get user data for contact info
+      const userData = await StorageService.getUserData();
+      if (!userData) {
+        throw new Error('Please log in to make a booking');
+      }
+
+      // Calculate total amount (simplified - using pricing per km * estimated distance)
+      const estimatedDistance = 100; // Default distance, could be calculated based on pickup/dropoff
+      const totalAmount = transport.pricingPerKm * estimatedDistance * tripDuration;
+
+      const bookingPayload: CreateTransportationBookingRequest = {
+        serviceType: 'transportation',
+        serviceId: transport._id,
+        serviceName: `${transport.brand} ${transport.model}`,
+        serviceProvider: transport.userId || 'unknown',
+        totalAmount: totalAmount,
+        currency: 'LKR',
+        bookingDetails: {
+          startDate: selectedStartDate,
+          days: tripDuration,
+          passengers: 2, // Default passengers, could be made configurable
+          pickupLocation: startPoint as string || 'Colombo',
+          dropoffLocation: destination as string || 'Kandy',
+          estimatedDistance: estimatedDistance,
+          pricingPerKm: transport.pricingPerKm,
+          vehicleType: transport.vehicleType,
+          departureTime: '09:00' // Default departure time
+        },
+        contactInfo: {
+          email: userData.email || '',
+          phone: userData.phone || '',
+          firstName: userData.firstName || userData.name || '',
+          lastName: userData.lastName || '',
+          emergencyContact: userData.phone || ''
+        }
+      };
+
+      console.log('🚗 Creating transportation booking:', bookingPayload);
+      
+      // Create booking through API gateway to booking service
+      const response = await BookingService.createTransportationBooking(bookingPayload);
+      
+      if (response.success) {
+        Alert.alert(
+          'Booking Successful!',
+          `Your transportation booking for ${transport.brand} ${transport.model} has been confirmed.`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Navigate back or to booking summary
+                console.log('✅ Transportation booking created successfully');
+              }
+            }
+          ]
+        );
+      } else {
+        throw new Error(response.error || 'Failed to create booking');
+      }
+      
+    } catch (error: any) {
+      console.error('❌ Error creating transportation booking:', error);
+      Alert.alert(
+        'Booking Failed',
+        error.message || 'Failed to create booking. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setBookingLoading(null);
+    }
+  };
+
+  // Convert Transportation to Transport format for display
+  const transports: Transport[] = transportation.map(transport => ({
+    id: transport._id,
+    type: transport.vehicleType as 'car' | 'van' | 'bus' | 'bike' | 'tuk-tuk',
+    name: `${transport.brand} ${transport.model}`,
+    provider: transport.driverName,
+    rating: 4.5, // Default rating since not in API
+    reviewCount: 0, // Default review count
+    pricePerDay: transport.pricingPerKm * 50, // Estimate daily price
+    capacity: `${transport.seats} passengers`,
+    transmission: 'Automatic', // Default since not in API
+    fuel: transport.fuelType,
+    features: transport.features || [],
+    image: transport.images && transport.images.length > 0 ? transport.images[0] : 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d',
+    description: transport.description || `${transport.brand} ${transport.model} - ${transport.vehicleType}`,
+    availability: transport.availability === 'available',
+  }));
 
   const getTypeIcon = (type: Transport['type']) => {
     switch (type) {
@@ -282,12 +353,87 @@ export default function TransportBookingScreen() {
             </ThemedText>
           )}
         </View>
+
+        {transport.availability && (
+          <View style={styles.bookingContainer}>
+            <CustomButton
+              title={bookingLoading === transport.id ? "Booking..." : "Book Now"}
+              variant="primary"
+              size="small"
+              onPress={() => {
+                const originalTransport = transportation.find(t => t._id === transport.id);
+                if (originalTransport) {
+                  handleBookTransport(originalTransport);
+                }
+              }}
+              disabled={bookingLoading === transport.id}
+              style={styles.bookButton}
+            />
+            {bookingLoading === transport.id && (
+              <ActivityIndicator size="small" color={Colors.primary600} style={styles.loadingIndicator} />
+            )}
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
 
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.primary600} />
+        <ThemedText style={styles.loadingText}>Loading transportation options...</ThemedText>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle-outline" size={48} color={Colors.error} />
+        <ThemedText style={styles.errorText}>{error}</ThemedText>
+        <CustomButton
+          title="Retry"
+          variant="primary"
+          size="small"
+          onPress={fetchTransportation}
+          style={styles.retryButton}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
+      {/* Date Selection Section */}
+      <View style={styles.dateSelectionContainer}>
+        <TouchableOpacity 
+          style={styles.dateSelectionCard}
+          onPress={() => setShowStartDateCalendar(true)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.dateSelectionContent}>
+            <View style={styles.calendarIconContainer}>
+              <Ionicons name="calendar" size={20} color={Colors.white} />
+            </View>
+            <View style={styles.dateSelectionInfo}>
+              <ThemedText style={styles.dateSelectionLabel}>Start Date</ThemedText>
+              <ThemedText style={styles.dateSelectionDate}>
+                {new Date(selectedStartDate).toLocaleDateString('en-US', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric'
+                })}
+              </ThemedText>
+            </View>
+            <View style={styles.dateSelectionArrow}>
+              <Ionicons name="chevron-forward" size={16} color={Colors.primary600} />
+            </View>
+          </View>
+        </TouchableOpacity>
+      </View>
+
       <FlatList
         data={transports}
         renderItem={renderTransportCard}
@@ -305,6 +451,62 @@ export default function TransportBookingScreen() {
           </View>
         }
       />
+
+      {/* Start Date Calendar Modal */}
+      <Modal
+        visible={showStartDateCalendar}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowStartDateCalendar(false)}
+      >
+        <View style={styles.calendarModalContainer}>
+          <View style={styles.calendarModalHeader}>
+            <ThemedText style={styles.calendarModalTitle}>Select Start Date</ThemedText>
+            <TouchableOpacity onPress={() => setShowStartDateCalendar(false)}>
+              <Ionicons name="close" size={24} color={Colors.secondary700} />
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.calendarContainer}>
+            <Calendar
+              style={styles.calendar}
+              theme={{
+                backgroundColor: Colors.white,
+                calendarBackground: Colors.white,
+                textSectionTitleColor: Colors.secondary700,
+                selectedDayBackgroundColor: Colors.primary600,
+                selectedDayTextColor: Colors.white,
+                todayTextColor: Colors.primary600,
+                dayTextColor: Colors.secondary700,
+                textDisabledColor: Colors.secondary400,
+                dotColor: Colors.primary600,
+                selectedDotColor: Colors.white,
+                arrowColor: Colors.primary600,
+                disabledArrowColor: Colors.secondary400,
+                monthTextColor: Colors.secondary700,
+                indicatorColor: Colors.primary600,
+                textDayFontWeight: '500',
+                textMonthFontWeight: '600',
+                textDayHeaderFontWeight: '500',
+                textDayFontSize: 16,
+                textMonthFontSize: 18,
+                textDayHeaderFontSize: 14,
+              }}
+              minDate={new Date().toISOString().split('T')[0]}
+              onDayPress={(day) => {
+                handleSelectStartDate(day.dateString);
+              }}
+              markedDates={{
+                [selectedStartDate]: {
+                  selected: true,
+                  selectedColor: Colors.primary600,
+                  selectedTextColor: Colors.white,
+                },
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -315,11 +517,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.secondary50,
   },
   listContent: {
-    padding: 20,
-    paddingTop: 16,
+    padding: 24,
+    paddingTop: 20,
   },
   listHeader: {
-    marginBottom: 20,
+    marginBottom: 24,
+    paddingHorizontal: 4,
   },
   resultsCount: {
     fontSize: 18,
@@ -333,14 +536,16 @@ const styles = StyleSheet.create({
   },
   transportCard: {
     backgroundColor: Colors.white,
-    borderRadius: 16,
-    marginBottom: 16,
+    borderRadius: 20,
+    marginBottom: 20,
     shadowColor: Colors.secondary700,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.secondary100,
   },
   unavailableCard: {
     opacity: 0.7,
@@ -348,8 +553,9 @@ const styles = StyleSheet.create({
   transportHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    paddingBottom: 12,
+    padding: 20,
+    paddingBottom: 16,
+    backgroundColor: Colors.secondary50,
   },
   typeIcon: {
     width: 48,
@@ -389,7 +595,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.secondary200,
   },
   transportDetails: {
-    padding: 16,
+    padding: 20,
+    paddingTop: 16,
   },
   detailsRow: {
     flexDirection: 'row',
@@ -475,5 +682,117 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.secondary500,
     fontStyle: 'italic',
+  },
+  bookingContainer: {
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  bookButton: {
+    minWidth: 120,
+  },
+  loadingIndicator: {
+    marginTop: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.secondary50,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: Colors.secondary600,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.secondary50,
+    padding: 20,
+  },
+  errorText: {
+    marginTop: 16,
+    marginBottom: 20,
+    fontSize: 16,
+    color: Colors.error,
+    textAlign: 'center',
+  },
+  retryButton: {
+    minWidth: 100,
+  },
+  dateSelectionContainer: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 12,
+  },
+  dateSelectionCard: {
+    backgroundColor: Colors.primary600,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: Colors.primary600,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: Colors.primary700,
+  },
+  dateSelectionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  calendarIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.primary700,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  dateSelectionInfo: {
+    flex: 1,
+  },
+  dateSelectionLabel: {
+    fontSize: 14,
+    color: Colors.white,
+    opacity: 0.9,
+    marginBottom: 2,
+  },
+  dateSelectionDate: {
+    fontSize: 16,
+    color: Colors.white,
+    fontWeight: '600',
+  },
+  dateSelectionArrow: {
+    marginLeft: 8,
+  },
+  calendarModalContainer: {
+    flex: 1,
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  calendarModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.secondary200,
+  },
+  calendarModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.secondary700,
+  },
+  calendarContainer: {
+    flex: 1,
+    padding: 24,
+  },
+  calendar: {
+    borderRadius: 10,
   },
 });

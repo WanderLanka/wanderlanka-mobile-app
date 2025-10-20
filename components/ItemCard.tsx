@@ -12,22 +12,24 @@ interface ItemCardProps {
   rating?: number;
   buttonText?: string;
   type: 'accommodation' | 'vehicle' | 'guide';
+  id?: string; // Add ID prop for navigation
   onPress?: () => void; 
   style?: any;
 }
 
-export const ItemCard: React.FC<ItemCardProps> = ({ image, title, price, city, rating, onPress, buttonText = 'View Details', type, style }: ItemCardProps) => {
+export const ItemCard: React.FC<ItemCardProps> = ({ image, title, price, city, rating, onPress, buttonText = 'View Details', type, id, style }: ItemCardProps) => {
   const router = useRouter();
 
   const handlePress = () => {
-    const encodedTitle = encodeURIComponent(title);
+    // Use ID if available, otherwise fall back to encoded title
+    const identifier = id || encodeURIComponent(title);
     let route = '';
     if (type === 'accommodation') {
-      route = `/accomodation/${encodedTitle}`;
+      route = `/accomodation/${identifier}`;
     } else if (type === 'vehicle') {
-      route = `/transportation/${encodedTitle}`;
+      route = `/transportation/${identifier}`;
     } else if (type === 'guide') {
-      route = `/tour_guides/${encodedTitle}`;
+      route = `/tour_guides/${identifier}`;
     }
     router.push(route as any);
     if (onPress) {
