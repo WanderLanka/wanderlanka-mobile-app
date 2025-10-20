@@ -4,7 +4,6 @@ import {
   Modal,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -93,7 +92,6 @@ const ProfileItem: React.FC<ProfileItemProps> = ({
 export default function ProfileScreen() {
   const { logout } = useAuth();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [notifications, setNotifications] = useState(true);
   
   // Real data states
   const [loading, setLoading] = useState(true);
@@ -109,6 +107,17 @@ export default function ProfileScreen() {
   const [languagesList, setLanguagesList] = useState<string[]>([]);
   const [tempLanguage, setTempLanguage] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Helper: get contact number from available sources
+  const getContactNumber = useCallback((): string => {
+    return (
+      guideData?.details?.contactNumber ||
+      guideData?.details?.phone ||
+      guideData?.phone ||
+      userData?.phone ||
+      ''
+    );
+  }, [guideData, userData]);
 
   // Fetch user and guide data from listing-service (combines both services)
   const fetchProfileData = useCallback(async () => {
@@ -205,6 +214,7 @@ export default function ProfileScreen() {
       setLoading(false);
       fetchingRef.current = false;
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependencies - only create once
 
   // Load data on mount only
@@ -276,7 +286,7 @@ export default function ProfileScreen() {
     setEditField(field);
     
     if (field === 'contact') {
-      setEditValue(guideData?.details?.contactNumber || '');
+      setEditValue(getContactNumber() || '');
     } else if (field === 'bio') {
       setEditValue(guideData?.details?.bio || '');
     } else if (field === 'languages') {
@@ -307,7 +317,8 @@ export default function ProfileScreen() {
         updateData = {
           details: {
             ...guideData.details,
-            contactNumber: editValue.trim(),
+          contactNumber: editValue.trim(),
+          phone: editValue.trim(),
           },
         };
       } else if (editField === 'bio') {
@@ -521,7 +532,7 @@ export default function ProfileScreen() {
             <ProfileItem
               icon="call-outline"
               label="Contact Number"
-              value={guideData?.details?.contactNumber || 'Add contact'}
+              value={getContactNumber() || 'Add contact'}
               onPress={() => handleEditField('contact')}
             />
             <ProfileItem
@@ -544,53 +555,37 @@ export default function ProfileScreen() {
             />
           </ProfileSection>
 
-          {/* Guide Stats */}
-          {(guideData?.metrics?.rating || guideData?.metrics?.totalBookings) && (
-            <ProfileSection title="Statistics">
-              <View style={styles.statsRow}>
-                <View style={styles.statBox}>
-                  <Ionicons name="star" size={24} color={Colors.primary600} />
-                  <Text style={styles.statValue}>
-                    {guideData?.metrics?.rating?.toFixed(1) || '0.0'}
-                  </Text>
-                  <Text style={styles.statLabel}>Rating</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statBox}>
-                  <Ionicons name="briefcase" size={24} color={Colors.primary600} />
-                  <Text style={styles.statValue}>
-                    {guideData?.metrics?.totalBookings || 0}
-                  </Text>
-                  <Text style={styles.statLabel}>Bookings</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statBox}>
-                  <Ionicons name="people" size={24} color={Colors.primary600} />
-                  <Text style={styles.statValue}>
-                    {guideData?.metrics?.totalReviews || 0}
-                  </Text>
-                  <Text style={styles.statLabel}>Reviews</Text>
-                </View>
+          {/* Guide Stats (show zeros when data missing) */}
+          <ProfileSection title="Statistics">
+            <View style={styles.statsRow}>
+              <View style={styles.statBox}>
+                <Ionicons name="star" size={24} color={Colors.primary600} />
+                <Text style={styles.statValue}>
+                  {typeof guideData?.metrics?.rating === 'number' ? guideData.metrics.rating.toFixed(1) : '0.0'}
+                </Text>
+                <Text style={styles.statLabel}>Rating</Text>
               </View>
-            </ProfileSection>
-          )}
+              <View style={styles.statDivider} />
+              <View style={styles.statBox}>
+                <Ionicons name="briefcase" size={24} color={Colors.primary600} />
+                <Text style={styles.statValue}>
+                  {typeof guideData?.metrics?.totalBookings === 'number' ? guideData.metrics.totalBookings : 0}
+                </Text>
+                <Text style={styles.statLabel}>Bookings</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statBox}>
+                <Ionicons name="people" size={24} color={Colors.primary600} />
+                <Text style={styles.statValue}>
+                  {typeof guideData?.metrics?.totalReviews === 'number' ? guideData.metrics.totalReviews : 0}
+                </Text>
+                <Text style={styles.statLabel}>Reviews</Text>
+              </View>
+            </View>
+          </ProfileSection>
 
           {/* Settings */}
           <ProfileSection title="Settings">
-            <ProfileItem
-              icon="notifications-outline"
-              label="Notifications"
-              showArrow={false}
-              rightComponent={
-                <Switch
-                  value={notifications}
-                  onValueChange={setNotifications}
-                  trackColor={{ false: Colors.secondary200, true: Colors.primary300 }}
-                  thumbColor={notifications ? Colors.primary600 : Colors.secondary400}
-                  ios_backgroundColor={Colors.secondary200}
-                />
-              }
-            />
             <ProfileItem
               icon="shield-outline"
               label="Privacy & Security"

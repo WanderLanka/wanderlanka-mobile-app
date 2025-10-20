@@ -1,5 +1,5 @@
-import { ActivityIndicator, Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 
 import { Calendar } from 'react-native-calendars';
@@ -10,22 +10,32 @@ import { ListingService } from '../../services';
 import { GuideService, PackageListItem } from '../../services/guide';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '../../components/ThemedText';
-import { UserReview } from '../../components/UserReview';
+import { GuideReviewCard, ReviewForm, StarRating, RatingBreakdown } from '../../components';
+import { ReviewService, Review } from '../../services/review';
+import { useAuth } from '../../context/AuthContext';
 import { toAbsoluteImageUrl } from '../../utils/imageUrl';
-
-// Placeholder values if server does not have these fields yet
-const defaultReviews = [
-  { name: 'John D.', rating: 5, review: 'Great experience!', profileImage: 'https://randomuser.me/api/portraits/men/1.jpg' },
-  { name: 'Priya S.', rating: 5, review: 'Very knowledgeable and friendly.', profileImage: 'https://randomuser.me/api/portraits/women/2.jpg' },
-];
 
 export default function GuideDetailScreen() {
 		const { title } = useLocalSearchParams();
+		const { user } = useAuth();
 		const [details, setDetails] = useState<any | null>(null);
 		const [loading, setLoading] = useState<boolean>(true);
 		const [error, setError] = useState<string | null>(null);
 		const [selectedDate, setSelectedDate] = useState('');
 		const [calendarVisible, setCalendarVisible] = useState(false);
+	const [reviews, setReviews] = useState<Review[]>([]);
+	const [reviewsLoading, setReviewsLoading] = useState(false);
+	const [showReviewForm, setShowReviewForm] = useState(false);
+	const [userReview, setUserReview] = useState<Review | null>(null);
+	const [ratingStats, setRatingStats] = useState<{
+		averageRating: number;
+		totalReviews: number;
+		ratingDistribution: { 5: number; 4: number; 3: number; 2: number; 1: number };
+	}>({
+		averageRating: 0,
+		totalReviews: 0,
+		ratingDistribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }
+	});
     const [packages, setPackages] = useState<PackageListItem[]>([]);
     const [packagesLoading, setPackagesLoading] = useState<boolean>(false);
     const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -127,6 +137,80 @@ export default function GuideDetailScreen() {
 			return () => { isMounted = false; };
 		}, [details?._id, reloadKey]);
 
+		// Load reviews for the guide
+		const loadReviews = useCallback(async (guideId: string) => {
+			try {
+				setReviewsLoading(true);
+				const response = await ReviewService.getGuideReviews(guideId, {
+					page: 1,
+					limit: 3,
+					sort: 'recent'
+				});
+				if (response.success && response.data) {
+					setReviews(response.data.reviews);
+					// Update rating statistics
+					if (response.data.stats) {
+						setRatingStats({
+							averageRating: response.data.stats.averageRating || 0,
+							totalReviews: response.data.stats.totalReviews || 0,
+							ratingDistribution: response.data.stats.ratingDistribution || { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }
+						});
+					}
+				}
+			} catch (err) {
+				console.error('Error loading reviews:', err);
+			} finally {
+				setReviewsLoading(false);
+			}
+		}, []);
+
+		// Check if user has already reviewed this guide
+		const checkUserReview = useCallback(async (guideId: string) => {
+			if (!user?.id) return;
+			try {
+				const response = await ReviewService.hasReviewedGuide(guideId, user.id);
+				if (response.success) {
+					setUserReview(response.review || null);
+				}
+			} catch (err) {
+				console.error('Error checking user review:', err);
+			}
+		}, [user?.id]);
+
+		// Load reviews when guide details are loaded
+		useEffect(() => {
+			if (details?._id) {
+				loadReviews(details._id);
+				checkUserReview(details._id);
+			}
+		}, [details?._id, user?.id, loadReviews, checkUserReview]);
+
+		// Review handlers
+		const handleReviewSubmitted = (review: Review) => {
+			setUserReview(review);
+			setShowReviewForm(false);
+			loadReviews(details?._id || '');
+		};
+
+		const handleEditReview = () => {
+			if (userReview) {
+				setShowReviewForm(true);
+			}
+		};
+
+		const handleDeleteReview = async () => {
+			if (!userReview || !user?.id) return;
+			try {
+				const response = await ReviewService.deleteReview(userReview._id, user.id);
+				if (response.success) {
+					setUserReview(null);
+					loadReviews(details?._id || '');
+				}
+			} catch (err) {
+				console.error('Error deleting review:', err);
+			}
+		};
+
 	function getNext14Days() {
 		const days = [];
 		const today = new Date();
@@ -204,8 +288,14 @@ export default function GuideDetailScreen() {
 							</View>
 						</View>
 						<View style={styles.ratingRow}>
-							<Ionicons name="star" size={16} color={Colors.warning || '#FFD700'} />
-							<Text style={styles.rating}>{details.rating ?? '5.0'}</Text>
+							<StarRating 
+								rating={ratingStats.averageRating || details.rating || 0}
+								size={16}
+								showNumber={true}
+								showCount={true}
+								reviewCount={ratingStats.totalReviews}
+								color={Colors.warning}
+							/>
 						</View>
 					</View>
 				</View>
@@ -383,24 +473,83 @@ export default function GuideDetailScreen() {
 					</View>
 				)}
 
+				{/* Rating Breakdown */}
+				{ratingStats.totalReviews > 0 && (
+					<View style={styles.sectionCard}>
+						<ThemedText variant="subtitle" style={styles.sectionTitle}>Rating Breakdown</ThemedText>
+						<RatingBreakdown
+							ratingDistribution={ratingStats.ratingDistribution}
+							totalReviews={ratingStats.totalReviews}
+							averageRating={ratingStats.averageRating}
+							style={styles.ratingBreakdown}
+						/>
+					</View>
+				)}
+
 				{/* Reviews */}
 				<View style={styles.sectionCard}>
 					<View style={styles.sectionHeaderRow}>
 						<ThemedText variant="subtitle" style={styles.sectionTitle}>Reviews</ThemedText>
+						{user && (
+							<TouchableOpacity 
+								style={styles.writeReviewButton}
+								onPress={() => setShowReviewForm(true)}
+							>
+								<Ionicons name="create-outline" size={16} color={Colors.primary600} />
+								<Text style={styles.writeReviewText}>Write Review</Text>
+							</TouchableOpacity>
+						)}
 					</View>
-					<View style={[styles.reviewsList, { paddingHorizontal: 0, marginBottom: 0 }]}>
-						{(details.reviews || defaultReviews).slice(0, 3).map((r: any, i: number) => (
-							<UserReview
-								key={i}
-								name={r.name}
-								rating={r.rating}
-								review={r.review}
-								profileImage={r.profileImage}
+					
+					{/* User's Review */}
+					{userReview && (
+						<View style={styles.userReviewSection}>
+							<Text style={styles.userReviewTitle}>Your Review</Text>
+							<GuideReviewCard
+								review={userReview}
+								isAuthor={true}
+								onEdit={handleEditReview}
+								onDelete={handleDeleteReview}
+								onReviewUpdated={() => loadReviews(details?._id || '')}
 							/>
-						))}
-						{(details.reviews || defaultReviews).length > 2 && (
-							<TouchableOpacity style={{ alignSelf: 'flex-end', marginTop: 8 }} onPress={() => router.push({ pathname: '/tour_guides/reviews', params: { title: details.title } })}>
-								<Text style={{ color: Colors.primary600, fontWeight: '600', fontSize: 15 }}>See more reviews</Text>
+						</View>
+					)}
+
+					{/* Other Reviews */}
+					<View style={[styles.reviewsList, { paddingHorizontal: 0, marginBottom: 0 }]}>
+						{reviewsLoading ? (
+							<View style={styles.loadingContainer}>
+								<ActivityIndicator size="small" color={Colors.primary600} />
+								<Text style={styles.loadingText}>Loading reviews...</Text>
+							</View>
+						) : reviews.length > 0 ? (
+							reviews.map((review) => (
+								<GuideReviewCard
+									key={review._id}
+									review={review}
+									onReviewUpdated={() => loadReviews(details?._id || '')}
+								/>
+							))
+						) : (
+							<View style={styles.emptyReviews}>
+								<Text style={styles.emptyReviewsText}>No reviews yet</Text>
+								<Text style={styles.emptyReviewsSubtext}>Be the first to review this guide!</Text>
+							</View>
+						)}
+						
+						{reviews.length > 0 && (
+							<TouchableOpacity 
+								style={styles.seeMoreButton} 
+								onPress={() => router.push({ 
+									pathname: '/tour_guides/reviews', 
+									params: { 
+										guideId: details?._id,
+										guideName: details?.username || details?.title 
+									} 
+								})}
+							>
+								<Text style={styles.seeMoreText}>See all reviews</Text>
+								<Ionicons name="chevron-forward" size={16} color={Colors.primary600} />
 							</TouchableOpacity>
 						)}
 					</View>
@@ -417,6 +566,24 @@ export default function GuideDetailScreen() {
 					disabled={false}
 				/>
 			</View>
+
+			{/* Review Form Modal */}
+			<Modal
+				visible={showReviewForm && !!user && !!details}
+				animationType="slide"
+				presentationStyle="pageSheet"
+				onRequestClose={() => setShowReviewForm(false)}
+			>
+				<ReviewForm
+					guideId={details?._id || ''}
+					travelerId={user?.id || ''}
+					travelerName={user?.username || 'Traveler'}
+					travelerEmail={user?.email || ''}
+					onReviewSubmitted={handleReviewSubmitted}
+					onCancel={() => setShowReviewForm(false)}
+					existingReview={userReview}
+				/>
+			</Modal>
 		</SafeAreaView>
 	);
 }
@@ -745,5 +912,87 @@ const styles = StyleSheet.create({
 			fontSize: 11,
 			color: Colors.secondary500,
 			fontStyle: 'italic',
+		},
+		// Review styles
+		writeReviewButton: {
+			flexDirection: 'row',
+			alignItems: 'center',
+			paddingHorizontal: 12,
+			paddingVertical: 6,
+			borderRadius: 16,
+			backgroundColor: Colors.primary100,
+			borderWidth: 1,
+			borderColor: Colors.primary300,
+		},
+		writeReviewText: {
+			fontSize: 14,
+			fontWeight: '600',
+			color: Colors.primary600,
+			marginLeft: 4,
+		},
+		userReviewSection: {
+			marginBottom: 16,
+		},
+		userReviewTitle: {
+			fontSize: 16,
+			fontWeight: '600',
+			color: Colors.black,
+			marginBottom: 8,
+		},
+		loadingContainer: {
+			flexDirection: 'row',
+			alignItems: 'center',
+			justifyContent: 'center',
+			paddingVertical: 20,
+		},
+		loadingText: {
+			fontSize: 14,
+			color: Colors.secondary500,
+			marginLeft: 8,
+		},
+		emptyReviews: {
+			alignItems: 'center',
+			paddingVertical: 20,
+		},
+		emptyReviewsText: {
+			fontSize: 16,
+			fontWeight: '600',
+			color: Colors.black,
+			marginBottom: 4,
+		},
+		emptyReviewsSubtext: {
+			fontSize: 14,
+			color: Colors.secondary500,
+		},
+		seeMoreButton: {
+			flexDirection: 'row',
+			alignItems: 'center',
+			justifyContent: 'center',
+			paddingVertical: 12,
+			marginTop: 8,
+		},
+		seeMoreText: {
+			fontSize: 15,
+			fontWeight: '600',
+			color: Colors.primary600,
+			marginRight: 4,
+		},
+		modalOverlay: {
+			position: 'absolute',
+			top: 0,
+			left: 0,
+			right: 0,
+			bottom: 0,
+			backgroundColor: 'rgba(0,0,0,0.5)',
+			justifyContent: 'flex-end',
+		},
+		modalContainer: {
+			backgroundColor: Colors.white,
+			borderTopLeftRadius: 20,
+			borderTopRightRadius: 20,
+			maxHeight: '90%',
+		},
+		ratingBreakdown: {
+			marginTop: 12,
 		},
 });

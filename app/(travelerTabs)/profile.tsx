@@ -51,7 +51,6 @@ const MOCK_USER_DATA = {
     budget: 'Mid-range',
     accommodation: 'Hotel',
     dietary: 'No restrictions',
-    notifications: true,
     darkMode: false,
   }
 };
@@ -144,7 +143,6 @@ export default function ProfileScreen() {
   
   // UI preferences state
   const [darkMode, setDarkMode] = useState(false);
-  const [notifications, setNotifications] = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Fetch user profile data
@@ -507,19 +505,6 @@ export default function ProfileScreen() {
 
         {/* App Settings */}
         <ProfileSection title="Preferences & Settings">
-          <ProfileItem
-            icon="notifications-outline"
-            label="Notifications"
-            showArrow={false}
-            rightComponent={
-              <Switch
-                value={notifications}
-                onValueChange={setNotifications}
-                trackColor={{ false: Colors.secondary200, true: Colors.primary100 }}
-                thumbColor={notifications ? Colors.primary600 : Colors.secondary400}
-              />
-            }
-          />
           <ProfileItem
             icon="moon-outline"
             label="Dark Mode"

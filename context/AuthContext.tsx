@@ -10,7 +10,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  signUp: (username: string, email: string, password: string, role: FrontendRole) => Promise<void>;
+  signUp: (username: string, email: string, phone: string | undefined, password: string, role: FrontendRole) => Promise<void>;
   login: (identifier: string, password: string) => Promise<{ success: boolean; status?: string; message?: string; }>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
@@ -20,6 +20,7 @@ interface AuthContextType {
 interface GuideRegistrationData {
   username: string;
   email: string;
+  phone?: string;
   password: string;
   role: 'guide';
   guideDetails: {
@@ -109,12 +110,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const signUp = async (username: string, email: string, password: string, role: FrontendRole) => {
+  const signUp = async (username: string, email: string, phone: string | undefined, password: string, role: FrontendRole) => {
     try {
       setIsLoading(true);
       const response = await AuthService.signUp({
         username,
         email,
+        phone,
         password,
         role, // This is 'tourist' or 'guide', backend will map 'tourist' to 'traveller'
       });

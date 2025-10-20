@@ -18,6 +18,7 @@ export interface User {
 export interface SignUpRequest {
   username: string;
   email: string;
+  phone?: string;
   password: string;
   role: 'tourist' | 'guide'; // Frontend uses 'tourist', backend maps to 'traveller'
 }

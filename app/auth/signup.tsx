@@ -32,6 +32,7 @@ export default function SignUpScreen() {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: '',
     role: null as FrontendRole | null,
@@ -55,6 +56,11 @@ export default function SignUpScreen() {
       newErrors.email = 'Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
+    }
+
+    // Phone validation (optional)
+    if (formData.phone && !/^[+\d][\d\s-]{7,20}$/.test(formData.phone)) {
+      newErrors.phone = 'Enter a valid phone (digits, spaces, dashes, may start with +)';
     }
 
     // Password validation
@@ -92,6 +98,7 @@ export default function SignUpScreen() {
         params: {
           username: formData.username,
           email: formData.email,
+          phone: formData.phone || '',
           password: formData.password,
         }
       });
@@ -103,6 +110,7 @@ export default function SignUpScreen() {
       await signUp(
         formData.username,
         formData.email,
+        formData.phone || undefined,
         formData.password,
         formData.role!
       );
@@ -181,6 +189,18 @@ export default function SignUpScreen() {
               placeholder="Enter your email"
               leftIcon="mail"
               keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <CustomTextInput
+              label="Contact Number"
+              value={formData.phone}
+              onChangeText={(value) => handleFieldChange('phone', value)}
+              error={errors.phone}
+              placeholder="e.g., +94 77 123 4567"
+              leftIcon="call"
+              keyboardType="phone-pad"
               autoCapitalize="none"
               autoCorrect={false}
             />

@@ -13,6 +13,10 @@ export { ThemedText } from './ThemedText';
 export { ThemedView } from './ThemedView';
 export { TopBar } from './TopBar';
 export { TripDetailsModal } from './TripDetailsModal';
+export { GuideReviewCard } from './GuideReviewCard';
+export { ReviewForm } from './ReviewForm';
+export { StarRating } from './StarRating';
+export { RatingBreakdown } from './RatingBreakdown';
 export { default as CreatePackageComponent } from './create-package';
 
 

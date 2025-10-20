@@ -32,7 +32,7 @@ export class AuthService {
       console.log('🔗 Signup request:', { ...backendUserData, password: '[HIDDEN]' });
       
       // Use direct fetch for signup to match login implementation
-  const response = await fetch(`${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/register`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${this.AUTH_ENDPOINT}/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -233,6 +233,7 @@ export class AuthService {
     email: string;
     password: string;
     role: 'guide';
+    phone?: string;
     guideDetails: {
       firstName: string;
       lastName: string;
@@ -257,6 +258,7 @@ export class AuthService {
       formData.append('email', data.email);
       formData.append('password', data.password);
       formData.append('role', data.role);
+      if (data.phone) formData.append('phone', data.phone);
       formData.append('firstName', data.guideDetails.firstName);
       formData.append('lastName', data.guideDetails.lastName);
       formData.append('nicNumber', data.guideDetails.nicNumber);

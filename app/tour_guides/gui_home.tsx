@@ -68,6 +68,7 @@ export default function TourGuidesHomeScreen() {
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [selectedExpertise, setSelectedExpertise] = useState<string[]>([]);
   const [minRating, setMinRating] = useState(0);
+  const [sortBy, setSortBy] = useState<'rating' | 'name' | 'reviews'>('rating');
   
   const [featuredGuides, setFeaturedGuides] = useState<Guide[]>([]);
   const [allGuides, setAllGuides] = useState<Guide[]>([]);
@@ -247,8 +248,24 @@ export default function TourGuidesHomeScreen() {
       );
     }
 
+    // Apply sorting
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'rating':
+          return (b.metrics?.rating || 0) - (a.metrics?.rating || 0);
+        case 'name':
+          const nameA = `${a.details?.firstName || ''} ${a.details?.lastName || ''}`.trim() || a.username;
+          const nameB = `${b.details?.firstName || ''} ${b.details?.lastName || ''}`.trim() || b.username;
+          return nameA.localeCompare(nameB);
+        case 'reviews':
+          return (b.metrics?.totalReviews || 0) - (a.metrics?.totalReviews || 0);
+        default:
+          return 0;
+      }
+    });
+
     return filtered;
-  }, [allGuides, selectedLanguages, minRating, selectedExpertise]);
+  }, [allGuides, selectedLanguages, minRating, selectedExpertise, sortBy]);
 
   const handleApplyFilters = () => {
     setFilterVisible(false);
@@ -263,6 +280,7 @@ export default function TourGuidesHomeScreen() {
     setSelectedLanguages([]);
     setSelectedExpertise([]);
     setMinRating(0);
+    setSortBy('rating');
   };
 
   // Render guide card with animation
@@ -524,6 +542,33 @@ export default function TourGuidesHomeScreen() {
                       />
                       <Text style={[styles.typeChipText, minRating === r && styles.typeChipTextSelected]}>
                         {r}+
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Sort Options */}
+              <View style={styles.modalSection}>
+                <ThemedText style={styles.modalLabel}>Sort By</ThemedText>
+                <View style={styles.chipContainer}>
+                  {[
+                    { key: 'rating', label: 'Rating', icon: 'star' },
+                    { key: 'name', label: 'Name', icon: 'text' },
+                    { key: 'reviews', label: 'Reviews', icon: 'chatbubble' }
+                  ].map((option) => (
+                    <TouchableOpacity
+                      key={option.key}
+                      style={[styles.typeChip, sortBy === option.key && styles.typeChipSelected]}
+                      onPress={() => setSortBy(option.key as any)}
+                    >
+                      <Ionicons 
+                        name={option.icon as any} 
+                        size={14} 
+                        color={sortBy === option.key ? Colors.primary800 : Colors.primary600} 
+                      />
+                      <Text style={[styles.typeChipText, sortBy === option.key && styles.typeChipTextSelected]}>
+                        {option.label}
                       </Text>
                     </TouchableOpacity>
                   ))}
