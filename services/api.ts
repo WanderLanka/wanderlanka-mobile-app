@@ -3,13 +3,14 @@ import {
   ApiResponse,
   AuthResponse,
 } from '../types';
+import {
+  checkInternetConnection,
+  classifyNetworkError,
+  retryWithBackoff
+} from '../utils/networkUtils';
 
 import { StorageService } from './storage';
-import { 
-  checkInternetConnection, 
-  classifyNetworkError, 
-  retryWithBackoff 
-} from '../utils/networkUtils';
+
 // Removed automatic server detection: rely on configured BASE_URL only
 
 // Custom API Error to carry HTTP status and optional error code

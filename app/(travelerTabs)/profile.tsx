@@ -10,13 +10,13 @@ import {
 } from 'react-native';
 import { DeleteAccountModal, ProfileAvatar } from '../../components';
 import React, { useEffect, useState } from 'react';
+import { UserProfile, getProfile } from '../../services/profileApi';
 
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
-import { getProfile, UserProfile } from '../../services/profileApi';
 import { useFocusEffect } from '@react-navigation/native';
 
 // Utility function to format numbers professionally

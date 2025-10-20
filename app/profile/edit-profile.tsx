@@ -11,12 +11,12 @@ import {
 } from 'react-native';
 import { CustomButton, CustomTextInput, ProfileAvatar } from '../../components';
 import React, { useEffect, useState } from 'react';
+import { UpdateProfileData, UserProfile, getProfile, updateProfile } from '../../services/profileApi';
 
 import { Colors } from '../../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { getProfile, updateProfile, UserProfile, UpdateProfileData } from '../../services/profileApi';
 
 interface EditSectionProps {
   title: string;

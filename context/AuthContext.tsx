@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User } from '../types';
 
 import { AuthService } from '../services/auth';
+import { User } from '../types';
 
 // Frontend role type for signup form
 type FrontendRole = 'tourist' | 'guide';
