@@ -162,21 +162,27 @@ export default function TourGuideHomeScreen() {
       
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <TouchableOpacity onPress={() => router.push('/tourGuide/profile')}>
-          <Image 
-              source={{ uri: avatarUrl || 'https://via.placeholder.com/150' }} 
+          {avatarUrl ? (
+            <Image 
+              source={{ uri: avatarUrl }} 
               style={styles.avatar} 
-          />
+            />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarInitial}>
+                {(guideData?.username || user?.username || 'G').charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         <View style={styles.headerTextContainer}>
-          <Text style={styles.welcomeTitle}>Welcome, {firstName}!</Text>
-           <Text style={styles.welcomeSubtitle}>Here&apos;s your daily summary.</Text>
+          <View style={styles.welcomeRow}>
+            <Text style={styles.welcomeTitle}>Welcome, {firstName}!</Text>
+          </View>
+          <Text style={styles.welcomeSubtitle}>Here&apos;s your daily summary.</Text>
         </View>
 
-        <TouchableOpacity style={styles.notificationButton} onPress={() => { /* open notifications */ }}>
-            <Ionicons name="notifications-outline" size={26} color={Colors.white} />
-            <View style={styles.notificationBadge}><Text style={styles.badgeText}>3</Text></View>
-        </TouchableOpacity>
       </View>
       
       <ScrollView
@@ -308,6 +314,21 @@ const styles = StyleSheet.create({
     borderWidth: 3, borderColor: 'rgba(255,255,255,0.3)',
     backgroundColor: Colors.primary100,
   },
+  avatarPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: Colors.primary600,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarInitial: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: Colors.white,
+  },
   headerTextContainer: {
     marginLeft: 16,
     flex: 1,
@@ -323,18 +344,26 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     marginTop: 4,
   },
-  notificationButton: { 
-    padding: 8, 
-    position: 'relative',
+  welcomeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  notificationBadge: {
-    position: 'absolute', top: 4, right: 4,
-    backgroundColor: Colors.error, borderRadius: 9,
-    width: 18, height: 18,
-    justifyContent: 'center', alignItems: 'center',
-    borderWidth: 2, borderColor: Colors.primary800,
+  usernameCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  badgeText: { color: 'white', fontSize: 10, fontWeight: 'bold', },
+  usernameInitial: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Colors.white,
+  },
   
   // ScrollView & Content
   contentContainer: {

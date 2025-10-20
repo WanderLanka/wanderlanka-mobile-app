@@ -4,7 +4,6 @@ import {
   Modal,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -93,7 +92,6 @@ const ProfileItem: React.FC<ProfileItemProps> = ({
 export default function ProfileScreen() {
   const { logout } = useAuth();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [notifications, setNotifications] = useState(true);
   
   // Real data states
   const [loading, setLoading] = useState(true);
@@ -216,6 +214,7 @@ export default function ProfileScreen() {
       setLoading(false);
       fetchingRef.current = false;
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependencies - only create once
 
   // Load data on mount only
@@ -587,20 +586,6 @@ export default function ProfileScreen() {
 
           {/* Settings */}
           <ProfileSection title="Settings">
-            <ProfileItem
-              icon="notifications-outline"
-              label="Notifications"
-              showArrow={false}
-              rightComponent={
-                <Switch
-                  value={notifications}
-                  onValueChange={setNotifications}
-                  trackColor={{ false: Colors.secondary200, true: Colors.primary300 }}
-                  thumbColor={notifications ? Colors.primary600 : Colors.secondary400}
-                  ios_backgroundColor={Colors.secondary200}
-                />
-              }
-            />
             <ProfileItem
               icon="shield-outline"
               label="Privacy & Security"
