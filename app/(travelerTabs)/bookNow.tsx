@@ -1,25 +1,26 @@
-import { router, useFocusEffect } from 'expo-router';
-import { useScrollToTop } from '@react-navigation/native';
-import { StatusBar } from 'expo-status-bar';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Image, ScrollView, StyleSheet, View, TouchableOpacity, RefreshControl } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import vehicleIcon from '../../assets/images/car.png';
-import guideIcon from '../../assets/images/guide.png';
-import accomodationIcon from '../../assets/images/hotel.png';
+import { BookingService, TourPackageBookingItem } from '../../services/booking';
 import { CustomButton, ThemedText, TopBar } from '../../components';
+import { Image, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router, useFocusEffect } from 'expo-router';
+
 import { Colors } from '../../constants/Colors';
 import { ConfirmedBooking } from '../../utils/BookingDataManager';
-import { BookingService, TourPackageBookingItem } from '../../services/booking';
+import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import { StorageService } from '../../services/storage';
+import accomodationIcon from '../../assets/images/hotel.png';
+import guideIcon from '../../assets/images/guide.png';
+import { useScrollToTop } from '@react-navigation/native';
+import vehicleIcon from '../../assets/images/car.png';
 
 export default function BookNowScreen() {
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
   // Ensure tab press scrolls to top and proper scrollable node is registered
   useScrollToTop(scrollRef);
-  const [upcomingBookings, setUpcomingBookings] = useState<ConfirmedBooking[]>([]);
+  const [upcomingBookings, setUpcomingBookings] = useState<ConfirmedBooking[]>([]); // now used for all bookings
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +58,7 @@ export default function BookNowScreen() {
       console.log('✅ Bookings loaded:', items.length);
 
       const now = new Date();
-      const mapped: ConfirmedBooking[] = items.map((it) => {
+  const mapped: ConfirmedBooking[] = items.map((it) => {
         // Compute UI status based on backend status and dates
         const end = new Date(it.endDate);
         let status: ConfirmedBooking['status'] = 'confirmed';
@@ -98,10 +99,9 @@ export default function BookNowScreen() {
           guides: [],
           createdAt: new Date(it.createdAt).toISOString(),
         };
-      })
-      // Filter to upcoming section: future and not cancelled
-      .filter(b => (['upcoming','pending','approved','confirmed'] as ConfirmedBooking['status'][]).includes(b.status))
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  })
+  // Show ALL tour package bookings regardless of status
+  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
       setUpcomingBookings(mapped);
     } catch (error: any) {
@@ -229,7 +229,6 @@ export default function BookNowScreen() {
       <StatusBar style="light" translucent />
       <TopBar
         onProfilePress={() => { /* handle profile/account */ }}
-        onNotificationsPress={() => { /* handle notifications */ }}
       />
   <ScrollView 
     ref={scrollRef} 
@@ -294,12 +293,12 @@ export default function BookNowScreen() {
         {/* Section Separator */}
         <View style={styles.sectionSeparator} />
 
-        {/* Upcoming Bookings Section */}
+        {/* All Tour Package Bookings */}
         <View style={styles.upcomingSection}>
           <View style={styles.sectionHeader}>
-            <ThemedText variant="subtitle" style={styles.sectionTitle}>Upcoming Bookings</ThemedText>
+            <ThemedText variant="subtitle" style={styles.sectionTitle}>All Bookings</ThemedText>
             <CustomButton
-              title="See All"
+              title="Manage"
               variant="outline"
               size="small"
               style={styles.seeMoreButton}
@@ -326,7 +325,7 @@ export default function BookNowScreen() {
                 />
               </View>
             ) : upcomingBookings.length > 0 ? (
-              upcomingBookings.slice(0, 5).map((booking) => (
+              upcomingBookings.map((booking) => (
                 <TouchableOpacity
                   key={booking.id}
                   style={styles.bookingCard}
@@ -367,7 +366,7 @@ export default function BookNowScreen() {
               ))
             ) : (
               <View style={styles.emptyContainer}>
-                <ThemedText style={styles.emptyText}>No upcoming bookings</ThemedText>
+                <ThemedText style={styles.emptyText}>No bookings found</ThemedText>
                 <ThemedText style={styles.emptySubtext}>Start planning your next adventure!</ThemedText>
               </View>
             )}

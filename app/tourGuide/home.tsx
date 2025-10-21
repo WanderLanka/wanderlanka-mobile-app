@@ -1,16 +1,18 @@
-import { StyleSheet, Text, TouchableOpacity, View, Alert, ActivityIndicator, RefreshControl, Image, ScrollView } from 'react-native';
-import { ThemedText } from '../../components'; // Assuming ThemedText is a custom component
 import * as React from 'react';
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Colors } from '../../constants/Colors'; // Assuming Colors is a constants file
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
-import { useAuth } from '../../context/AuthContext'; // Assuming AuthContext exists
+
+import { ActivityIndicator, Alert, Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BookingService, TourPackageBookingItem } from '../../services/booking'; // Assuming services exist
-import { StorageService } from '../../services/storage'; // Assuming services exist
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
 import { API_CONFIG } from '../../services/config'; // Assuming services exist
+import { Colors } from '../../constants/Colors'; // Assuming Colors is a constants file
+import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
+import { StorageService } from '../../services/storage'; // Assuming services exist
+import { ThemedText } from '../../components'; // Assuming ThemedText is a custom component
+import { useAuth } from '../../context/AuthContext'; // Assuming AuthContext exists
 
 // --- INTERFACES ---
 interface DashboardStats {
@@ -109,15 +111,42 @@ export default function TourGuideHomeScreen() {
       const accessToken = await StorageService.getAccessToken();
       const endpoint = userId ? `${API_CONFIG.BASE_URL}/api/listing/service/tourguide-listing/guide/me?userId=${encodeURIComponent(userId)}` : `${API_CONFIG.BASE_URL}/api/listing/service/tourguide-listing/guide/${encodeURIComponent(username)}`;
       const guideResponse = await fetch(endpoint, { headers: { 'Accept': 'application/json', ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}), }});
-      if (!guideResponse.ok) throw new Error('Failed to fetch guide profile');
-      const guideResult = await guideResponse.json();
-      if (guideResult.success && guideResult.data) {
-        setGuideData(guideResult.data);
-        const bookingsResult = await BookingService.listTourPackageBookings({ guideId: guideResult.data._id });
-        if (bookingsResult.success && bookingsResult.data) {
-          setBookings(bookingsResult.data);
-          calculateStats(bookingsResult.data, guideResult.data.metrics);
+      // Attempt to parse response JSON when available
+      let guideResult: any = null;
+      try { guideResult = await guideResponse.clone().json(); } catch { guideResult = null; }
+
+      if (!guideResponse.ok) {
+        // Gracefully handle common cases
+        if (guideResponse.status === 404) {
+          // No guide profile yet; proceed with empty data instead of hard-failing
+          setGuideData(null as any);
+          setBookings([]);
+          calculateStats([]);
+        } else if (guideResponse.status === 401) {
+          throw new Error('Unauthorized. Please log in again.');
+        } else {
+          const backendMsg = guideResult?.error || guideResult?.message;
+          throw new Error(backendMsg || 'Failed to fetch guide profile');
         }
+      } else if (guideResult?.success && guideResult?.data) {
+        setGuideData(guideResult.data);
+        // Fetch bookings only if we have a valid guide id
+        if (guideResult.data._id) {
+          const bookingsResult = await BookingService.listTourPackageBookings({ guideId: guideResult.data._id });
+          if (bookingsResult.success && bookingsResult.data) {
+            setBookings(bookingsResult.data);
+            calculateStats(bookingsResult.data, guideResult.data.metrics);
+          } else {
+            // Even if bookings load fails, don’t break the screen
+            setBookings([]);
+            calculateStats([], guideResult.data.metrics);
+          }
+        }
+      } else {
+        // OK response without expected data structure
+        setGuideData(null as any);
+        setBookings([]);
+        calculateStats([]);
       }
     } catch (error: any) {
       console.error('Failed to fetch dashboard data:', error);

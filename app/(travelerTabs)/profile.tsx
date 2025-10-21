@@ -385,7 +385,7 @@ export default function ProfileScreen() {
           </View>
 
         {/* Stats Cards */}
-        <ScrollView 
+        {/* <ScrollView 
           horizontal 
           showsHorizontalScrollIndicator={false}
           style={styles.statsScrollView}
@@ -434,7 +434,7 @@ export default function ProfileScreen() {
               <Text style={styles.statLabel}>KM Traveled</Text>
             </View>
           </View>
-        </ScrollView>
+        </ScrollView> */}
 
         {/* Personal Information */}
         <ProfileSection title="Personal Information">
