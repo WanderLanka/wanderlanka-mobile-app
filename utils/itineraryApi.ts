@@ -13,7 +13,7 @@ const getApiGatewayUrl = () => {
   const fallbackUrl = Platform.select({
     ios: 'http://localhost:3000',
     android: 'http://10.0.2.2:3000', // Android emulator localhost
-    default: 'http://192.168.1.41:3000' // Physical device - updated with current IP
+  default: 'http://192.168.8.142:3000' // Physical device - updated with current IP
   });
   
   console.log('🌐 Using fallback API Gateway URL:', fallbackUrl);
