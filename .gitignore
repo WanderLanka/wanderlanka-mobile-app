@@ -64,3 +64,6 @@ itinerary.jpeg
 API_GATEWAY_IMPLEMENTATION.md
 MICROSERVICE_ARCHITECTURE_ANALYSIS.md
 MICROSERVICE_ARCHITECTURE_PROPOSAL.md
+
+# Generated dependency copies and operating-system metadata
+node_modules*/
