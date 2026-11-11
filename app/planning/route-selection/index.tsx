@@ -100,19 +100,19 @@ type PlanningStep = 'start-point' | 'destination' | 'waypoints' | 'route-generat
 // Smart coordinate simplification that preserves route accuracy
 const simplifyCoordinates = (coords: { latitude: number; longitude: number }[], maxPoints: number = 25): { latitude: number; longitude: number }[] => {
   if (!coords || coords.length <= maxPoints) return coords;
-  
+
   console.log(`📍 Simplifying ${coords.length} coordinates to max ${maxPoints} points`);
-  
+
   // Use uniform sampling as the primary method for predictable results
   const step = Math.max(1, Math.floor(coords.length / (maxPoints - 1)));
   const simplified = [coords[0]]; // Always keep first point
-  
+
   for (let i = step; i < coords.length - step; i += step) {
     simplified.push(coords[i]);
   }
-  
+
   simplified.push(coords[coords.length - 1]); // Always keep last point
-  
+
   // Final safety check - if still too many points, take every nth point
   if (simplified.length > maxPoints) {
     const finalStep = Math.ceil(simplified.length / maxPoints);
@@ -121,11 +121,11 @@ const simplifyCoordinates = (coords: { latitude: number; longitude: number }[], 
       finalSimplified.push(simplified[i]);
     }
     finalSimplified.push(simplified[simplified.length - 1]);
-    
+
     console.log(`📍 Final simplified to ${finalSimplified.length} coordinates`);
     return finalSimplified;
   }
-  
+
   console.log(`📍 Simplified to ${simplified.length} coordinates`);
   return simplified;
 };
@@ -136,7 +136,7 @@ const decodePolyline = (encoded: string): { latitude: number; longitude: number 
       console.warn('⚠️ Empty polyline provided for decoding');
       return [];
     }
-    
+
     const points = [];
     let index = 0;
     let lat = 0;
@@ -175,11 +175,11 @@ const decodePolyline = (encoded: string): { latitude: number; longitude: number 
     }
 
     console.log(`📍 Decoded ${points.length} polyline points`);
-    
+
     // Aggressive simplification to prevent crashes - reduced to 25 points max
     const simplified = simplifyCoordinates(points, 25);
     console.log(`📍 Using ${simplified.length} simplified points for rendering`);
-    
+
     return simplified;
   } catch (error) {
     console.error('❌ Error decoding polyline:', error);
@@ -192,7 +192,7 @@ const getRouteTypeName = (type: 'recommended' | 'shortest' | 'scenic'): string =
   switch (type) {
     case 'shortest': return 'Shortest Route';
     case 'scenic': return 'Scenic Route';
-    case 'recommended': 
+    case 'recommended':
     default: return 'Recommended Route';
   }
 };
@@ -224,9 +224,9 @@ const calculateDistance = (coord1: { latitude: number; longitude: number }, coor
   const R = 6371; // Earth's radius in kilometers
   const dLat = (coord2.latitude - coord1.latitude) * Math.PI / 180;
   const dLon = (coord2.longitude - coord1.longitude) * Math.PI / 180;
-  const a = 
+  const a =
     Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(coord1.latitude * Math.PI / 180) * Math.cos(coord2.latitude * Math.PI / 180) * 
+    Math.cos(coord1.latitude * Math.PI / 180) * Math.cos(coord2.latitude * Math.PI / 180) *
     Math.sin(dLon/2) * Math.sin(dLon/2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   return R * c;
@@ -240,34 +240,34 @@ const generateMockRoute = async (
   routeType: 'recommended' | 'shortest' | 'scenic'
 ): Promise<GeneratedRoute | null> => {
   console.log(`⚠️ Generating mock ${routeType} route as fallback...`);
-  
+
   const allPoints = [origin, ...waypoints, destination];
-  
+
   // Generate realistic-looking route coordinates that vary based on route type
   let routeCoordinates: { latitude: number; longitude: number }[] = [];
-  
+
   for (let i = 0; i < allPoints.length - 1; i++) {
     const start = allPoints[i].coordinates;
     const end = allPoints[i + 1].coordinates;
-    
+
     // Generate intermediate points based on route type
     const intermediatePoints = generateIntermediatePoints(start, end, routeType);
-    
+
     if (i === 0) {
       routeCoordinates.push(start);
     }
     routeCoordinates.push(...intermediatePoints);
     routeCoordinates.push(end);
   }
-  
+
   // Calculate approximate distance and duration
   const totalDistance = calculateTotalDistance(routeCoordinates);
   const baseDuration = totalDistance * 1.2; // Rough estimate: 1.2 hours per 100km
-  
+
   // Adjust based on route type
   let adjustedDistance = totalDistance;
   let adjustedDuration = baseDuration;
-  
+
   switch (routeType) {
     case 'shortest':
       adjustedDistance *= 0.95; // 5% shorter
@@ -282,7 +282,7 @@ const generateMockRoute = async (
       // Base values - balanced approach
       break;
   }
-  
+
   // Convert locations to waypoints
   const waypointList: Waypoint[] = allPoints.map((point, index) => ({
     ...point,
@@ -290,7 +290,7 @@ const generateMockRoute = async (
     isStartPoint: index === 0,
     isDestination: index === allPoints.length - 1,
   }));
-  
+
   // Calculate bounds
   const lats = routeCoordinates.map(coord => coord.latitude);
   const lngs = routeCoordinates.map(coord => coord.longitude);
@@ -304,7 +304,7 @@ const generateMockRoute = async (
       longitude: Math.min(...lngs),
     },
   };
-  
+
   return {
     id: routeType,
     name: getRouteTypeName(routeType),
@@ -318,11 +318,11 @@ const generateMockRoute = async (
       distance: Math.round(calculateDistance(point.coordinates, waypointList[index + 1].coordinates)),
       duration: Math.round(calculateDistance(point.coordinates, waypointList[index + 1].coordinates) * 1.5),
       coordinates: routeCoordinates.slice(
-        routeCoordinates.findIndex(coord => 
+        routeCoordinates.findIndex(coord =>
           Math.abs(coord.latitude - point.coordinates.latitude) < 0.001 &&
           Math.abs(coord.longitude - point.coordinates.longitude) < 0.001
         ),
-        routeCoordinates.findIndex(coord => 
+        routeCoordinates.findIndex(coord =>
           Math.abs(coord.latitude - waypointList[index + 1].coordinates.latitude) < 0.001 &&
           Math.abs(coord.longitude - waypointList[index + 1].coordinates.longitude) < 0.001
         ) + 1
@@ -347,14 +347,14 @@ const generateIntermediatePoints = (
 ): { latitude: number; longitude: number }[] => {
   const points: { latitude: number; longitude: number }[] = [];
   const steps = 10; // Number of intermediate points
-  
+
   for (let i = 1; i < steps; i++) {
     const t = i / steps;
-    
+
     // Base interpolation
     let lat = start.latitude + (end.latitude - start.latitude) * t;
     let lng = start.longitude + (end.longitude - start.longitude) * t;
-    
+
     // Add variations based on route type
     switch (routeType) {
       case 'shortest':
@@ -375,10 +375,10 @@ const generateIntermediatePoints = (
         lng += (Math.random() - 0.5) * 0.01;
         break;
     }
-    
+
     points.push({ latitude: lat, longitude: lng });
   }
-  
+
   return points;
 };
 
@@ -406,16 +406,16 @@ const generateRoute = async (
 
   try {
     console.log(`🗺️ Generating ${routeType} route from ${origin.name} to ${destination.name}`);
-    
+
     // Create waypoints string for the API
-    const waypointsStr = waypoints.length > 0 
+    const waypointsStr = waypoints.length > 0
       ? `&waypoints=${waypoints.map(wp => `${wp.coordinates.latitude},${wp.coordinates.longitude}`).join('|')}`
       : '';
-    
+
     // Set route preferences based on type to get different actual routes
     let routePreferences = '';
     let alternatives = '&alternatives=true';
-    
+
     switch (routeType) {
       case 'shortest':
         // Request shortest route by avoiding tolls and optimizing for distance
@@ -434,24 +434,24 @@ const generateRoute = async (
 
     // Build the Google Directions API URL
     const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.coordinates.latitude},${origin.coordinates.longitude}&destination=${destination.coordinates.latitude},${destination.coordinates.longitude}${waypointsStr}&key=${GOOGLE_MAPS_API_KEY}${routePreferences}${alternatives}`;
-    
+
     console.log(`📡 Fetching ${routeType} route from Google Directions API...`);
     console.log('Request URL:', url.replace(GOOGLE_MAPS_API_KEY, 'API_KEY_HIDDEN'));
-    
+
     const response = await fetch(url);
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     const data = await response.json();
-    
+
     console.log(`📊 API Response status for ${routeType}:`, data.status);
-    
+
     if (data.status === 'OK' && data.routes && data.routes.length > 0) {
       // Select the appropriate route based on type
       let selectedRoute = data.routes[0];
-      
+
       // For different route types, try to select the best matching route from alternatives
       if (data.routes.length > 1) {
         switch (routeType) {
@@ -479,14 +479,14 @@ const generateRoute = async (
             break;
         }
       }
-      
+
       // ⭐ DECODE THE POLYLINE TO GET THE ACTUAL ROAD COORDINATES
       const coordinates = decodePolyline(selectedRoute.overview_polyline.points);
-      
+
       // Calculate total distance and duration
       const totalDistance = selectedRoute.legs.reduce((sum: number, leg: any) => sum + leg.distance.value, 0);
       const totalDuration = selectedRoute.legs.reduce((sum: number, leg: any) => sum + leg.duration.value, 0);
-      
+
       // Convert locations to waypoints for segments
       const allPoints = [origin, ...waypoints, destination];
       const waypointList: Waypoint[] = allPoints.map((point, index) => ({
@@ -495,7 +495,7 @@ const generateRoute = async (
         isStartPoint: index === 0,
         isDestination: index === allPoints.length - 1,
       }));
-      
+
       // Create route segments with real polyline data
       const segments = selectedRoute.legs.map((leg: any, index: number) => ({
         from: waypointList[index],
@@ -506,9 +506,9 @@ const generateRoute = async (
         polyline: leg.overview_polyline?.points || selectedRoute.overview_polyline.points,
         instructions: leg.steps.map((step: any) => step.html_instructions.replace(/<[^>]*>/g, '')),
       }));
-      
+
       console.log(`✅ Successfully generated ${routeType} route with ${coordinates.length} real road coordinate points`);
-      
+
       return {
         id: routeType,
         name: getRouteTypeName(routeType),
@@ -519,7 +519,7 @@ const generateRoute = async (
         segments,
         coordinates, // ⭐ REAL GOOGLE MAPS ROAD COORDINATES
         polyline: selectedRoute.overview_polyline.points,
-        instructions: selectedRoute.legs.flatMap((leg: any) => 
+        instructions: selectedRoute.legs.flatMap((leg: any) =>
           leg.steps.map((step: any) => step.html_instructions.replace(/<[^>]*>/g, ''))
         ),
         bounds: {
@@ -542,7 +542,7 @@ const generateRoute = async (
       } else if (data.status === 'REQUEST_DENIED') {
         console.error('🔑 API Configuration Issue:', data.error_message);
         Alert.alert(
-          'API Configuration Error', 
+          'API Configuration Error',
           'Google Directions API is not properly configured. Please:\n\n1. Go to Google Cloud Console\n2. Enable the Directions API\n3. Make sure your API key has proper permissions\n\nFor now, we\'ll use mock data for testing.'
         );
         // Temporarily fall back to mock data for development/testing
@@ -552,19 +552,19 @@ const generateRoute = async (
       } else {
         Alert.alert('Route Error', `Unable to generate ${routeType} route: ${data.status}`);
       }
-      
+
       // Don't fall back to mock data for production - return null
       console.log(`❌ No real route available for ${routeType} - API returned: ${data.status}`);
       return null;
     }
   } catch (error) {
     console.error(`❌ Error generating ${routeType} route:`, error);
-    
+
     // Check if it's a network error or API configuration issue
     if (error instanceof Error) {
       if (error.message.includes('REQUEST_DENIED')) {
         Alert.alert(
-          'API Configuration Error', 
+          'API Configuration Error',
           'Google Directions API is not properly configured. Please check your API key permissions in Google Cloud Console.'
         );
         // Temporarily fall back to mock data for development/testing
@@ -573,7 +573,7 @@ const generateRoute = async (
         Alert.alert('Network Error', `Unable to connect to Google Maps API for ${routeType} route. Please check your internet connection.`);
       }
     }
-    
+
     return null;
   }
 };
@@ -581,7 +581,7 @@ const generateRoute = async (
 // Helper function to get place description from types
 const getPlaceDescription = (types: string[]): string => {
   if (!types || types.length === 0) return 'Place';
-  
+
   const typeDescriptions: Record<string, string> = {
     'locality': 'City',
     'political': 'Administrative area',
@@ -677,7 +677,7 @@ const getPlaceDescription = (types: string[]): string => {
     'archipelago': 'Archipelago',
     'continent': 'Continent',
   };
-  
+
   // Find the most descriptive type
   const priorityTypes = [
     'tourist_attraction',
@@ -702,13 +702,13 @@ const getPlaceDescription = (types: string[]): string => {
     'locality',
     'establishment',
   ];
-  
+
   for (const priorityType of priorityTypes) {
     if (types.includes(priorityType)) {
       return typeDescriptions[priorityType] || priorityType;
     }
   }
-  
+
   // If no priority type found, use the first type
   const firstType = types[0];
   return typeDescriptions[firstType] || firstType;
@@ -728,33 +728,33 @@ const autocompleteSearch = async (query: string): Promise<Location[]> => {
 
   try {
     console.log(`🔍 Autocomplete search for: "${query}"`);
-    
+
     // Use Google Places Autocomplete API
     const baseUrl = 'https://maps.googleapis.com/maps/api/place/autocomplete/json';
     const queryParam = encodeURIComponent(query);
-    
+
     // Sri Lanka component restriction
     const url = `${baseUrl}?` +
       `input=${queryParam}&` +
       `components=country:lk&` + // Restrict to Sri Lanka
       `types=geocode|establishment&` + // Include both places and addresses
       `key=${GOOGLE_PLACES_API_KEY}`;
-    
+
     console.log('🌐 Making Autocomplete API request...');
     const response = await fetch(url);
-    
+
     if (!response.ok) {
       throw new Error(`Autocomplete API request failed: ${response.status} ${response.statusText}`);
     }
-    
+
     const data = await response.json();
-    
+
     if (data.status === 'OK' && data.predictions && data.predictions.length > 0) {
       console.log(`✅ Found ${data.predictions.length} autocomplete suggestions`);
-      
+
       // Get place details for each prediction
       const locations: Location[] = [];
-      
+
       for (const prediction of data.predictions.slice(0, 10)) { // Limit to 10 results
         try {
           const placeDetails = await getPlaceDetails(prediction.place_id);
@@ -775,10 +775,10 @@ const autocompleteSearch = async (query: string): Promise<Location[]> => {
           });
         }
       }
-      
+
       console.log(`📍 Processed ${locations.length} autocomplete locations`);
       return locations;
-      
+
     } else if (data.status === 'ZERO_RESULTS') {
       console.log('🔍 No autocomplete suggestions found');
       return [];
@@ -786,7 +786,7 @@ const autocompleteSearch = async (query: string): Promise<Location[]> => {
       console.error('Autocomplete API error:', data.status, data.error_message);
       throw new Error(`Autocomplete API error: ${data.status} - ${data.error_message || 'Unknown error'}`);
     }
-    
+
   } catch (error) {
     console.error('Error in autocomplete search:', error);
     // Fallback to text search
@@ -808,16 +808,16 @@ const getPlaceDetails = async (placeId: string): Promise<Location | null> => {
       `key=${GOOGLE_PLACES_API_KEY}`;
 
     const response = await fetch(url);
-    
+
     if (!response.ok) {
       throw new Error(`Place details request failed: ${response.status}`);
     }
-    
+
     const data = await response.json();
-    
+
     if (data.status === 'OK' && data.result) {
       const place = data.result;
-      
+
       return {
         id: place.place_id,
         name: place.name || 'Unknown Place',
@@ -834,7 +834,7 @@ const getPlaceDetails = async (placeId: string): Promise<Location | null> => {
       console.error('Place details API error:', data.status, data.error_message);
       return null;
     }
-    
+
   } catch (error) {
     console.error('Error getting place details:', error);
     return null;
@@ -856,35 +856,35 @@ const searchPlaces = async (query: string, location?: { lat: number; lng: number
 
   try {
     console.log(`🔍 Searching for places: "${query}" in Sri Lanka`);
-    
+
     // Sri Lanka bounds for location bias
     const sriLankaBounds = {
       northeast: { lat: 9.8315, lng: 82.2 },
       southwest: { lat: 5.9, lng: 79.5 }
     };
-    
+
     // Use Google Places API Text Search
     const baseUrl = 'https://maps.googleapis.com/maps/api/place/textsearch/json';
     const queryParam = encodeURIComponent(`${query} Sri Lanka`);
-    
+
     const url = `${baseUrl}?` +
       `query=${queryParam}&` +
       `location=${(sriLankaBounds.northeast.lat + sriLankaBounds.southwest.lat) / 2},${(sriLankaBounds.northeast.lng + sriLankaBounds.southwest.lng) / 2}&` +
       `radius=200000&` + // 200km radius to cover all of Sri Lanka
       `key=${GOOGLE_PLACES_API_KEY}`;
-    
+
     console.log('🌐 Making Places API request...');
     const response = await fetch(url);
-    
+
     if (!response.ok) {
       throw new Error(`Places API request failed: ${response.status} ${response.statusText}`);
     }
-    
+
     const data = await response.json();
-    
+
     if (data.status === 'OK') {
       console.log(`✅ Found ${data.results.length} places`);
-      
+
       const locations: Location[] = data.results.map((place: any, index: number) => {
         const location: Location = {
           id: place.place_id || `place_${index}`,
@@ -898,24 +898,24 @@ const searchPlaces = async (query: string, location?: { lat: number; lng: number
           types: place.types || [],
           description: getPlaceDescription(place.types || []),
         };
-        
+
         console.log(`📍 Place: ${location.name} - ${location.address}`);
         return location;
       });
-      
+
       // Filter to ensure we only return places in Sri Lanka
-      const sriLankanPlaces = locations.filter(place => 
+      const sriLankanPlaces = locations.filter(place =>
         place.address.toLowerCase().includes('sri lanka') ||
         place.address.toLowerCase().includes('lk') ||
-        (place.coordinates.latitude >= sriLankaBounds.southwest.lat && 
+        (place.coordinates.latitude >= sriLankaBounds.southwest.lat &&
          place.coordinates.latitude <= sriLankaBounds.northeast.lat &&
-         place.coordinates.longitude >= sriLankaBounds.southwest.lng && 
+         place.coordinates.longitude >= sriLankaBounds.southwest.lng &&
          place.coordinates.longitude <= sriLankaBounds.northeast.lng)
       );
-      
+
       console.log(`🇱🇰 Filtered to ${sriLankanPlaces.length} places in Sri Lanka`);
       return sriLankanPlaces;
-      
+
     } else if (data.status === 'ZERO_RESULTS') {
       console.log('🔍 No places found for query');
       return [];
@@ -923,10 +923,10 @@ const searchPlaces = async (query: string, location?: { lat: number; lng: number
       console.error('Places API error:', data.status, data.error_message);
       throw new Error(`Places API error: ${data.status} - ${data.error_message || 'Unknown error'}`);
     }
-    
+
   } catch (error) {
     console.error('Error searching places:', error);
-    
+
     // Fallback to sample locations if API fails
     console.log('🔄 Using fallback sample locations...');
     const sampleLocations: Location[] = [
@@ -1023,7 +1023,7 @@ const searchPlaces = async (query: string, location?: { lat: number; lng: number
     ];
 
     // Filter sample locations based on query
-    const filteredLocations = sampleLocations.filter(location => 
+    const filteredLocations = sampleLocations.filter(location =>
       location.name.toLowerCase().includes(query.toLowerCase()) ||
       location.address.toLowerCase().includes(query.toLowerCase()) ||
       location.description?.toLowerCase().includes(query.toLowerCase())
@@ -1037,16 +1037,16 @@ const searchPlaces = async (query: string, location?: { lat: number; lng: number
 export default function TripPlanningScreen() {
   const params = useLocalSearchParams();
   const [currentStep, setCurrentStep] = useState<PlanningStep>('start-point');
-  
+
   // Location states
   const [startPoint, setStartPoint] = useState<Location | null>(null);
   const [destination, setDestination] = useState<Location | null>(null);
   const [waypoints, setWaypoints] = useState<Location[]>([]);
-  
+
   // Route states
   const [generatedRoutes, setGeneratedRoutes] = useState<GeneratedRoute[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<GeneratedRoute | null>(null);
-  
+
   // UI states
   const [isGeneratingRoutes, setIsGeneratingRoutes] = useState(false);
   const [showRouteComparison, setShowRouteComparison] = useState(false);
@@ -1057,7 +1057,7 @@ export default function TripPlanningScreen() {
   const [showSearch, setShowSearch] = useState(false);
   const [searchMode, setSearchMode] = useState<'start' | 'destination' | 'waypoint'>('start');
   const [isSearching, setIsSearching] = useState(false);
-  
+
   // Map states
   const [mapRegion, setMapRegion] = useState({
     latitude: 7.8731,
@@ -1130,14 +1130,14 @@ export default function TripPlanningScreen() {
     setIsGeneratingRoutes(true);
     setCurrentStep('route-generation');
     setRoutesReadyForRender(false); // Reset render state
-    
+
     // Clear existing routes to free memory
     setGeneratedRoutes([]);
     setSelectedRoute(null);
 
     try {
       console.log('🚀 Generating multiple route options using Google Directions API...');
-      
+
       if (!GOOGLE_DIRECTIONS_API_KEY) {
         console.warn('⚠️ API key missing, using fallback route generation');
         // Fallback to basic route generation
@@ -1148,10 +1148,10 @@ export default function TripPlanningScreen() {
             if (index === 0) return 0;
             return total + calculateDistance(allPoints[index - 1].coordinates, point.coordinates);
           }, 0);
-          
+
           let adjustedDistance = totalDistance;
           let adjustedDuration = totalDistance * 1.2;
-          
+
           switch (routeType) {
             case 'shortest':
               adjustedDistance *= 0.95;
@@ -1164,7 +1164,7 @@ export default function TripPlanningScreen() {
             default:
               break;
           }
-          
+
           return {
             id: routeType,
             name: getRouteTypeName(routeType),
@@ -1190,7 +1190,7 @@ export default function TripPlanningScreen() {
             highlights: getRouteHighlights(routeType),
           };
         });
-        
+
         setGeneratedRoutes(mockRoutes);
         setSelectedRoute(mockRoutes[0]);
         setCurrentStep('route-comparison');
@@ -1200,12 +1200,12 @@ export default function TripPlanningScreen() {
 
       // Generate different route types using Google Directions API
       const routes: GeneratedRoute[] = [];
-      
+
       // Build waypoints string for API calls
-      const waypointsStr = waypoints.length > 0 
+      const waypointsStr = waypoints.length > 0
         ? waypoints.map(w => `${w.coordinates.latitude},${w.coordinates.longitude}`).join('|')
         : '';
-      
+
       // Route 1: Recommended (default balanced route)
       const recommendedUrl = `https://maps.googleapis.com/maps/api/directions/json?` +
         `origin=${startPoint.coordinates.latitude},${startPoint.coordinates.longitude}&` +
@@ -1214,20 +1214,20 @@ export default function TripPlanningScreen() {
         `mode=driving&` +
         `alternatives=true&` +
         `key=${GOOGLE_DIRECTIONS_API_KEY}`;
-      
+
       console.log('📍 Fetching recommended route...');
       const recommendedResponse = await fetch(recommendedUrl);
-      
+
       if (!recommendedResponse.ok) {
         throw new Error(`HTTP error! status: ${recommendedResponse.status}`);
       }
-      
+
       const recommendedData = await recommendedResponse.json();
-      
+
       if (recommendedData.status === 'OK' && recommendedData.routes.length > 0) {
         const route = recommendedData.routes[0];
         const coordinates = decodePolyline(route.overview_polyline.points);
-        
+
         // Validate coordinates
         if (coordinates && coordinates.length > 0) {
           routes.push({
@@ -1249,7 +1249,7 @@ export default function TripPlanningScreen() {
           console.warn('⚠️ Invalid coordinates for recommended route');
         }
       }
-      
+
       // Route 2: Shortest (optimized for distance, avoid tolls)
       const shortestUrl = `https://maps.googleapis.com/maps/api/directions/json?` +
         `origin=${startPoint.coordinates.latitude},${startPoint.coordinates.longitude}&` +
@@ -1259,21 +1259,21 @@ export default function TripPlanningScreen() {
         `avoid=tolls&` +
         `alternatives=true&` +
         `key=${GOOGLE_DIRECTIONS_API_KEY}`;
-      
+
       console.log('📍 Fetching shortest route...');
       const shortestResponse = await fetch(shortestUrl);
-      
+
       if (!shortestResponse.ok) {
         throw new Error(`HTTP error! status: ${shortestResponse.status}`);
       }
-      
+
       const shortestData = await shortestResponse.json();
-      
+
       if (shortestData.status === 'OK' && shortestData.routes.length > 0) {
         // Get the shortest route (first one is usually optimized)
         const route = shortestData.routes[0];
         const coordinates = decodePolyline(route.overview_polyline.points);
-        
+
         // Validate coordinates
         if (coordinates && coordinates.length > 0) {
           routes.push({
@@ -1295,7 +1295,7 @@ export default function TripPlanningScreen() {
           console.warn('⚠️ Invalid coordinates for shortest route');
         }
       }
-      
+
       // Route 3: Scenic (avoid highways and ferries for more scenic local roads)
       const scenicUrl = `https://maps.googleapis.com/maps/api/directions/json?` +
         `origin=${startPoint.coordinates.latitude},${startPoint.coordinates.longitude}&` +
@@ -1305,20 +1305,20 @@ export default function TripPlanningScreen() {
         `avoid=highways,ferries&` +
         `alternatives=true&` +
         `key=${GOOGLE_DIRECTIONS_API_KEY}`;
-      
+
       console.log('📍 Fetching scenic route...');
       const scenicResponse = await fetch(scenicUrl);
-      
+
       if (!scenicResponse.ok) {
         throw new Error(`HTTP error! status: ${scenicResponse.status}`);
       }
-      
+
       const scenicData = await scenicResponse.json();
-      
+
       if (scenicData.status === 'OK' && scenicData.routes.length > 0) {
         const route = scenicData.routes[0];
         const coordinates = decodePolyline(route.overview_polyline.points);
-        
+
         // Validate coordinates
         if (coordinates && coordinates.length > 0) {
           routes.push({
@@ -1343,45 +1343,45 @@ export default function TripPlanningScreen() {
 
       // Enhanced alternative route handling to ensure route type accuracy
       const processedRouteTypes = new Set(routes.map(r => r.type));
-      
+
       // Organize alternatives by their source to ensure accurate route type matching
       const alternativesBySource: Record<string, any[]> = {
         recommended: [],
         shortest: [],
         scenic: []
       };
-      
+
       if (recommendedData.routes && recommendedData.routes.length > 1) {
         alternativesBySource.recommended = recommendedData.routes.slice(1);
       }
-      
+
       if (shortestData.routes && shortestData.routes.length > 1) {
         alternativesBySource.shortest = shortestData.routes.slice(1);
       }
-      
+
       if (scenicData.routes && scenicData.routes.length > 1) {
         alternativesBySource.scenic = scenicData.routes.slice(1);
       }
-      
+
       console.log(`📍 Found alternatives: Recommended=${alternativesBySource.recommended.length}, Shortest=${alternativesBySource.shortest.length}, Scenic=${alternativesBySource.scenic.length}`);
-      
+
       // Use alternatives to fill missing route types, but only from the correct source
       const routeTypes: ('recommended' | 'shortest' | 'scenic')[] = ['recommended', 'shortest', 'scenic'];
       const missingTypes = routeTypes.filter(type => !processedRouteTypes.has(type));
-      
+
       if (missingTypes.length > 0) {
         console.log(`📍 Filling missing route types: ${missingTypes.join(', ')}`);
-        
+
         for (const routeType of missingTypes) {
           const alternatives = alternativesBySource[routeType];
-          
+
           if (alternatives && alternatives.length > 0) {
             // Use the first alternative from the correct source
             const route = alternatives[0];
-            
+
             try {
               const coordinates = decodePolyline(route.overview_polyline.points);
-              
+
               // Validate coordinates and ensure it's different from existing routes
               if (coordinates && coordinates.length > 0) {
                 const isDifferent = routes.every(existingRoute => {
@@ -1389,7 +1389,7 @@ export default function TripPlanningScreen() {
                   const distance = calculateDistance(coordinates[0], existingRoute.coordinates[0]);
                   return distance > 0.001; // At least 100m difference at start
                 });
-                
+
                 if (isDifferent) {
                   routes.push({
                     id: routeType,
@@ -1423,7 +1423,7 @@ export default function TripPlanningScreen() {
       }
 
       console.log(`✅ Generated ${routes.length} distinct routes from Google Directions API`);
-      
+
       // Log route details to verify they are different
       routes.forEach((route, index) => {
         console.log(`📍 Route ${index + 1}: ${route.name}`);
@@ -1435,73 +1435,73 @@ export default function TripPlanningScreen() {
         console.log(`   - Start: ${route.coordinates[0]?.latitude}, ${route.coordinates[0]?.longitude}`);
         console.log(`   - End: ${route.coordinates[route.coordinates.length - 1]?.latitude}, ${route.coordinates[route.coordinates.length - 1]?.longitude}`);
       });
-      
+
       // Validate routes before setting state
-      const validRoutes = routes.filter(route => 
-        route.coordinates && 
-        route.coordinates.length > 0 && 
-        route.coordinates.every(coord => 
-          typeof coord.latitude === 'number' && 
+      const validRoutes = routes.filter(route =>
+        route.coordinates &&
+        route.coordinates.length > 0 &&
+        route.coordinates.every(coord =>
+          typeof coord.latitude === 'number' &&
           typeof coord.longitude === 'number' &&
-          !isNaN(coord.latitude) && 
+          !isNaN(coord.latitude) &&
           !isNaN(coord.longitude)
         )
       );
-      
+
       if (validRoutes.length === 0) {
         throw new Error('No valid routes with coordinates found');
       }
-      
+
       // Final validation: Verify distance and duration calculations
       validRoutes.forEach((route, index) => {
         console.log(`📊 Route ${index + 1} (${route.type}) Validation:`);
         console.log(`   - API Route Legs: ${route.segments?.length || 0}`);
-        
+
         if (route.segments && Array.isArray(route.segments)) {
           const manualDistanceCalc = route.segments.reduce((total: number, leg: any) => {
             const legDistance = leg.distance?.value || 0;
             console.log(`   - Leg distance: ${legDistance}m (${Math.round(legDistance / 1000)}km)`);
             return total + legDistance;
           }, 0);
-          
+
           const manualDurationCalc = route.segments.reduce((total: number, leg: any) => {
             const legDuration = leg.duration?.value || 0;
             console.log(`   - Leg duration: ${legDuration}s (${Math.round(legDuration / 60)}min)`);
             return total + legDuration;
           }, 0);
-          
+
           console.log(`   - Manual calc: ${Math.round(manualDistanceCalc / 1000)}km, ${Math.round(manualDurationCalc / 60)}min`);
           console.log(`   - Stored calc: ${route.totalDistance}km, ${route.totalDuration}min`);
-          
+
           // Check if calculations match
           const distanceMatch = Math.abs(Math.round(manualDistanceCalc / 1000) - route.totalDistance) <= 1;
           const durationMatch = Math.abs(Math.round(manualDurationCalc / 60) - route.totalDuration) <= 1;
-          
+
           console.log(`   - Distance accurate: ${distanceMatch ? '✅' : '❌'}`);
           console.log(`   - Duration accurate: ${durationMatch ? '✅' : '❌'}`);
         }
       });
-      
+
       console.log(`✅ Validated ${validRoutes.length} routes with proper coordinates`);
-      
+
       // Update state gradually to prevent crashes
       try {
         console.log('📍 Updating route state...');
         setGeneratedRoutes(validRoutes);
-        
+
         // Small delay before setting selected route to prevent race conditions
         setTimeout(() => {
           try {
             console.log('📍 Setting selected route...');
             setSelectedRoute(validRoutes[0]);
-            
+
             // Another small delay before updating UI state
             setTimeout(() => {
               try {
                 console.log('📍 Updating UI state...');
                 setCurrentStep('route-comparison');
                 setShowRouteComparison(true);
-                
+
                 // Mark routes as ready for rendering with longer delay to prevent crashes
                 setTimeout(() => {
                   console.log('📍 Enabling route rendering...');
@@ -1536,36 +1536,36 @@ export default function TripPlanningScreen() {
       console.log(`📍 Route has ${route.coordinates?.length || 0} coordinate points`);
       console.log(`📍 Route color: ${route.color}`);
       console.log(`📍 Route details: ${route.totalDistance}km, ${route.totalDuration}min`);
-      
+
       // Double-check: Verify the route data is accurate
       if (route.segments && Array.isArray(route.segments)) {
         const verifyDistance = Math.round(route.segments.reduce((total: number, leg: any) => total + (leg.distance?.value || 0), 0) / 1000);
         const verifyDuration = Math.round(route.segments.reduce((total: number, leg: any) => total + (leg.duration?.value || 0), 0) / 60);
-        
+
         console.log(`🔍 Route verification for ${route.type}:`);
         console.log(`   - Stored: ${route.totalDistance}km, ${route.totalDuration}min`);
         console.log(`   - Verified: ${verifyDistance}km, ${verifyDuration}min`);
-        
+
         if (Math.abs(verifyDistance - route.totalDistance) > 1 || Math.abs(verifyDuration - route.totalDuration) > 1) {
           console.warn(`⚠️ Route ${route.type} data mismatch detected!`);
         } else {
           console.log(`✅ Route ${route.type} data is accurate`);
         }
       }
-      
+
       setSelectedRoute(route);
-      
+
       // Update map region to show the selected route
       if (route.bounds && route.bounds.northeast && route.bounds.southwest) {
         const northeast = route.bounds.northeast;
         const southwest = route.bounds.southwest;
-        
+
         // Validate bounds
-        if (typeof northeast.latitude === 'number' && 
+        if (typeof northeast.latitude === 'number' &&
             typeof northeast.longitude === 'number' &&
-            typeof southwest.latitude === 'number' && 
+            typeof southwest.latitude === 'number' &&
             typeof southwest.longitude === 'number') {
-          
+
           setMapRegion({
             latitude: (northeast.latitude + southwest.latitude) / 2,
             longitude: (northeast.longitude + southwest.longitude) / 2,
@@ -1574,7 +1574,7 @@ export default function TripPlanningScreen() {
           });
         }
       }
-      
+
       console.log(`✅ Successfully switched to ${route.type} route`);
     } catch (error) {
       console.error('Error selecting route:', error);
@@ -1583,7 +1583,7 @@ export default function TripPlanningScreen() {
 
   const handleConfirmRoute = () => {
     if (!selectedRoute) return;
-    
+
     router.push({
       pathname: '/planning/accommodation',
       params: {
@@ -1614,10 +1614,10 @@ export default function TripPlanningScreen() {
               styles.progressIcon,
               { backgroundColor: index <= currentIndex ? Colors.primary : Colors.light300 }
             ]}>
-              <Ionicons 
-                name={step.icon as any} 
-                size={16} 
-                color={index <= currentIndex ? Colors.white : Colors.secondary500} 
+              <Ionicons
+                name={step.icon as any}
+                size={16}
+                color={index <= currentIndex ? Colors.white : Colors.secondary500}
               />
             </View>
             <ThemedText style={[
@@ -1713,7 +1713,7 @@ export default function TripPlanningScreen() {
             <ThemedText style={styles.stepDescription}>
               Add stops along your journey
             </ThemedText>
-            
+
             {waypoints.length > 0 && (
               <View style={styles.waypointsContainer}>
                 {waypoints.map((waypoint, index) => (
@@ -1732,7 +1732,7 @@ export default function TripPlanningScreen() {
                 ))}
               </View>
             )}
-            
+
             <TouchableOpacity
               style={styles.addWaypointButton}
               onPress={() => {
@@ -1753,9 +1753,9 @@ export default function TripPlanningScreen() {
               {isGeneratingRoutes ? 'Generating Routes...' : 'Ready to Generate Routes'}
             </ThemedText>
             <ThemedText style={styles.stepDescription}>
-              We'll create multiple route options for you to choose from
+              We&apos;ll create multiple route options for you to choose from
             </ThemedText>
-            
+
             {isGeneratingRoutes ? (
               <View style={styles.loadingContainer}>
                 <ThemedText style={styles.loadingText}>
@@ -1797,8 +1797,8 @@ export default function TripPlanningScreen() {
 
             {/* Route Cards - Horizontal Layout */}
             <View style={styles.routeCardsContainer}>
-              <ScrollView 
-                horizontal 
+              <ScrollView
+                horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.routeCardsScrollContainer}
                 style={styles.routeCardsScroll}
@@ -1822,7 +1822,7 @@ export default function TripPlanningScreen() {
                         </View>
                       )}
                     </View>
-                    
+
                     {/* Route Metrics */}
                     <View style={styles.routeMetricsHorizontal}>
                       <View style={styles.routeMetricHorizontal}>
@@ -1834,7 +1834,7 @@ export default function TripPlanningScreen() {
                         <ThemedText style={styles.routeMetricValueHorizontal}>{route.totalDuration} min</ThemedText>
                       </View>
                     </View>
-                    
+
                     {/* Route Highlights */}
                     <View style={styles.routeHighlightsHorizontal}>
                       {route.highlights.slice(0, 2).map((highlight, highlightIndex) => (
@@ -1855,10 +1855,10 @@ export default function TripPlanningScreen() {
                 style={styles.mapToggleButton}
                 onPress={() => setShowFullScreenMap(!showFullScreenMap)}
               >
-                <Ionicons 
-                  name={showFullScreenMap ? "list" : "map"} 
-                  size={20} 
-                  color={Colors.white} 
+                <Ionicons
+                  name={showFullScreenMap ? "list" : "map"}
+                  size={20}
+                  color={Colors.white}
                 />
                 <ThemedText style={styles.mapToggleText}>
                   {showFullScreenMap ? "Show Route List" : "View Full Map"}
@@ -1873,7 +1873,7 @@ export default function TripPlanningScreen() {
                   <ThemedText style={styles.routeStatsTitle}>Route Details</ThemedText>
                   <View style={[styles.routeStatsColorIndicator, { backgroundColor: selectedRoute.color }]} />
                 </View>
-                
+
                 <View style={styles.routeStatsGrid}>
                   <View style={styles.routeStatItem}>
                     <Ionicons name="location" size={24} color={Colors.primary} />
@@ -1908,35 +1908,35 @@ export default function TripPlanningScreen() {
     if (!routesReadyForRender || generatedRoutes.length === 0) {
       return [];
     }
-    
+
     return generatedRoutes.filter(route => {
       // More stringent validation
       if (!route.coordinates || !Array.isArray(route.coordinates)) {
         console.warn(`⚠️ Route ${route.id} has invalid coordinates array`);
         return false;
       }
-      
+
       if (route.coordinates.length < 2) {
         console.warn(`⚠️ Route ${route.id} has too few coordinates: ${route.coordinates.length}`);
         return false;
       }
-      
+
       // Check each coordinate
       const hasValidCoords = route.coordinates.every(coord => {
-        const isValid = coord && 
-          typeof coord.latitude === 'number' && 
+        const isValid = coord &&
+          typeof coord.latitude === 'number' &&
           typeof coord.longitude === 'number' &&
-          !isNaN(coord.latitude) && 
+          !isNaN(coord.latitude) &&
           !isNaN(coord.longitude) &&
           coord.latitude >= -90 && coord.latitude <= 90 &&
           coord.longitude >= -180 && coord.longitude <= 180;
-        
+
         if (!isValid) {
           console.warn(`⚠️ Route ${route.id} has invalid coordinate:`, coord);
         }
         return isValid;
       });
-      
+
       return hasValidCoords;
     }).map((route, index) => {
       console.log(`📍 Preparing route ${route.id} for render with ${route.coordinates.length} valid points`);
@@ -1955,7 +1955,7 @@ export default function TripPlanningScreen() {
     if (currentStep === 'route-comparison' && routePolylines.length > 0 && routesReadyForRender) {
       // Ensure we have a valid API key for directions
       const directionsApiKey = GOOGLE_DIRECTIONS_API_KEY || GOOGLE_MAPS_API_KEY;
-      
+
       if (!directionsApiKey) {
         console.warn('⚠️ No API key available for directions');
         return (
@@ -1971,7 +1971,7 @@ export default function TripPlanningScreen() {
           </View>
         );
       }
-      
+
       return (
         <View style={showFullScreenMap ? styles.fullMapContainer : styles.mapContainer}>
           <MapView
@@ -2006,7 +2006,7 @@ export default function TripPlanningScreen() {
                 pinColor="blue"
               />
             ))}
-            
+
             {/* Show loading state while routes are being prepared for rendering */}
             {!routesReadyForRender && generatedRoutes.length > 0 && (
               <View style={styles.loadingOverlay}>
@@ -2015,10 +2015,10 @@ export default function TripPlanningScreen() {
                 </ThemedText>
               </View>
             )}
-            
+
             {/* 🎯 REAL GOOGLE DIRECTIONS API - Use MapViewDirections with route-specific configurations */}
             {/* Each route type uses different waypoint configurations to ensure distinct routes */}
-            
+
             {routesReadyForRender && selectedRoute && GOOGLE_DIRECTIONS_API_KEY && (
               <>
                 {selectedRoute.type === 'recommended' && (
@@ -2038,7 +2038,7 @@ export default function TripPlanningScreen() {
                     onError={(error) => console.log('❌ Recommended route error:', error)}
                   />
                 )}
-                
+
                 {selectedRoute.type === 'shortest' && (
                   <MapViewDirections
                     key="shortest-route"
@@ -2057,7 +2057,7 @@ export default function TripPlanningScreen() {
                     onError={(error) => console.log('❌ Shortest route error:', error)}
                   />
                 )}
-                
+
                 {selectedRoute.type === 'scenic' && (
                   <MapViewDirections
                     key="scenic-route"
@@ -2084,7 +2084,7 @@ export default function TripPlanningScreen() {
                 )}
               </>
             )}
-            
+
             {/* Fallback: Show message if no API key */}
             {!GOOGLE_DIRECTIONS_API_KEY && (
               <View style={styles.errorContainer}>
@@ -2096,7 +2096,7 @@ export default function TripPlanningScreen() {
                 </ThemedText>
               </View>
             )}
-            
+
             {/* Fallback: Show message if no routes available */}
             {generatedRoutes.length === 0 && (
               <View style={styles.errorContainer}>
@@ -2105,7 +2105,7 @@ export default function TripPlanningScreen() {
                 </ThemedText>
               </View>
             )}
-            
+
             {/* Fallback: Show error if no API key and no routes generated */}
             {!GOOGLE_DIRECTIONS_API_KEY && generatedRoutes.length === 0 && (
               <View style={styles.errorContainer}>
@@ -2114,12 +2114,12 @@ export default function TripPlanningScreen() {
                 </ThemedText>
               </View>
             )}
-            
+
           </MapView>
         </View>
       );
     }
-    
+
     return null;
   };
 
@@ -2189,7 +2189,7 @@ export default function TripPlanningScreen() {
   return (
     <SafeAreaView style={styles.container}>
       {renderProgressSteps()}
-      
+
       {/* Route Comparison Layout */}
       {currentStep === 'route-comparison' ? (
         <>
@@ -2205,7 +2205,7 @@ export default function TripPlanningScreen() {
                 >
                   <Ionicons name="list" size={20} color={Colors.white} />
                 </TouchableOpacity>
-                
+
                 {/* <TouchableOpacity
                   style={styles.mapBackToListButton}
                   onPress={() => setShowFullScreenMap(false)}
@@ -2213,7 +2213,7 @@ export default function TripPlanningScreen() {
                   <Ionicons name="arrow-back" size={20} color={Colors.white} />
                   <ThemedText style={styles.mapBackToListText}>Back to Routes</ThemedText>
                 </TouchableOpacity> */}
-                
+
                 {/* Route Info Overlay */}
                 {selectedRoute && (
                   <View style={styles.mapRouteInfoOverlay}>
@@ -2243,11 +2243,11 @@ export default function TripPlanningScreen() {
           <ScrollView style={styles.content}>
             {renderStepContent()}
           </ScrollView>
-          
+
           {renderMap()}
         </>
       )}
-      
+
       <View style={styles.actionsContainer}>
         {renderActionButtons()}
       </View>
@@ -2263,7 +2263,7 @@ export default function TripPlanningScreen() {
               <Ionicons name="close" size={24} color={Colors.secondary700} />
             </TouchableOpacity>
           </View>
-          
+
           <View style={styles.searchContainer}>
             <TextInput
               style={styles.searchInput}
@@ -2273,7 +2273,7 @@ export default function TripPlanningScreen() {
               autoFocus
             />
           </View>
-          
+
           <FlatList
             data={searchResults}
             keyExtractor={(item) => item.id}
@@ -2675,7 +2675,7 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     textAlign: 'center',
   },
-  
+
   // Route Comparison Layout Styles
   routeComparisonLayout: {
     flex: 1,
@@ -2769,7 +2769,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.white,
   },
-  
+
   // Route Comparison Container Styles
   routeComparisonContainer: {
     flex: 1,
@@ -2781,7 +2781,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.light300,
   },
-  
+
   // Horizontal Route Cards
   routeCardsContainer: {
     backgroundColor: Colors.white,
@@ -2875,7 +2875,7 @@ const styles = StyleSheet.create({
     color: Colors.secondary500,
     flex: 1,
   },
-  
+
   // Map Toggle
   mapToggleContainer: {
     padding: 20,
@@ -2898,7 +2898,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     marginLeft: 8,
   },
-  
+
   // Route Stats
   routeStatsContainer: {
     margin: 20,

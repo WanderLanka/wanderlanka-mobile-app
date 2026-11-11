@@ -48,7 +48,7 @@ export const AddReviewModal: React.FC<AddReviewModalProps> = ({
 
   const handlePickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
+
     if (status !== 'granted') {
       Alert.alert('Permission Required', 'Please grant camera roll permissions to add images.');
       return;
@@ -95,12 +95,12 @@ export const AddReviewModal: React.FC<AddReviewModalProps> = ({
       });
 
       Alert.alert('Success', 'Review submitted successfully!');
-      
+
       // Reset form
       setRating(0);
       setComment('');
       setImages([]);
-      
+
       if (onReviewAdded) onReviewAdded();
       onClose();
     } catch (error: any) {
@@ -135,7 +135,7 @@ export const AddReviewModal: React.FC<AddReviewModalProps> = ({
               <Text style={styles.label}>Your Rating *</Text>
               <StarRating
                 rating={rating}
-                maxStars={5}
+                maxRating={5}
                 size={32}
                 interactive
                 onRatingChange={setRating}
@@ -173,7 +173,7 @@ export const AddReviewModal: React.FC<AddReviewModalProps> = ({
                     </TouchableOpacity>
                   </View>
                 ))}
-                
+
                 {images.length < 5 && (
                   <TouchableOpacity style={styles.addImageButton} onPress={handlePickImage}>
                     <Ionicons name="camera" size={32} color={Colors.primary600} />

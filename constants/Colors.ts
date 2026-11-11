@@ -4,6 +4,8 @@
 export const Colors = {
   // Primary (Green)
   primary: '#059669',
+  primary50: '#ecfdf5',
+  primary200: '#a7f3d0',
   primary100: '#dcfce7',
   primary300: '#86efac',
   primary500: '#22c55e',
@@ -15,6 +17,7 @@ export const Colors = {
   secondary50: '#f8fafc',
   secondary100: '#f1f5f9',
   secondary200: '#e2e8f0',
+  secondary300: '#cbd5e1',
   secondary400: '#94a3b8',
   secondary500: '#64748b',
   secondary600: '#475569',
@@ -39,6 +42,7 @@ export const Colors = {
   info: '#3b82f6',
 
   // Common colors
+  text: '#334155',
   white: '#ffffff',
   black: '#000000',
   transparent: 'transparent',

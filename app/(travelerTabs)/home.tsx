@@ -15,7 +15,7 @@ import { TopBar } from '@/components/TopBar';
 import { myTripsApi } from '../../utils/itineraryApi';
 import { useAuth } from '../../context/AuthContext';
 
-const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || 'AIzaSyBPAjLGZlFyzwIRo60j3HlhR7Qp0pmqQQ8';
+const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || (process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '');
 
 interface MyTripsData {
   savedPlans: {
@@ -80,7 +80,7 @@ export default function TravelerHomeScreen() {
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [searchResults, setSearchResults] = useState<Place[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  
+
   // Trending destinations state
   const [trendingDestinations, setTrendingDestinations] = useState<any[]>([]);
   const [localFavorites, setLocalFavorites] = useState<any[]>([]);
@@ -88,7 +88,7 @@ export default function TravelerHomeScreen() {
   const [isLoadingTrending, setIsLoadingTrending] = useState(false);
   const [isLoadingLocalFavorites, setIsLoadingLocalFavorites] = useState(false);
   const [isLoadingHiddenGems, setIsLoadingHiddenGems] = useState(false);
-  
+
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
@@ -123,7 +123,7 @@ export default function TravelerHomeScreen() {
       setIsLoadingTrips(true);
       console.log('🔄 Fetching my trips...');
       const response = await myTripsApi.getMyTrips();
-      
+
       if (response.success && response.data) {
         console.log('✅ My trips loaded:', response.data.summary);
         setMyTripsData(response.data);
@@ -143,7 +143,7 @@ export default function TravelerHomeScreen() {
     try {
       setIsLoadingPlaces(true);
       console.log('🔍 Fetching popular places...');
-      
+
       // Use fallback data instead of API for now (API key issue)
       // TODO: Configure proper Google Places API key or use backend proxy
       setPopularPlaces([
@@ -163,7 +163,7 @@ export default function TravelerHomeScreen() {
         { type: 'activity', name: 'Photography Tours', category: 'Creative', icon: 'camera', placeId: 'photography' },
       ]);
       console.log('✅ Loaded popular places and activities');
-      
+
     } catch (error: any) {
       console.error('❌ Error fetching places:', error);
     } finally {
@@ -181,15 +181,15 @@ export default function TravelerHomeScreen() {
     try {
       setIsSearching(true);
       console.log('🔍 Searching for:', query);
-      
+
       // Use Text Search API for broader search
       const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query + ' in Sri Lanka')}&key=${GOOGLE_PLACES_API_KEY}`;
-      
+
       const response = await fetch(searchUrl);
       const data = await response.json();
-      
+
       console.log('📍 Search API response status:', data.status);
-      
+
       if (data.status === 'OK' && data.results) {
         const places: Place[] = data.results.slice(0, 10).map((place: any) => ({
           type: 'place' as const,
@@ -200,7 +200,7 @@ export default function TravelerHomeScreen() {
           rating: place.rating,
           address: place.formatted_address,
         }));
-        
+
         setSearchResults(places);
         console.log(`✅ Found ${places.length} places`);
       } else if (data.status === 'ZERO_RESULTS') {
@@ -210,7 +210,7 @@ export default function TravelerHomeScreen() {
         console.warn('⚠️ Search API error:', data.status, data.error_message);
         setSearchResults([]);
       }
-      
+
     } catch (error: any) {
       console.error('❌ Error searching places:', error);
       setSearchResults([]);
@@ -224,18 +224,18 @@ export default function TravelerHomeScreen() {
     try {
       setIsLoadingDetails(true);
       console.log('🔍 Fetching details for place ID:', placeId);
-      
+
       // Use Places Details API
       const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,formatted_phone_number,opening_hours,rating,user_ratings_total,price_level,website,photos,types,geometry,vicinity&key=${GOOGLE_PLACES_API_KEY}`;
-      
+
       const response = await fetch(detailsUrl);
       const data = await response.json();
-      
+
       console.log('📍 Details API response status:', data.status);
-      
+
       if (data.status === 'OK' && data.result) {
         const result = data.result;
-        
+
         const details: PlaceDetails = {
           placeId: placeId,
           name: result.name,
@@ -254,7 +254,7 @@ export default function TravelerHomeScreen() {
           vicinity: result.vicinity,
           geometry: result.geometry,
         };
-        
+
         setSelectedPlaceDetails(details);
         console.log('✅ Loaded place details:', details.name);
       } else {
@@ -262,7 +262,7 @@ export default function TravelerHomeScreen() {
         Alert.alert('Error', 'Could not load place details');
         setSelectedPlaceDetails(null);
       }
-      
+
     } catch (error: any) {
       console.error('❌ Error fetching place details:', error);
       Alert.alert('Error', 'Failed to load place details');
@@ -285,7 +285,7 @@ export default function TravelerHomeScreen() {
 
   const handlePlaceSelect = async (placeName: string, placeId?: string) => {
     setDestination(placeName);
-    
+
     // If placeId looks like a fake ID (no underscores in real Google Place IDs after 'ChIJ')
     // or is just a simple string, search for the real place ID first
     if (placeId && !placeId.startsWith('ChIJ')) {
@@ -295,7 +295,7 @@ export default function TravelerHomeScreen() {
         const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(placeName + ' Sri Lanka')}&key=${GOOGLE_PLACES_API_KEY}`;
         const response = await fetch(searchUrl);
         const data = await response.json();
-        
+
         if (data.status === 'OK' && data.results && data.results.length > 0) {
           const realPlaceId = data.results[0].place_id;
           console.log('✅ Found real place ID:', realPlaceId);
@@ -339,41 +339,41 @@ export default function TravelerHomeScreen() {
     try {
       setIsLoadingTrending(true);
       console.log('🔍 Fetching trending destinations...');
-      
+
       // Search for top tourist attractions in Sri Lanka
       const queries = ['tourist attractions Sri Lanka', 'popular destinations Sri Lanka'];
       const allResults: any[] = [];
-      
+
       for (const query of queries) {
         const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${GOOGLE_PLACES_API_KEY}`;
         const response = await fetch(searchUrl);
         const data = await response.json();
-        
+
         if (data.status === 'OK' && data.results) {
           allResults.push(...data.results);
         }
       }
-      
+
       // Remove duplicates and get top rated places
       const uniquePlaces = Array.from(new Map(allResults.map(item => [item.place_id, item])).values());
       const topPlaces = uniquePlaces
         .filter(place => place.rating && place.rating >= 4.0)
         .sort((a, b) => (b.rating || 0) - (a.rating || 0))
         .slice(0, 6);
-      
+
       const destinations = topPlaces.map(place => ({
         title: place.name,
         desc: place.types?.[0]?.replace(/_/g, ' ') || 'Tourist Attraction',
-        img: place.photos?.[0]?.photo_reference 
+        img: place.photos?.[0]?.photo_reference
           ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${place.photos[0].photo_reference}&key=${GOOGLE_PLACES_API_KEY}`
           : 'https://images.unsplash.com/photo-1506744038136-46273834b3fb',
         placeId: place.place_id,
         rating: place.rating,
       }));
-      
+
       setTrendingDestinations(destinations);
       console.log('✅ Loaded trending destinations:', destinations.length);
-      
+
     } catch (error: any) {
       console.error('❌ Error fetching trending destinations:', error);
     } finally {
@@ -386,12 +386,12 @@ export default function TravelerHomeScreen() {
     try {
       setIsLoadingLocalFavorites(true);
       console.log('🔍 Fetching local favorites...');
-      
+
       // Search for local favorite places
       const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent('local restaurants markets Sri Lanka')}&key=${GOOGLE_PLACES_API_KEY}`;
       const response = await fetch(searchUrl);
       const data = await response.json();
-      
+
       if (data.status === 'OK' && data.results) {
         const favorites = data.results
           .filter((place: any) => place.rating && place.rating >= 4.0)
@@ -399,17 +399,17 @@ export default function TravelerHomeScreen() {
           .map((place: any) => ({
             title: place.name,
             desc: place.vicinity || place.formatted_address?.split(',')[0] || 'Local Spot',
-            img: place.photos?.[0]?.photo_reference 
+            img: place.photos?.[0]?.photo_reference
               ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${place.photos[0].photo_reference}&key=${GOOGLE_PLACES_API_KEY}`
               : 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee',
             placeId: place.place_id,
             rating: place.rating,
           }));
-        
+
         setLocalFavorites(favorites);
         console.log('✅ Loaded local favorites:', favorites.length);
       }
-      
+
     } catch (error: any) {
       console.error('❌ Error fetching local favorites:', error);
     } finally {
@@ -422,12 +422,12 @@ export default function TravelerHomeScreen() {
     try {
       setIsLoadingHiddenGems(true);
       console.log('🔍 Fetching hidden gems...');
-      
+
       // Search for lesser-known but highly rated places
       const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent('scenic spots viewpoints Sri Lanka')}&key=${GOOGLE_PLACES_API_KEY}`;
       const response = await fetch(searchUrl);
       const data = await response.json();
-      
+
       if (data.status === 'OK' && data.results) {
         const gems = data.results
           .filter((place: any) => place.rating && place.rating >= 4.2)
@@ -435,17 +435,17 @@ export default function TravelerHomeScreen() {
           .map((place: any) => ({
             title: place.name,
             desc: place.types?.[0]?.replace(/_/g, ' ') || 'Scenic Spot',
-            img: place.photos?.[0]?.photo_reference 
+            img: place.photos?.[0]?.photo_reference
               ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${place.photos[0].photo_reference}&key=${GOOGLE_PLACES_API_KEY}`
               : 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca',
             placeId: place.place_id,
             rating: place.rating,
           }));
-        
+
         setHiddenGems(gems);
         console.log('✅ Loaded hidden gems:', gems.length);
       }
-      
+
     } catch (error: any) {
       console.error('❌ Error fetching hidden gems:', error);
     } finally {
@@ -503,7 +503,7 @@ export default function TravelerHomeScreen() {
                 </View>
               </Pressable>
             </View>
-            
+
             {/* <CustomButton
               variant='primary'
               size='medium'
@@ -542,10 +542,10 @@ export default function TravelerHomeScreen() {
 
               {selectedPlaceDetails.openingHours && (
                 <View style={styles.placeDetailsRow}>
-                  <Ionicons 
-                    name={selectedPlaceDetails.openingHours.openNow ? "time" : "time-outline"} 
-                    size={16} 
-                    color={selectedPlaceDetails.openingHours.openNow ? Colors.success : Colors.error} 
+                  <Ionicons
+                    name={selectedPlaceDetails.openingHours.openNow ? "time" : "time-outline"}
+                    size={16}
+                    color={selectedPlaceDetails.openingHours.openNow ? Colors.success : Colors.error}
                   />
                   <ThemedText style={[
                     styles.placeDetailsText,
@@ -575,7 +575,7 @@ export default function TravelerHomeScreen() {
               )}
 
               {selectedPlaceDetails.website && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.placeDetailsRow}
                   onPress={() => {/* Open website */}}
                 >
@@ -644,7 +644,7 @@ export default function TravelerHomeScreen() {
               <ThemedText variant="subtitle" style={styles.modalTitle}>Search & Discover</ThemedText>
               <View style={styles.placeholder} />
             </View>
-            
+
             <View style={styles.modalSearchArea}>
               <CustomTextInput
                 label=""
@@ -714,12 +714,12 @@ export default function TravelerHomeScreen() {
                   <ThemedText style={styles.emptySubtext}>Try searching for something else</ThemedText>
                 </View>
               )}
-              
+
               <View style={styles.quickSearchSection}>
                 <ThemedText variant="subtitle" style={styles.quickSearchTitle}>
                   {searchQuery.length > 0 ? 'Popular Places' : 'Quick Search'}
                 </ThemedText>
-                
+
                 <View style={styles.categorySection}>
                   <ThemedText style={styles.categoryTitle}>Popular Places</ThemedText>
                   {isLoadingPlaces ? (
@@ -795,7 +795,7 @@ export default function TravelerHomeScreen() {
         <View style={styles.discoverSection}>
           <View style={styles.sectionHeader}>
             <ThemedText variant="subtitle" style={styles.sectionTitle}>Trending Destinations</ThemedText>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.seeAllButton}
               onPress={() => router.push({
                 pathname: '/destinations/list' as any,
@@ -806,21 +806,21 @@ export default function TravelerHomeScreen() {
               <Ionicons name="chevron-forward" size={16} color={Colors.primary600} />
             </TouchableOpacity>
           </View>
-          
+
           {isLoadingTrending ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={Colors.primary600} />
               <ThemedText style={styles.loadingText}>Loading trending destinations...</ThemedText>
             </View>
           ) : (
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false} 
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.carouselContainer}
               style={styles.carousel}
             >
               {trendingDestinations.map((item, i) => (
-                <TouchableOpacity 
+                <TouchableOpacity
                   key={i}
                   onPress={() => {
                     setDestination(item.title);
@@ -832,21 +832,21 @@ export default function TravelerHomeScreen() {
                     }
                   }}
                 >
-                  <DestinationCard 
-                    title={item.title} 
-                    desc={item.desc} 
-                    img={item.img} 
+                  <DestinationCard
+                    title={item.title}
+                    desc={item.desc}
+                    img={item.img}
                   />
                 </TouchableOpacity>
               ))}
             </ScrollView>
           )}
         </View>
-        
+
         <View style={styles.discoverSection}>
           <View style={styles.sectionHeader}>
             <ThemedText variant="subtitle" style={styles.sectionTitle}>Local Favorites</ThemedText>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.seeAllButton}
               onPress={() => router.push({
                 pathname: '/destinations/list' as any,
@@ -857,21 +857,21 @@ export default function TravelerHomeScreen() {
               <Ionicons name="chevron-forward" size={16} color={Colors.primary600} />
             </TouchableOpacity>
           </View>
-          
+
           {isLoadingLocalFavorites ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={Colors.primary600} />
               <ThemedText style={styles.loadingText}>Loading local favorites...</ThemedText>
             </View>
           ) : (
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false} 
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.carouselContainer}
               style={styles.carousel}
             >
               {localFavorites.map((item, i) => (
-                <TouchableOpacity 
+                <TouchableOpacity
                   key={i}
                   onPress={() => {
                     setDestination(item.title);
@@ -883,21 +883,21 @@ export default function TravelerHomeScreen() {
                     }
                   }}
                 >
-                  <DestinationCard 
-                    title={item.title} 
-                    desc={item.desc} 
-                    img={item.img} 
+                  <DestinationCard
+                    title={item.title}
+                    desc={item.desc}
+                    img={item.img}
                   />
                 </TouchableOpacity>
               ))}
             </ScrollView>
           )}
         </View>
-        
+
         <View style={styles.discoverSection}>
           <View style={styles.sectionHeader}>
             <ThemedText variant="subtitle" style={styles.sectionTitle}>Hidden Gems</ThemedText>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.seeAllButton}
               onPress={() => router.push({
                 pathname: '/destinations/list' as any,
@@ -908,21 +908,21 @@ export default function TravelerHomeScreen() {
               <Ionicons name="chevron-forward" size={16} color={Colors.primary600} />
             </TouchableOpacity>
           </View>
-          
+
           {isLoadingHiddenGems ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={Colors.primary600} />
               <ThemedText style={styles.loadingText}>Loading hidden gems...</ThemedText>
             </View>
           ) : (
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false} 
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.carouselContainer}
               style={styles.carousel}
             >
               {hiddenGems.map((item, i) => (
-                <TouchableOpacity 
+                <TouchableOpacity
                   key={i}
                   onPress={() => {
                     setDestination(item.title);
@@ -934,10 +934,10 @@ export default function TravelerHomeScreen() {
                     }
                   }}
                 >
-                  <DestinationCard 
-                    title={item.title} 
-                    desc={item.desc} 
-                    img={item.img} 
+                  <DestinationCard
+                    title={item.title}
+                    desc={item.desc}
+                    img={item.img}
                   />
                 </TouchableOpacity>
               ))}
@@ -986,14 +986,14 @@ export default function TravelerHomeScreen() {
             ))}
           </View>
         </View>
-        
+
         {/* Personalized Elements - My Trips */}
         <View style={styles.personalSection}>
           <View style={styles.sectionHeaderWithDescription}>
             <ThemedText variant="subtitle" style={styles.sectionTitle}>My Trips</ThemedText>
             <ThemedText style={styles.sectionDescription}>Your travel memories and plans</ThemedText>
           </View>
-          
+
           {isLoadingTrips ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={Colors.primary600} />
@@ -1002,7 +1002,7 @@ export default function TravelerHomeScreen() {
           ) : myTripsData ? (
             <View style={styles.personalContainer}>
               {/* Saved Plans Card */}
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.personalCard}
                 onPress={() => router.push('/myTrips/saved-plans' as any)}
                 activeOpacity={0.7}
@@ -1020,7 +1020,7 @@ export default function TravelerHomeScreen() {
               </TouchableOpacity>
 
               {/* Unfinished Trips Card */}
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.personalCard}
                 onPress={() => router.push('/myTrips/unfinished' as any)}
                 activeOpacity={0.7}
@@ -1042,7 +1042,7 @@ export default function TravelerHomeScreen() {
               </TouchableOpacity>
 
               {/* Upcoming Trips Card */}
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.personalCard}
                 onPress={() => router.push('/myTrips/upcoming' as any)}
                 activeOpacity={0.7}
@@ -1091,7 +1091,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     paddingTop: 0,
   },
-  
+
   statusBarBackground: {
     position: 'absolute',
     top: 0,

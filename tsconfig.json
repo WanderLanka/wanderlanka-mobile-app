@@ -8,7 +8,7 @@
       ]
     },
     "jsx": "react-native",
-     "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true
   },
   "include": [
     "**/*.ts",
@@ -16,5 +16,10 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
     "nativewind-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "node_modules*/**",
+    "dist"
   ]
 }

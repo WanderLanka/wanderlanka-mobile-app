@@ -5,6 +5,7 @@ import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/Colors';
 
 interface ServicesTopBarProps {
+  onNotificationsPress?: () => void;
   onBackPress?: () => void;
   onProfilePress?: () => void;
   profileImage?: string; // URL or local image path
@@ -14,13 +15,17 @@ export const ServicesTopBar: React.FC<ServicesTopBarProps> = ({
   onBackPress,
   onProfilePress,
   profileImage,
+  onNotificationsPress,
 }) => {
   return (
     <View style={styles.topBar}>
-      <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/bookNow')}>
+      <TouchableOpacity style={styles.iconButton} onPress={onBackPress || (() => router.push('/bookNow'))}>
         <Ionicons name="arrow-back" size={26} color={Colors.white} />
       </TouchableOpacity>
       <View style={styles.rightGroup}>
+        {onNotificationsPress && <TouchableOpacity style={styles.iconButton} onPress={onNotificationsPress} accessibilityLabel="Notifications">
+          <Ionicons name="notifications-outline" size={24} color={Colors.white} />
+        </TouchableOpacity>}
         <TouchableOpacity style={styles.profileContainer} onPress={onProfilePress}>
           {profileImage ? (
             <Image source={{ uri: profileImage }} style={styles.profileImage} />
@@ -30,7 +35,7 @@ export const ServicesTopBar: React.FC<ServicesTopBarProps> = ({
             </View>
           )}
         </TouchableOpacity>
-        
+
       </View>
     </View>
   );

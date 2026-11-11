@@ -72,12 +72,12 @@ export default function ItineraryPlanningScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Place[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  
+
   // Notes and Checklists states
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [notesText, setNotesText] = useState('');
   const [editingNotesDay, setEditingNotesDay] = useState<number | null>(null);
-  
+
   const [showChecklistModal, setShowChecklistModal] = useState(false);
   const [checklistTitle, setChecklistTitle] = useState('');
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
@@ -100,14 +100,14 @@ export default function ItineraryPlanningScreen() {
     try {
       setIsLoading(true);
       const { itineraryApi } = require('../../../utils/itineraryApi');
-      
+
       console.log('📥 Loading itinerary:', itineraryId);
       const response = await itineraryApi.getItinerary(itineraryId);
 
       if (response.success && response.data) {
         const itineraryData = response.data;
         setItinerary(itineraryData);
-        
+
         // Convert backend day plans to local format
         const days: DayItinerary[] = itineraryData.dayPlans.map((dayPlan: any) => ({
           date: new Date(dayPlan.date).toISOString().split('T')[0],
@@ -134,7 +134,7 @@ export default function ItineraryPlanningScreen() {
             })),
           })),
         }));
-        
+
         setDayItineraries(days);
         console.log(`✅ Loaded ${days.length} days of itinerary`);
         const totalChecklists = days.reduce((sum, day) => sum + day.checklists.length, 0);
@@ -160,7 +160,7 @@ export default function ItineraryPlanningScreen() {
     }
 
     setIsSearching(true);
-    
+
     try {
       if (!GOOGLE_PLACES_API_KEY) {
         throw new Error('Google Places API key not configured');
@@ -188,22 +188,22 @@ export default function ItineraryPlanningScreen() {
             try {
               const detailsResponse = await fetch(detailsUrl);
               const detailsData = await detailsResponse.json();
-              
+
               if (detailsData.status === 'OK' && detailsData.result) {
                 const placeDetails = detailsData.result;
-                
+
                 // Format opening hours properly
                 let openingHours = 'Hours not available';
                 if (placeDetails.opening_hours) {
                   if (placeDetails.opening_hours.open_now !== undefined) {
-                    openingHours = placeDetails.opening_hours.open_now ? 
+                    openingHours = placeDetails.opening_hours.open_now ?
                       'Open now' : 'Closed now';
                   }
-                  
+
                   // Get today's hours if available
                   const today = new Date().getDay();
                   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-                  
+
                   if (placeDetails.opening_hours.weekday_text) {
                     const todayHours = placeDetails.opening_hours.weekday_text.find(
                       (day: string) => day.toLowerCase().includes(dayNames[today].toLowerCase())
@@ -215,7 +215,7 @@ export default function ItineraryPlanningScreen() {
                     }
                   }
                 }
-                
+
                 // Get proper description
                 let description = '';
                 if (placeDetails.editorial_summary?.overview) {
@@ -252,18 +252,18 @@ export default function ItineraryPlanningScreen() {
                     'church': 'Christian place of worship',
                     'mosque': 'Islamic place of worship'
                   };
-                  
+
                   const primaryType = placeDetails.types.find((type: string) => typeDescriptions[type]);
                   if (primaryType) {
                     description = typeDescriptions[primaryType];
                   }
                 }
-                
+
                 // Fallback description if none found
                 if (!description) {
                   description = `A notable place in ${itinerary?.endLocation?.name || 'Sri Lanka'}`;
                 }
-                
+
                 return {
                   id: place.place_id,
                   name: placeDetails.name,
@@ -275,7 +275,7 @@ export default function ItineraryPlanningScreen() {
                   },
                   openingHours: openingHours,
                   rating: placeDetails.rating,
-                  image: placeDetails.photos?.[0] ? 
+                  image: placeDetails.photos?.[0] ?
                     `https://maps.googleapis.com/maps/api/place/photo?` +
                     `maxwidth=400&photo_reference=${placeDetails.photos[0].photo_reference}&` +
                     `key=${GOOGLE_PLACES_API_KEY}` : undefined,
@@ -291,7 +291,7 @@ export default function ItineraryPlanningScreen() {
           })
         );                // Filter out null results
                 const validPlaces = places.filter(place => place !== null) as Place[];
-                
+
                 // Debug log to verify we're getting real data
                 console.log('🗺️ Places found:', validPlaces.length);
                 validPlaces.forEach(place => {
@@ -300,7 +300,7 @@ export default function ItineraryPlanningScreen() {
                   console.log(`   Description: ${place.description?.substring(0, 100) || 'No description'}...`);
                   console.log(`   Rating: ${place.rating || 'N/A'}`);
                 });
-                
+
                 setSearchResults(validPlaces);
       } else {
         console.warn('Places API response:', data.status, data.error_message);
@@ -419,7 +419,7 @@ export default function ItineraryPlanningScreen() {
 
   const handleFinalizeItinerary = async () => {
     const totalPlaces = dayItineraries.reduce((total, day) => total + day.places.length, 0);
-    
+
     if (totalPlaces === 0) {
       Alert.alert('Empty Itinerary', 'Please add at least one place to your itinerary.');
       return;
@@ -428,7 +428,7 @@ export default function ItineraryPlanningScreen() {
     // Save itinerary before finalizing
     console.log('📝 Finalizing itinerary...');
     const saved = await saveItineraryToDatabase();
-    
+
     if (!saved) {
       Alert.alert('Error', 'Failed to save itinerary. Please try again.');
       return;
@@ -515,7 +515,7 @@ export default function ItineraryPlanningScreen() {
   const handleEditChecklist = (dayNumber: number, checklistId: string) => {
     const day = dayItineraries.find(d => d.dayNumber === dayNumber);
     const checklist = day?.checklists.find(c => c.id === checklistId);
-    
+
     if (checklist) {
       setChecklistTitle(checklist.title);
       setChecklistItems([...checklist.items]);
@@ -544,7 +544,7 @@ export default function ItineraryPlanningScreen() {
           // Update existing checklist
           return {
             ...day,
-            checklists: day.checklists.map(c => 
+            checklists: day.checklists.map(c =>
               c.id === editingChecklistId ? newChecklist : c
             ),
           };
@@ -560,7 +560,7 @@ export default function ItineraryPlanningScreen() {
     }));
 
     handleCancelChecklist();
-    
+
     // Auto-save after saving checklist
     setTimeout(() => saveItineraryToDatabase(), 500);
   };
@@ -594,7 +594,7 @@ export default function ItineraryPlanningScreen() {
               }
               return day;
             }));
-            
+
             // Auto-save after deleting checklist
             setTimeout(() => saveItineraryToDatabase(), 500);
           },
@@ -629,7 +629,7 @@ export default function ItineraryPlanningScreen() {
             if (checklist.id === checklistId) {
               return {
                 ...checklist,
-                items: checklist.items.map(item => 
+                items: checklist.items.map(item =>
                   item.id === itemId ? { ...item, completed: !item.completed } : item
                 ),
               };
@@ -640,7 +640,7 @@ export default function ItineraryPlanningScreen() {
       }
       return day;
     }));
-    
+
     // Auto-save after toggling checklist item
     setTimeout(() => saveItineraryToDatabase(), 500);
   };
@@ -819,7 +819,7 @@ export default function ItineraryPlanningScreen() {
                   <Ionicons name="add" size={16} color={Colors.primary600} />
                 </TouchableOpacity>
               </View>
-              
+
               {day.checklists.map((checklist) => (
                 <View key={checklist.id} style={styles.checklistCard}>
                   <View style={styles.checklistHeader}>
@@ -839,7 +839,7 @@ export default function ItineraryPlanningScreen() {
                       </TouchableOpacity>
                     </View>
                   </View>
-                  
+
                   <View style={styles.checklistItems}>
                     {checklist.items.map((item) => (
                       <TouchableOpacity
@@ -863,7 +863,7 @@ export default function ItineraryPlanningScreen() {
                       </TouchableOpacity>
                     ))}
                   </View>
-                  
+
                   <View style={styles.checklistProgress}>
                     <ThemedText style={styles.checklistProgressText}>
                       {checklist.items.filter(item => item.completed).length} of {checklist.items.length} completed
@@ -948,7 +948,7 @@ export default function ItineraryPlanningScreen() {
                 <View style={styles.emptyContainer}>
                   <Ionicons name="location-outline" size={48} color={Colors.secondary400} />
                   <ThemedText style={styles.noResultsText}>
-                    No places found for "{searchQuery}"
+                    No places found for &quot;{searchQuery}&quot;
                   </ThemedText>
                   <ThemedText style={styles.noResultsSubtext}>
                     Try different keywords or check spelling
@@ -1052,14 +1052,14 @@ export default function ItineraryPlanningScreen() {
 
               <View style={styles.checklistItemsContainer}>
                 <ThemedText style={styles.checklistItemsTitle}>Items:</ThemedText>
-                
+
                 {checklistItems.map((item) => (
                   <View key={item.id} style={styles.checklistItemRow}>
                     <TouchableOpacity
                       style={styles.checklistItemToggle}
                       onPress={() => {
-                        setChecklistItems(prev => prev.map(prevItem => 
-                          prevItem.id === item.id 
+                        setChecklistItems(prev => prev.map(prevItem =>
+                          prevItem.id === item.id
                             ? { ...prevItem, completed: !prevItem.completed }
                             : prevItem
                         ));
@@ -1294,7 +1294,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 8,
   },
-  
+
   // Notes section styles
   notesSection: {
     marginBottom: 16,
@@ -1339,7 +1339,7 @@ const styles = StyleSheet.create({
     color: Colors.primary600,
     marginLeft: 8,
   },
-  
+
   // Checklist section styles
   checklistsSection: {
     marginBottom: 16,
@@ -1412,7 +1412,7 @@ const styles = StyleSheet.create({
     color: Colors.primary600,
     marginLeft: 8,
   },
-  
+
   bottomActions: {
     padding: 20,
     backgroundColor: Colors.white,
@@ -1424,7 +1424,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 16,
   },
-  
+
   // Modal styles
   modalContainer: {
     flex: 1,
@@ -1481,7 +1481,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  
+
   // Search styles
   searchContainer: {
     paddingHorizontal: 20,
@@ -1606,7 +1606,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
   },
-  
+
   // Notes modal styles
   notesInput: {
     backgroundColor: Colors.white,
@@ -1619,7 +1619,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.secondary200,
   },
-  
+
   // Checklist modal styles
   checklistTitleInput: {
     backgroundColor: Colors.white,

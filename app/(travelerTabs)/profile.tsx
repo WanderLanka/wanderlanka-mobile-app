@@ -105,16 +105,16 @@ interface ProfileItemProps {
   rightComponent?: React.ReactNode;
 }
 
-const ProfileItem: React.FC<ProfileItemProps> = ({ 
-  icon, 
-  label, 
-  value, 
-  onPress, 
+const ProfileItem: React.FC<ProfileItemProps> = ({
+  icon,
+  label,
+  value,
+  onPress,
   showArrow = true,
-  rightComponent 
+  rightComponent
 }) => (
-  <TouchableOpacity 
-    style={styles.profileItem} 
+  <TouchableOpacity
+    style={styles.profileItem}
     onPress={onPress}
     disabled={!onPress}
   >
@@ -137,12 +137,12 @@ const ProfileItem: React.FC<ProfileItemProps> = ({
 
 export default function ProfileScreen() {
   const { logout } = useAuth();
-  
+
   // State for user profile data
   const [userData, setUserData] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   // UI preferences state
   const [darkMode, setDarkMode] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -284,8 +284,8 @@ export default function ProfileScreen() {
       'Are you sure you want to logout?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Logout', 
+        {
+          text: 'Logout',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -326,11 +326,11 @@ export default function ProfileScreen() {
     try {
       setIsDeleting(true);
       await deleteAccount(deletePassword, deleteConfirmation);
-      
+
       setShowPasswordModal(false);
       setDeletePassword('');
       setDeleteConfirmation('');
-      
+
       Alert.alert(
         'Account Deleted',
         'Your account has been successfully deleted. You will be logged out.',
@@ -371,7 +371,7 @@ export default function ProfileScreen() {
               size={80}
               onEdit={handleEditProfile}
             />
-            
+
             <View style={styles.profileInfo}>
               <Text style={styles.userName}>{displayData.fullName || displayData.username}</Text>
               <Text style={styles.userEmail}>{displayData.email}</Text>
@@ -385,8 +385,8 @@ export default function ProfileScreen() {
           </View>
 
         {/* Stats Cards */}
-        {/* <ScrollView 
-          horizontal 
+        {/* <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.statsScrollView}
           contentContainerStyle={styles.statsContainer}
@@ -400,7 +400,7 @@ export default function ProfileScreen() {
               <Text style={styles.statLabel}>Trips Completed</Text>
             </View>
           </View>
-          
+
           <View style={styles.statCard}>
             <View style={styles.statIconContainer}>
               <Ionicons name="location-outline" size={24} color={Colors.primary600} />
@@ -410,7 +410,7 @@ export default function ProfileScreen() {
               <Text style={styles.statLabel}>Places Visited</Text>
             </View>
           </View>
-          
+
           <View style={styles.statCard}>
             <View style={styles.statIconContainer}>
               <Ionicons name="gift-outline" size={24} color={Colors.primary600} />
@@ -422,7 +422,7 @@ export default function ProfileScreen() {
               <Text style={styles.statLabel}>Loyalty Points</Text>
             </View>
           </View>
-          
+
           <View style={styles.statCard}>
             <View style={styles.statIconContainer}>
               <Ionicons name="speedometer-outline" size={24} color={Colors.primary600} />
@@ -451,10 +451,10 @@ export default function ProfileScreen() {
             showArrow={false}
             rightComponent={
               <View style={styles.verifiedBadge}>
-                <Ionicons 
-                  name={MOCK_USER_DATA.isActive ? "checkmark-circle" : "alert-circle"} 
-                  size={16} 
-                  color={MOCK_USER_DATA.isActive ? Colors.success : Colors.warning} 
+                <Ionicons
+                  name={MOCK_USER_DATA.isActive ? "checkmark-circle" : "alert-circle"}
+                  size={16}
+                  color={MOCK_USER_DATA.isActive ? Colors.success : Colors.warning}
                 />
                 <Text style={[styles.verifiedText, { color: MOCK_USER_DATA.isActive ? Colors.success : Colors.warning }]}>
                   {MOCK_USER_DATA.isActive ? "Active" : "Inactive"}
@@ -469,10 +469,10 @@ export default function ProfileScreen() {
             showArrow={false}
             rightComponent={
               <View style={styles.verifiedBadge}>
-                <Ionicons 
-                  name={displayData.phoneVerified ? "checkmark-circle" : "alert-circle"} 
-                  size={16} 
-                  color={displayData.phoneVerified ? Colors.success : Colors.warning} 
+                <Ionicons
+                  name={displayData.phoneVerified ? "checkmark-circle" : "alert-circle"}
+                  size={16}
+                  color={displayData.phoneVerified ? Colors.success : Colors.warning}
                 />
                 <Text style={[styles.verifiedText, { color: displayData.phoneVerified ? Colors.success : Colors.warning }]}>
                   {displayData.phoneVerified ? "Verified" : "Not Verified"}
@@ -618,10 +618,10 @@ export default function ProfileScreen() {
             showArrow={false}
             rightComponent={
               <View style={styles.verifiedBadge}>
-                <Ionicons 
-                  name={displayData.isActive ? "shield-checkmark" : "shield-outline"} 
-                  size={16} 
-                  color={displayData.isActive ? Colors.success : Colors.warning} 
+                <Ionicons
+                  name={displayData.isActive ? "shield-checkmark" : "shield-outline"}
+                  size={16}
+                  color={displayData.isActive ? Colors.success : Colors.warning}
                 />
                 <Text style={[styles.verifiedText, { color: displayData.isActive ? Colors.success : Colors.warning }]}>
                   {displayData.isActive ? "Active" : "Inactive"}
@@ -671,11 +671,11 @@ export default function ProfileScreen() {
         <View style={styles.passwordModalOverlay}>
           <View style={styles.passwordModalContainer}>
             <Text style={styles.passwordModalTitle}>Final Confirmation</Text>
-            
+
             <Text style={styles.passwordModalSubtitle}>
-              Enter your password and type "DELETE MY ACCOUNT" to confirm
+              Enter your password and type &quot;DELETE MY ACCOUNT&quot; to confirm
             </Text>
-            
+
             <TextInput
               style={styles.passwordInput}
               placeholder="Enter your password"
@@ -684,7 +684,7 @@ export default function ProfileScreen() {
               onChangeText={setDeletePassword}
               autoCapitalize="none"
             />
-            
+
             <TextInput
               style={styles.confirmationInput}
               placeholder='Type "DELETE MY ACCOUNT"'
@@ -692,7 +692,7 @@ export default function ProfileScreen() {
               onChangeText={setDeleteConfirmation}
               autoCapitalize="characters"
             />
-            
+
             <View style={styles.passwordModalButtons}>
               <TouchableOpacity
                 style={styles.passwordCancelButton}
@@ -705,7 +705,7 @@ export default function ProfileScreen() {
               >
                 <Text style={styles.passwordCancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={[styles.passwordConfirmButton, isDeleting && styles.passwordConfirmButtonDisabled]}
                 onPress={handleFinalDeleteConfirmation}

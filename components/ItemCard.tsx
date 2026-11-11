@@ -6,6 +6,8 @@ import { Colors } from '../constants/Colors';
 import { StarRating } from './StarRating';
 
 interface ItemCardProps {
+  capacity?: number;
+  ac?: boolean;
   image: string;
   title: string;
   price?: string;
@@ -14,7 +16,7 @@ interface ItemCardProps {
   buttonText?: string;
   type: 'accommodation' | 'vehicle' | 'guide';
   id?: string; // Add ID prop for navigation
-  onPress?: () => void; 
+  onPress?: () => void;
   style?: any;
 }
 
@@ -43,10 +45,10 @@ export const ItemCard: React.FC<ItemCardProps> = ({ image, title, price, city, r
       <Image source={{ uri: image }} style={styles.image} />
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={1}> {title.trim() || ' '}</Text>
-        {city && <Text style={styles.city} numberOfLines={1}>{city.trim()}</Text>}      
+        {city && <Text style={styles.city} numberOfLines={1}>{city.trim()}</Text>}
         <View style={styles.row}>
           {typeof rating === 'number' && rating > 0 ? (
-            <StarRating 
+            <StarRating
               rating={rating}
               size={14}
               showNumber={true}
@@ -54,7 +56,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({ image, title, price, city, r
               emptyColor={Colors.secondary300}
             />
           ) : null}
-          
+
           {price ? (
             <Text style={styles.price}>
               {price.trim()}

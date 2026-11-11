@@ -15,7 +15,7 @@ import { Calendar } from 'react-native-calendars';
 export default function VehicleDetailScreen() {
   const { title: id } = useLocalSearchParams(); // Now expecting ID instead of title
   const [showBookingModal, setShowBookingModal] = useState(false);
-  
+
   // API data state
   const [transportation, setTransportation] = useState<Transportation | null>(null);
   const [loading, setLoading] = useState(true);
@@ -39,7 +39,7 @@ export default function VehicleDetailScreen() {
   });
   const [bookingLoading, setBookingLoading] = useState(false);
   const [showStartDateCalendar, setShowStartDateCalendar] = useState(false);
-  
+
   // Map transportation data to display format using actual database fields
   const details = transportation ? {
     image: transportation.images && transportation.images.length > 0 ? transportation.images[0] : 'https://via.placeholder.com/400x280/3b82f6/ffffff?text=Vehicle+Image',
@@ -59,7 +59,7 @@ export default function VehicleDetailScreen() {
       name: transportation.driverName || 'Driver information not available',
       phone: transportation.driverPhone || 'Contact not available',
       license: transportation.driverLicense || 'License not available',
-      bio: transportation.driverName && transportation.driverPhone 
+      bio: transportation.driverName && transportation.driverPhone
         ? `Professional driver: ${transportation.driverName}. Contact: ${transportation.driverPhone}`
         : 'Driver information will be provided upon booking confirmation.'
     },
@@ -69,14 +69,14 @@ export default function VehicleDetailScreen() {
   // Fetch transportation data
   const fetchTransportationDetails = useCallback(async () => {
     if (!id) return;
-    
+
     try {
       setLoading(true);
       setError(null);
-      
+
       console.log('🚗 Fetching transportation details for ID:', id);
-      const response = await TransportationApiService.getTransportationById(id);
-      
+      const response = await TransportationApiService.getTransportationById(Array.isArray(id) ? id[0] : id);
+
       if (response.success && response.data) {
         setTransportation(response.data);
         console.log('✅ Transportation details loaded:', `${response.data.brand} ${response.data.model}`);
@@ -115,8 +115,8 @@ export default function VehicleDetailScreen() {
       return;
     }
 
-    if (!bookingData.startDate || !bookingData.pickupLocation || 
-        !bookingData.guestDetails.firstName || !bookingData.guestDetails.lastName || 
+    if (!bookingData.startDate || !bookingData.pickupLocation ||
+        !bookingData.guestDetails.firstName || !bookingData.guestDetails.lastName ||
         !bookingData.guestDetails.email || !bookingData.guestDetails.phone) {
       console.error('Please fill in all required fields');
       return;
@@ -124,7 +124,7 @@ export default function VehicleDetailScreen() {
 
     try {
       setBookingLoading(true);
-      
+
       const userData = await StorageService.getUserData();
       if (!userData) {
         throw new Error('Please log in to make a booking');
@@ -166,16 +166,16 @@ export default function VehicleDetailScreen() {
       };
 
       console.log('🚗 Creating transportation booking:', bookingPayload);
-      
+
       const response = await BookingService.createTransportationBooking(bookingPayload);
-      
+
       if (response.success) {
         console.log('✅ Transportation booking created successfully');
         // You can add success handling here (e.g., show success message, navigate, etc.)
       } else {
         throw new Error(response.error || 'Failed to create booking');
       }
-      
+
     } catch (error: any) {
       console.error('❌ Error creating transportation booking:', error);
       // You can add error handling here (e.g., show error message)
@@ -320,7 +320,7 @@ export default function VehicleDetailScreen() {
               <ThemedText style={styles.driverTitle}>Professional Driver</ThemedText>
             </View>
           </View>
-          
+
           {details.driver.name !== 'Driver information not available' ? (
             <>
               <View style={styles.driverDetails}>
@@ -337,7 +337,7 @@ export default function VehicleDetailScreen() {
                   <ThemedText style={styles.driverDetailText}>Verified & Insured</ThemedText>
                 </View>
               </View>
-              
+
               <View style={styles.driverBio}>
                 <ThemedText style={styles.driverBioText}>{details.driver.bio}</ThemedText>
               </View>
@@ -374,15 +374,15 @@ export default function VehicleDetailScreen() {
               <ThemedText variant="title" style={styles.modalTitle}>Book Vehicle</ThemedText>
               <ThemedText style={styles.modalSubtitle}>Complete your booking details</ThemedText>
             </View>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.closeButton}
               onPress={() => setShowBookingModal(false)}
             >
               <Ionicons name="close" size={24} color={Colors.text} />
             </TouchableOpacity>
           </View>
-          
-          <ScrollView 
+
+          <ScrollView
             contentContainerStyle={styles.modalContent}
             showsVerticalScrollIndicator={false}
           >
@@ -404,7 +404,7 @@ export default function VehicleDetailScreen() {
             </View>
 
             {/* Start Date Selection */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.datePickerButton}
               onPress={() => setShowStartDateCalendar(true)}
               activeOpacity={0.7}
@@ -489,9 +489,9 @@ export default function VehicleDetailScreen() {
               <View style={styles.passengersRow}>
                 <TouchableOpacity
                   style={styles.passengerButton}
-                  onPress={() => setBookingData(prev => ({ 
-                    ...prev, 
-                    passengers: Math.max(1, prev.passengers - 1) 
+                  onPress={() => setBookingData(prev => ({
+                    ...prev,
+                    passengers: Math.max(1, prev.passengers - 1)
                   }))}
                 >
                   <Ionicons name="remove" size={16} color={Colors.primary600} />
@@ -499,9 +499,9 @@ export default function VehicleDetailScreen() {
                 <ThemedText style={styles.passengerValue}>{bookingData.passengers}</ThemedText>
                 <TouchableOpacity
                   style={styles.passengerButton}
-                  onPress={() => setBookingData(prev => ({ 
-                    ...prev, 
-                    passengers: Math.min(transportation?.seats || 10, prev.passengers + 1) 
+                  onPress={() => setBookingData(prev => ({
+                    ...prev,
+                    passengers: Math.min(transportation?.seats || 10, prev.passengers + 1)
                   }))}
                 >
                   <Ionicons name="add" size={16} color={Colors.primary600} />
@@ -521,38 +521,38 @@ export default function VehicleDetailScreen() {
             <View style={styles.guestDetailsContainer}>
               <View style={styles.guestDetailsRow}>
                 <CustomTextInput
-                  label="First Name" 
-                  value={bookingData.guestDetails.firstName} 
-                  onChangeText={(val) => setBookingData(prev => ({ ...prev, guestDetails: { ...prev.guestDetails, firstName: val } }))} 
-                  containerStyle={{ flex: 1, marginRight: 8 }} 
+                  label="First Name"
+                  value={bookingData.guestDetails.firstName}
+                  onChangeText={(val) => setBookingData(prev => ({ ...prev, guestDetails: { ...prev.guestDetails, firstName: val } }))}
+                  containerStyle={{ flex: 1, marginRight: 8 }}
                 />
-                <CustomTextInput 
-                  label="Last Name" 
-                  value={bookingData.guestDetails.lastName} 
-                  onChangeText={(val) => setBookingData(prev => ({ ...prev, guestDetails: { ...prev.guestDetails, lastName: val } }))} 
-                  containerStyle={{ flex: 1, marginLeft: 8 }} 
+                <CustomTextInput
+                  label="Last Name"
+                  value={bookingData.guestDetails.lastName}
+                  onChangeText={(val) => setBookingData(prev => ({ ...prev, guestDetails: { ...prev.guestDetails, lastName: val } }))}
+                  containerStyle={{ flex: 1, marginLeft: 8 }}
                 />
               </View>
               <CustomTextInput
-                label="Email" 
-                value={bookingData.guestDetails.email} 
-                onChangeText={(val) => setBookingData(prev => ({ ...prev, guestDetails: { ...prev.guestDetails, email: val } }))} 
-                keyboardType="email-address" 
-                containerStyle={{ marginBottom: 12 }} 
+                label="Email"
+                value={bookingData.guestDetails.email}
+                onChangeText={(val) => setBookingData(prev => ({ ...prev, guestDetails: { ...prev.guestDetails, email: val } }))}
+                keyboardType="email-address"
+                containerStyle={{ marginBottom: 12 }}
               />
-              <CustomTextInput 
-                label="Phone Number" 
-                value={bookingData.guestDetails.phone} 
-                onChangeText={(val) => setBookingData(prev => ({ ...prev, guestDetails: { ...prev.guestDetails, phone: val } }))} 
-                keyboardType="phone-pad" 
-                containerStyle={{ marginBottom: 12 }} 
+              <CustomTextInput
+                label="Phone Number"
+                value={bookingData.guestDetails.phone}
+                onChangeText={(val) => setBookingData(prev => ({ ...prev, guestDetails: { ...prev.guestDetails, phone: val } }))}
+                keyboardType="phone-pad"
+                containerStyle={{ marginBottom: 12 }}
               />
-              <CustomTextInput 
-                label="Emergency Contact (Optional)" 
-                value={bookingData.guestDetails.emergencyContact} 
-                onChangeText={(val) => setBookingData(prev => ({ ...prev, guestDetails: { ...prev.guestDetails, emergencyContact: val } }))} 
-                keyboardType="phone-pad" 
-                containerStyle={{ marginBottom: 12 }} 
+              <CustomTextInput
+                label="Emergency Contact (Optional)"
+                value={bookingData.guestDetails.emergencyContact}
+                onChangeText={(val) => setBookingData(prev => ({ ...prev, guestDetails: { ...prev.guestDetails, emergencyContact: val } }))}
+                keyboardType="phone-pad"
+                containerStyle={{ marginBottom: 12 }}
               />
             </View>
 
@@ -594,9 +594,9 @@ export default function VehicleDetailScreen() {
               size="large"
               style={styles.proceedButton}
               onPress={handleBookTransport}
-              disabled={!bookingData.startDate || !bookingData.pickupLocation || 
-                       !bookingData.guestDetails.firstName || !bookingData.guestDetails.lastName || 
-                       !bookingData.guestDetails.email || !bookingData.guestDetails.phone || 
+              disabled={!bookingData.startDate || !bookingData.pickupLocation ||
+                       !bookingData.guestDetails.firstName || !bookingData.guestDetails.lastName ||
+                       !bookingData.guestDetails.email || !bookingData.guestDetails.phone ||
                        bookingLoading}
             />
           </ScrollView>
@@ -617,7 +617,7 @@ export default function VehicleDetailScreen() {
               <Ionicons name="close" size={24} color={Colors.secondary700} />
               </TouchableOpacity>
             </View>
-          
+
           <View style={styles.calendarContainer}>
             <Calendar
               style={styles.calendar}
@@ -663,6 +663,9 @@ export default function VehicleDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  guestDetailsContainer: { gap: 12 },
+  guestDetailsRow: { flexDirection: 'row', gap: 12 },
+  proceedButton: { backgroundColor: Colors.primary600, padding: 16, borderRadius: 12, alignItems: 'center' },
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
@@ -885,7 +888,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: '500',
   },
-  
+
   // Modal Styles
   modalContainer: {
     flex: 1,
@@ -931,7 +934,7 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingBottom: 60,
   },
-  
+
   // Vehicle Summary Styles
   vehicleSummaryCard: {
     flexDirection: 'row',
@@ -970,7 +973,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#059669',
   },
-  
+
   // Section Styles
   sectionHeader: {
     marginTop: 32,

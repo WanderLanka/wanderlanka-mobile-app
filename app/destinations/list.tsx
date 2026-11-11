@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components';
 import { Colors } from '@/constants/Colors';
 
-const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || 'AIzaSyBPAjLGZlFyzwIRo60j3HlhR7Qp0pmqQQ8';
+const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || (process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '');
 
 interface Destination {
   title: string;
@@ -20,7 +20,7 @@ export default function DestinationsListScreen() {
   const params = useLocalSearchParams();
   const category = params.category as string;
   const title = params.title as string;
-  
+
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -32,9 +32,9 @@ export default function DestinationsListScreen() {
     try {
       setIsLoading(true);
       console.log(`🔍 Fetching ${category} destinations...`);
-      
+
       let searchQuery = '';
-      
+
       switch (category) {
         case 'trending':
           searchQuery = 'popular tourist attractions Sri Lanka';
@@ -48,11 +48,11 @@ export default function DestinationsListScreen() {
         default:
           searchQuery = 'tourist attractions Sri Lanka';
       }
-      
+
       const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&key=${GOOGLE_PLACES_API_KEY}`;
       const response = await fetch(searchUrl);
       const data = await response.json();
-      
+
       if (data.status === 'OK' && data.results) {
         const places = data.results
           .filter((place: any) => place.rating && place.rating >= 4.0)
@@ -60,17 +60,17 @@ export default function DestinationsListScreen() {
           .map((place: any) => ({
             title: place.name,
             desc: place.types?.[0]?.replace(/_/g, ' ') || place.vicinity || 'Destination',
-            img: place.photos?.[0]?.photo_reference 
+            img: place.photos?.[0]?.photo_reference
               ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${place.photos[0].photo_reference}&key=${GOOGLE_PLACES_API_KEY}`
               : 'https://images.unsplash.com/photo-1506744038136-46273834b3fb',
             placeId: place.place_id,
             rating: place.rating,
           }));
-        
+
         setDestinations(places);
         console.log(`✅ Loaded ${places.length} destinations`);
       }
-      
+
     } catch (error: any) {
       console.error(`❌ Error fetching ${category} destinations:`, error);
     } finally {
@@ -90,7 +90,7 @@ export default function DestinationsListScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
         >
@@ -107,7 +107,7 @@ export default function DestinationsListScreen() {
           <ThemedText style={styles.loadingText}>Loading destinations...</ThemedText>
         </View>
       ) : (
-        <ScrollView 
+        <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
@@ -119,8 +119,8 @@ export default function DestinationsListScreen() {
               onPress={() => handleDestinationPress(destination)}
               activeOpacity={0.7}
             >
-              <Image 
-                source={{ uri: destination.img }} 
+              <Image
+                source={{ uri: destination.img }}
                 style={styles.destinationImage}
                 resizeMode="cover"
               />
@@ -142,7 +142,7 @@ export default function DestinationsListScreen() {
               </View>
             </TouchableOpacity>
           ))}
-          
+
           {destinations.length === 0 && !isLoading && (
             <View style={styles.emptyContainer}>
               <Ionicons name="location-outline" size={64} color={Colors.primary300} />
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.white,
   },
-  
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -170,14 +170,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.primary100,
   },
-  
+
   backButton: {
     width: 40,
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  
+
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
@@ -185,19 +185,19 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
   },
-  
+
   placeholder: {
     width: 40,
   },
-  
+
   scrollView: {
     flex: 1,
   },
-  
+
   contentContainer: {
     padding: 20,
   },
-  
+
   destinationCard: {
     flexDirection: 'row',
     backgroundColor: Colors.white,
@@ -210,25 +210,25 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  
+
   destinationImage: {
     width: 120,
     height: 120,
   },
-  
+
   destinationInfo: {
     flex: 1,
     padding: 16,
     justifyContent: 'space-between',
   },
-  
+
   destinationHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 8,
   },
-  
+
   destinationTitle: {
     fontSize: 16,
     fontWeight: '700',
@@ -236,44 +236,44 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
-  
+
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
-  
+
   ratingText: {
     fontSize: 14,
     fontWeight: '600',
     color: Colors.primary700,
   },
-  
+
   destinationDesc: {
     fontSize: 13,
     color: Colors.primary600,
     lineHeight: 18,
   },
-  
+
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
   },
-  
+
   loadingText: {
     marginTop: 16,
     fontSize: 14,
     color: Colors.primary600,
   },
-  
+
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
   },
-  
+
   emptyText: {
     marginTop: 16,
     fontSize: 16,

@@ -13,11 +13,11 @@ export class TransportationApiService {
   static async getAllTransportation(): Promise<TransportationResponse> {
     try {
       console.log('🚗 Fetching all transportation...');
-      
+
       const response = await ApiService.get<TransportationResponse>(
         `${this.TRANSPORTATION_ENDPOINT}/transportation`
       );
-      
+
       console.log('✅ Transportation fetched successfully:', response);
       return response;
     } catch (error: any) {
@@ -32,11 +32,11 @@ export class TransportationApiService {
   static async getTransportationById(id: string): Promise<TransportationDetailResponse> {
     try {
       console.log('🚗 Fetching transportation by ID:', id);
-      
+
       const response = await ApiService.get<TransportationDetailResponse>(
         `${this.TRANSPORTATION_ENDPOINT}/transportation/${id}`
       );
-      
+
       console.log('✅ Transportation details fetched successfully:', response);
       return response;
     } catch (error: any) {
@@ -51,23 +51,23 @@ export class TransportationApiService {
   static async searchTransportation(filters: TransportationFilters): Promise<TransportationResponse> {
     try {
       console.log('🔍 Searching transportation with filters:', filters);
-      
+
       const queryParams = new URLSearchParams();
-      
+
       if (filters.location) queryParams.append('location', filters.location);
       if (filters.vehicleType) queryParams.append('vehicleType', filters.vehicleType);
       if (filters.minSeats) queryParams.append('minSeats', filters.minSeats.toString());
       if (filters.maxPrice) queryParams.append('maxPrice', filters.maxPrice.toString());
       if (filters.ac) queryParams.append('ac', filters.ac.toString());
       if (filters.fuelType) queryParams.append('fuelType', filters.fuelType);
-      
+
       const queryString = queryParams.toString();
-      const url = queryString 
+      const url = queryString
         ? `${this.TRANSPORTATION_ENDPOINT}/transportation?${queryString}`
         : `${this.TRANSPORTATION_ENDPOINT}/transportation`;
-      
+
       const response = await ApiService.get<TransportationResponse>(url);
-      
+
       console.log('✅ Transportation search completed:', response);
       return response;
     } catch (error: any) {
@@ -81,6 +81,7 @@ export class TransportationApiService {
  * Type definitions for transportation data
  */
 export interface Transportation {
+  rating?: number;
   _id: string;
   userId: string;
   vehicleType: 'car' | 'van' | 'bus';

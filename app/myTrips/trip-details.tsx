@@ -32,7 +32,7 @@ export default function TripDetailsScreen() {
     try {
       setIsLoading(true);
       const response = await myTripsApi.getTripDetails(tripId as string);
-      
+
       if (response.success && response.data) {
         console.log('Trip details loaded:', response.data);
         setTrip(response.data);
@@ -48,11 +48,11 @@ export default function TripDetailsScreen() {
   const handleToggleChecklistItem = async (itemId: string, currentStatus: boolean) => {
     try {
       console.log(`Toggling checklist item ${itemId} from ${currentStatus} to ${!currentStatus}`);
-      
+
       // Optimistic update - update UI immediately
       setTrip((prevTrip: any) => {
         if (!prevTrip) return prevTrip;
-        
+
         return {
           ...prevTrip,
           checklist: prevTrip.checklist.map((item: any) =>
@@ -72,7 +72,7 @@ export default function TripDetailsScreen() {
         // Revert on failure
         setTrip((prevTrip: any) => {
           if (!prevTrip) return prevTrip;
-          
+
           return {
             ...prevTrip,
             checklist: prevTrip.checklist.map((item: any) =>
@@ -87,7 +87,7 @@ export default function TripDetailsScreen() {
       // Revert on error
       setTrip((prevTrip: any) => {
         if (!prevTrip) return prevTrip;
-        
+
         return {
           ...prevTrip,
           checklist: prevTrip.checklist.map((item: any) =>
@@ -132,7 +132,7 @@ export default function TripDetailsScreen() {
           <Ionicons name="alert-circle-outline" size={64} color={Colors.error} />
           <ThemedText style={styles.errorTitle}>Trip Not Found</ThemedText>
           <ThemedText style={styles.errorText}>
-            The trip you're looking for doesn't exist or has been deleted.
+            The trip you&apos;re looking for doesn&apos;t exist or has been deleted.
           </ThemedText>
           <CustomButton
             title="Go Back"
@@ -150,7 +150,7 @@ export default function TripDetailsScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
         >
@@ -175,7 +175,7 @@ export default function TripDetailsScreen() {
               </ThemedText>
             </View>
           </View>
-          
+
           <View style={styles.locationRow}>
             <View style={styles.locationItem}>
               <Ionicons name="location" size={16} color={Colors.success} />
@@ -198,10 +198,10 @@ export default function TripDetailsScreen() {
               <View style={styles.scheduleInfo}>
                 <ThemedText style={styles.scheduleLabel}>Start Date</ThemedText>
                 <ThemedText style={styles.scheduleValue}>
-                  {new Date(trip.startDate).toLocaleDateString('en-US', { 
-                    month: 'long', 
-                    day: 'numeric', 
-                    year: 'numeric' 
+                  {new Date(trip.startDate).toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric'
                   })}
                 </ThemedText>
               </View>
@@ -212,10 +212,10 @@ export default function TripDetailsScreen() {
               <View style={styles.scheduleInfo}>
                 <ThemedText style={styles.scheduleLabel}>End Date</ThemedText>
                 <ThemedText style={styles.scheduleValue}>
-                  {new Date(trip.endDate).toLocaleDateString('en-US', { 
-                    month: 'long', 
-                    day: 'numeric', 
-                    year: 'numeric' 
+                  {new Date(trip.endDate).toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric'
                   })}
                 </ThemedText>
               </View>
@@ -285,7 +285,7 @@ export default function TripDetailsScreen() {
                   {trip.selectedRoute.routeName || 'Selected Route'}
                 </ThemedText>
               </View>
-              
+
               <View style={styles.routeStatsGrid}>
                 <View style={styles.routeStatCard}>
                   <Ionicons name="speedometer" size={24} color={Colors.primary600} />
@@ -328,10 +328,10 @@ export default function TripDetailsScreen() {
                   activeOpacity={0.7}
                 >
                   <View style={styles.checklistLeft}>
-                    <Ionicons 
-                      name={item.completed ? "checkmark-circle" : "ellipse-outline"} 
-                      size={20} 
-                      color={item.completed ? Colors.success : Colors.secondary400} 
+                    <Ionicons
+                      name={item.completed ? "checkmark-circle" : "ellipse-outline"}
+                      size={20}
+                      color={item.completed ? Colors.success : Colors.secondary400}
                     />
                     <ThemedText style={[
                       styles.checklistText,
@@ -363,8 +363,8 @@ export default function TripDetailsScreen() {
                     </View>
                     {note.dayDate && (
                       <ThemedText style={styles.noteDate}>
-                        {new Date(note.dayDate).toLocaleDateString('en-US', { 
-                          month: 'short', 
+                        {new Date(note.dayDate).toLocaleDateString('en-US', {
+                          month: 'short',
                           day: 'numeric'
                         })}
                       </ThemedText>
@@ -394,9 +394,9 @@ export default function TripDetailsScreen() {
                     <ThemedText style={styles.dayNumberText}>Day {day.dayNumber}</ThemedText>
                   </View>
                   <ThemedText style={styles.dayDate}>
-                    {day.date ? new Date(day.date).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric' 
+                    {day.date ? new Date(day.date).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric'
                     }) : 'Not set'}
                   </ThemedText>
                 </View>
@@ -429,8 +429,8 @@ export default function TripDetailsScreen() {
             </ThemedText>
             {trip.locations.slice(0, 5).map((location: any, index: number) => (
               <View key={index} style={styles.locationCard}>
-                <Image 
-                  source={{ uri: location.imageUrl || location.image || 'https://via.placeholder.com/80' }} 
+                <Image
+                  source={{ uri: location.imageUrl || location.image || 'https://via.placeholder.com/80' }}
                   style={styles.locationImage}
                   resizeMode="cover"
                 />
@@ -478,7 +478,7 @@ export default function TripDetailsScreen() {
             onPress={() => {
               router.push({
                 pathname: '/planning/map-view',
-                params: { 
+                params: {
                   itineraryId: trip._id
                 }
               });
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.secondary50,
   },
-  
+
   // Header
   header: {
     flexDirection: 'row',

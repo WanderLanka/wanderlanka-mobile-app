@@ -49,7 +49,7 @@ const RateAppScreen: React.FC = () => {
 
   const handleRatingPress = (selectedRating: number) => {
     setRating(selectedRating);
-    
+
     if (selectedRating >= 4) {
       // High rating - redirect to app store
       setTimeout(() => {
@@ -79,7 +79,7 @@ const RateAppScreen: React.FC = () => {
               ios: 'https://apps.apple.com/app/wanderlanka/id123456789',
               android: 'https://play.google.com/store/apps/details?id=com.wanderlanka.app',
             });
-            
+
             if (appStoreUrl) {
               Linking.openURL(appStoreUrl).catch(() => {
                 Alert.alert('Error', 'Unable to open App Store. Please try again later.');
@@ -141,7 +141,7 @@ const RateAppScreen: React.FC = () => {
         {/* App Icon & Title */}
         <View className="items-center py-8">
           <View className="w-20 h-20 rounded-3xl items-center bg-primary-100 justify-center mb-1">
-           <Image source={require('../../assets/images/wander_logo.png')} className="w-full h-full rounded-2xl" /> 
+           <Image source={require('../../assets/images/wander_logo.png')} className="w-full h-full rounded-2xl" />
           </View>
           <Text className="text-2xl font-bold text-neutral-800 mb-2">WanderLanka</Text>
           <Text className="text-neutral-600 text-center px-8">
@@ -245,7 +245,7 @@ const RateAppScreen: React.FC = () => {
               Help us improve WanderLanka
             </Text>
             <Text className="text-neutral-600 mb-4">
-              Tell us what went wrong or what features you'd like to see:
+              Tell us what went wrong or what features you&apos;d like to see:
             </Text>
 
             <View className="bg-neutral-50 rounded-xl p-4 min-h-[120px]">

@@ -46,7 +46,7 @@ export type CreateAccommodationBookingRequest = {
     lastName: string;
     emergencyContact?: string;
   };
-  paymentDetails: {
+  paymentDetails?: {
     cardNumber: string;
     expiryDate: string;
     cvv: string;
@@ -79,7 +79,7 @@ export type CreateTransportationBookingRequest = {
     lastName: string;
     emergencyContact?: string;
   };
-  paymentDetails: {
+  paymentDetails?: {
     cardNumber: string;
     expiryDate: string;
     cvv: string;

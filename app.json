@@ -10,9 +10,6 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "config": {
-        "googleMapsApiKey": "AIzaSyBPAjLGZlFyzwIRo60j3HlhR7Qp0pmqQQ8"
-      },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app needs location access for navigation.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs location access for navigation.",
@@ -26,11 +23,6 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "config": {
-        "googleMaps": {
-          "apiKey": "AIzaSyBPAjLGZlFyzwIRo60j3HlhR7Qp0pmqQQ8"
-        }
-      },
       "permissions": [
         "READ_MEDIA_IMAGES"
       ]
@@ -58,7 +50,8 @@
           "locationAlwaysAndWhenInUsePermission": "This app uses location to show nearby places and help with navigation."
         }
       ],
-      "expo-image-picker"
+      "expo-image-picker",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

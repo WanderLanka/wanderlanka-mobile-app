@@ -39,20 +39,20 @@ interface Location {
 
 export default function TravelerTabsLayout() {
   const bottomSheetRef = useRef<BottomSheet>(null);
-  
+
   // Snap points for bottom sheet
   const snapPoints = useMemo(() => ['90%'], []);
-  
+
   // Location states
   const [destination, setDestination] = useState<Location | null>(null);
   const [startPoint, setStartPoint] = useState<Location | null>(null);
-  
+
   // Date states
   const [startDate, setStartDate] = useState<Date>(new Date());
   const [endDate, setEndDate] = useState<Date>(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)); // 7 days later
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-  
+
   // Search states
   const [showLocationSearch, setShowLocationSearch] = useState(false);
   const [locationSearchType, setLocationSearchType] = useState<'start' | 'destination'>('start');
@@ -60,7 +60,7 @@ export default function TravelerTabsLayout() {
   const [searchResults, setSearchResults] = useState<Location[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
-  
+
   // Form errors
   const [errors, setErrors] = useState<{
     startPoint?: string;
@@ -88,21 +88,21 @@ export default function TravelerTabsLayout() {
   const handleStartPlanning = async () => {
     // Clear previous errors
     setErrors({});
-    
+
     const newErrors: { startPoint?: string; destination?: string; dates?: string } = {};
-    
+
     if (!startPoint) {
       newErrors.startPoint = 'Please select a starting point';
     }
-    
+
     if (!destination) {
       newErrors.destination = 'Please select a destination';
     }
-    
+
     if (startDate >= endDate) {
       newErrors.dates = 'End date must be after start date';
     }
-    
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -112,7 +112,7 @@ export default function TravelerTabsLayout() {
       console.log('🚀 Creating itinerary...');
       console.log(`📍 From: ${startPoint!.name} → To: ${destination!.name}`);
       console.log(`📅 Duration: ${Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24) + 1)} days`);
-      
+
       const response = await itineraryApi.createItinerary({
         tripName: `${startPoint!.name} to ${destination!.name}`,
         startDate: startDate.toISOString().split('T')[0],
@@ -142,7 +142,7 @@ export default function TravelerTabsLayout() {
         console.log('✅ Itinerary created:', response.data._id);
         console.log(`📝 Trip: ${response.data.tripName}`);
         console.log(`📅 ${response.data.dayPlans.length} days planned`);
-        
+
         // Calculate routes for the itinerary
         console.log('🗺️  Calculating routes...');
         try {
@@ -157,7 +157,7 @@ export default function TravelerTabsLayout() {
           console.error('❌ Route calculation error:', routeError.message);
           // Don't block navigation if route calculation fails
         }
-        
+
         // Close bottom sheet and navigate to itinerary with real ID
         closeBottomSheet();
         router.push({
@@ -184,7 +184,7 @@ export default function TravelerTabsLayout() {
     }
 
     setIsSearching(true);
-    
+
     // Clear previous timeout
     if (searchTimeout) {
       clearTimeout(searchTimeout);
@@ -254,17 +254,17 @@ export default function TravelerTabsLayout() {
         return;
       }
     }
-    
+
     if (selectedDate) {
       setStartDate(selectedDate);
-      
+
       // If start date is after end date, adjust end date to be at least one day after start date
       if (selectedDate >= endDate) {
         const newEndDate = new Date(selectedDate);
         newEndDate.setDate(selectedDate.getDate() + 1);
         setEndDate(newEndDate);
       }
-      
+
       setErrors(prev => ({ ...prev, dates: undefined }));
     }
   };
@@ -276,7 +276,7 @@ export default function TravelerTabsLayout() {
         return;
       }
     }
-    
+
     if (selectedDate) {
       setEndDate(selectedDate);
       setErrors(prev => ({ ...prev, dates: undefined }));
@@ -341,12 +341,8 @@ export default function TravelerTabsLayout() {
                   <Ionicons name="add" size={32} color={Colors.primary300} />
                 </Pressable>
               ),
-              listeners: {
-                tabPress: (e: { preventDefault: () => void; }) => {
-                  e.preventDefault();
-                },
-              },
             }}
+            listeners={{ tabPress: (e) => e.preventDefault() }}
           />
           <Tabs.Screen
             name="community"
@@ -385,13 +381,13 @@ export default function TravelerTabsLayout() {
           height: 4,
         }}
       >
-        <BottomSheetScrollView 
+        <BottomSheetScrollView
           contentContainerStyle={styles.bottomSheetContent}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.sheetTitle}>
             <ThemedText variant="title" style={styles.bottomSheetTitle}>Your Dream Trip Starts Here</ThemedText>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.closeButton}
               onPress={closeBottomSheet}
             >
@@ -449,7 +445,7 @@ export default function TravelerTabsLayout() {
                     <Text style={styles.dateInputText}>{formatDate(startDate)}</Text>
                   </View>
                 </TouchableOpacity>
-                
+
                 <TouchableOpacity
                   style={[styles.dateInputContainer, errors.dates && styles.inputError]}
                   onPress={() => setShowEndDatePicker(true)}
@@ -517,16 +513,16 @@ export default function TravelerTabsLayout() {
               onDayPress={(day) => {
                 const selectedDate = new Date(day.timestamp);
                 setStartDate(selectedDate);
-                
+
                 // If start date is after end date, adjust end date
                 if (selectedDate >= endDate) {
                   const newEndDate = new Date(selectedDate);
                   newEndDate.setDate(selectedDate.getDate() + 1);
                   setEndDate(newEndDate);
                 }
-                
+
                 setErrors(prev => ({ ...prev, dates: undefined }));
-                
+
                 // Auto-close on selection for better UX
                 setTimeout(() => {
                   setShowStartDatePicker(false);
@@ -591,7 +587,7 @@ export default function TravelerTabsLayout() {
                 const selectedDate = new Date(day.timestamp);
                 setEndDate(selectedDate);
                 setErrors(prev => ({ ...prev, dates: undefined }));
-                
+
                 // Auto-close on selection for better UX
                 setTimeout(() => {
                   setShowEndDatePicker(false);

@@ -170,7 +170,7 @@ class PaymentService {
         bookingId
       });
 
-      const response = await apiClient.post(
+      const response = await apiClient.post<{ success: boolean; message: string }>(
         '/api/booking/payments/cancel-intent',
         { paymentIntentId, bookingId }
       );

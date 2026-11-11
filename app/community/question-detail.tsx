@@ -191,17 +191,17 @@ export default function QuestionDetailScreen() {
   const fetchQuestionDetails = async () => {
     try {
       setIsLoading(true);
-      
+
       // Get user ID from stored userData
       const userDataStr = await AsyncStorage.getItem('userData');
       let storedUserId: string | null = null;
-      
+
       if (userDataStr) {
         const userData = JSON.parse(userDataStr);
         storedUserId = userData.id;
         console.log('👤 User ID from userData:', storedUserId);
       }
-      
+
       setUserId(storedUserId);
       const token = await AsyncStorage.getItem('accessToken');
 
@@ -224,7 +224,7 @@ export default function QuestionDetailScreen() {
 
       const questionData = await questionResponse.json();
       console.log('✅ Fetched question:', questionData.data.question.title);
-      
+
       setQuestion(questionData.data.question);
       setUserVote(questionData.data.question.userVote || null);
 
@@ -240,7 +240,7 @@ export default function QuestionDetailScreen() {
         const answersData = await answersResponse.json();
         console.log('✅ Fetched', answersData.data.answers.length, 'answers');
         setAnswers(answersData.data.answers);
-        
+
         // Set initial vote and helpful states
         const votes: { [key: string]: 'up' | 'down' | null } = {};
         const helpful: { [key: string]: boolean } = {};
@@ -259,7 +259,7 @@ export default function QuestionDetailScreen() {
     }
   };
 
-  const handleQuestionVote = async (voteType: 'upvote' | 'downvote') => {
+  const handleQuestionVote = async (voteType: 'up' | 'down') => {
     if (!userId) {
       Alert.alert('Login Required', 'Please log in to vote');
       return;
@@ -269,13 +269,13 @@ export default function QuestionDetailScreen() {
       const token = await AsyncStorage.getItem('accessToken');
       const baseURL = API_CONFIG.BASE_URL;
 
-      const response = await fetch(`${baseURL}/api/community/questions/${question._id}/vote`, {
+      const response = await fetch(`${baseURL}/api/community/questions/${question?._id}/vote`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ voteType }),
+        body: JSON.stringify({ voteType: voteType === 'up' ? 'upvote' : 'downvote' }),
       });
 
       if (!response.ok) {
@@ -294,7 +294,7 @@ export default function QuestionDetailScreen() {
     }
   };
 
-  const handleAnswerVote = async (answerId: string, voteType: 'upvote' | 'downvote') => {
+  const handleAnswerVote = async (answerId: string, voteType: 'up' | 'down') => {
     if (!userId) {
       Alert.alert('Login Required', 'Please log in to vote');
       return;
@@ -313,7 +313,7 @@ export default function QuestionDetailScreen() {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ voteType }),
+        body: JSON.stringify({ voteType: voteType === 'up' ? 'upvote' : 'downvote' }),
       });
 
       const data = await response.json();
@@ -327,9 +327,9 @@ export default function QuestionDetailScreen() {
       console.log('✅ Answer vote updated:', data);
 
       // Update local state
-      setAnswers(prev => 
-        prev.map(ans => 
-          ans._id === answerId 
+      setAnswers(prev =>
+        prev.map(ans =>
+          ans._id === answerId
             ? { ...ans, votes: data.data.votes }
             : ans
         )
@@ -403,14 +403,14 @@ export default function QuestionDetailScreen() {
     }
 
     setIsSubmitting(true);
-    
+
     try {
       const token = await AsyncStorage.getItem('accessToken');
       const baseURL = API_CONFIG.BASE_URL;
 
-      console.log('📤 Submitting answer to:', `${baseURL}/api/community/questions/${question._id}/answers`);
+      console.log('📤 Submitting answer to:', `${baseURL}/api/community/questions/${question?._id}/answers`);
 
-      const response = await fetch(`${baseURL}/api/community/questions/${question._id}/answers`, {
+      const response = await fetch(`${baseURL}/api/community/questions/${question?._id}/answers`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -428,12 +428,12 @@ export default function QuestionDetailScreen() {
 
       const data = await response.json();
       console.log('📥 Response:', data);
-      
+
       Alert.alert(
         'Answer Submitted!',
         'Your answer has been posted successfully.',
-        [{ 
-          text: 'OK', 
+        [{
+          text: 'OK',
           onPress: () => {
             setNewAnswer('');
             fetchQuestionDetails(); // Refresh to show new answer
@@ -479,7 +479,7 @@ export default function QuestionDetailScreen() {
         <View style={styles.emptyContainer}>
           <Ionicons name="alert-circle-outline" size={64} color={Colors.secondary200} />
           <Text style={styles.emptyTitle}>Question Not Found</Text>
-          <Text style={styles.emptyText}>This question may have been deleted or doesn't exist.</Text>
+          <Text style={styles.emptyText}>This question may have been deleted or doesn&apos;t exist.</Text>
         </View>
       </SafeAreaView>
     );

@@ -109,7 +109,7 @@ export default function PlanningIndexScreen() {
         {/* Welcome Section */}
         <View style={styles.welcomeSection}>
           <ThemedText variant="title" style={styles.welcomeTitle}>
-            Let's Plan Your Perfect Trip! 🌟
+            Let&apos;s Plan Your Perfect Trip! 🌟
           </ThemedText>
           {destination && (
             <ThemedText variant="default" style={styles.destinationText}>
@@ -139,7 +139,7 @@ export default function PlanningIndexScreen() {
           <ThemedText variant="subtitle" style={styles.sectionTitle}>
             Planning Phases
           </ThemedText>
-          
+
           {PLANNING_PHASES.map((phase, index) => (
             <TouchableOpacity
               key={phase.id}

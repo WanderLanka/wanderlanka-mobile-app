@@ -1,4 +1,6 @@
 import { ApiService } from './api';
+type ReviewResponse<T> = { success: boolean; data?: T; message?: string; error?: string };
+
 
 export interface Review {
   _id: string;
@@ -79,9 +81,9 @@ export class ReviewService {
    */
   static async createReview(reviewData: CreateReviewRequest): Promise<{ success: boolean; data?: Review; message?: string; error?: string }> {
     try {
-      const response = await ApiService.post('/api/guide/reviews/create', reviewData);
+      const response = await ApiService.post<ReviewResponse<Review>>('/api/guide/reviews/create', reviewData);
       return {
-        success: response.success || true,
+        success: response.success ?? false,
         data: response.data,
         message: response.message,
         error: response.error
@@ -99,7 +101,7 @@ export class ReviewService {
    * Get reviews for a guide
    */
   static async getGuideReviews(
-    guideId: string, 
+    guideId: string,
     options: {
       page?: number;
       limit?: number;
@@ -117,11 +119,11 @@ export class ReviewService {
       const url = `/api/guide/reviews/list?${params}`;
       console.log('🌐 ReviewService.getGuideReviews: Making request to:', url);
 
-      const response = await ApiService.get(url);
+      const response = await ApiService.get<ReviewResponse<ReviewListResponse>>(url);
       console.log('📥 ReviewService.getGuideReviews: Raw response:', response);
 
       return {
-        success: response.success || true,
+        success: response.success ?? false,
         data: response.data,
         error: response.error
       };
@@ -153,9 +155,9 @@ export class ReviewService {
         ...(options.sort && { sort: options.sort })
       });
 
-      const response = await ApiService.get(`/api/guide/reviews/list?${params}`);
+      const response = await ApiService.get<ReviewResponse<ReviewListResponse>>(`/api/guide/reviews/list?${params}`);
       return {
-        success: response.success || true,
+        success: response.success ?? false,
         data: response.data,
         error: response.error
       };
@@ -177,12 +179,12 @@ export class ReviewService {
     travelerId: string
   ): Promise<{ success: boolean; data?: Review; message?: string; error?: string }> {
     try {
-      const response = await ApiService.put(`/api/guide/reviews/update/${reviewId}`, {
+      const response = await ApiService.put<ReviewResponse<Review>>(`/api/guide/reviews/update/${reviewId}`, {
         ...reviewData,
         travelerId
       });
       return {
-        success: response.success || true,
+        success: response.success ?? false,
         data: response.data,
         message: response.message,
         error: response.error
@@ -204,9 +206,9 @@ export class ReviewService {
     travelerId: string
   ): Promise<{ success: boolean; message?: string; error?: string }> {
     try {
-      const response = await ApiService.delete(`/api/guide/reviews/delete/${reviewId}`);
+      const response = await ApiService.delete<ReviewResponse<Review>>(`/api/guide/reviews/delete/${reviewId}`);
       return {
-        success: response.success || true,
+        success: response.success ?? false,
         message: response.message,
         error: response.error
       };
@@ -227,11 +229,11 @@ export class ReviewService {
     action: 'add' | 'remove' = 'add'
   ): Promise<{ success: boolean; data?: Review; message?: string; error?: string }> {
     try {
-      const response = await ApiService.post(`/api/guide/reviews/helpful/${reviewId}`, {
+      const response = await ApiService.post<ReviewResponse<Review>>(`/api/guide/reviews/helpful/${reviewId}`, {
         action
       });
       return {
-        success: response.success || true,
+        success: response.success ?? false,
         data: response.data,
         message: response.message,
         error: response.error
@@ -254,7 +256,7 @@ export class ReviewService {
   ): Promise<{ success: boolean; hasReviewed: boolean; review?: Review; error?: string }> {
     try {
       const response = await this.getTravelerReviews(travelerId, { limit: 100 });
-      
+
       if (!response.success || !response.data) {
         return {
           success: false,
@@ -264,7 +266,7 @@ export class ReviewService {
       }
 
       const existingReview = response.data.reviews.find(review => review.guideId === guideId);
-      
+
       return {
         success: true,
         hasReviewed: !!existingReview,

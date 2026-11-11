@@ -1,3 +1,4 @@
+import { API_CONFIG as sharedApiConfig } from '../../../services/config';
 /**
  * API Configuration for WanderLanka Mobile App
  * Updated with current network IP for proper connectivity
@@ -5,7 +6,7 @@
 
 export const API_CONFIG = {
   // Current network IP - Update this when network changes
-  BASE_URL: __DEV__ ? 'http://192.168.1.41:3000' : 'https://api.wanderlanka.com',
+  BASE_URL: sharedApiConfig.BASE_URL,
   
   ENDPOINTS: {
     AUTH: '/api/auth',

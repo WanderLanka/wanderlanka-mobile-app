@@ -40,11 +40,11 @@ export default function BookingConfirmationScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const { bookings, clearAllBookings } = useBooking();
-  
+
   const [isLoading, setIsLoading] = useState(true);
   const [confirmedBooking, setConfirmedBooking] = useState<ConfirmedBooking | null>(null);
   const [showConfetti, setShowConfetti] = useState(true);
-  
+
   // Animation values
   const fadeAnim = new Animated.Value(0);
   const scaleAnim = new Animated.Value(0.8);
@@ -52,13 +52,13 @@ export default function BookingConfirmationScreen() {
 
   const generateTripName = () => {
     const destinations: string[] = [];
-    
+
     bookings.accommodation.forEach(acc => {
       if (acc.location && !destinations.includes(acc.location)) {
         destinations.push(acc.location);
       }
     });
-    
+
     if (destinations.length === 0) return 'Sri Lanka Adventure';
     if (destinations.length === 1) return `${destinations[0]} Trip`;
     if (destinations.length === 2) return `${destinations[0]} & ${destinations[1]} Tour`;
@@ -73,7 +73,7 @@ export default function BookingConfirmationScreen() {
       const checkInDates = bookings.accommodation
         .map(acc => new Date(acc.checkInDate))
         .filter(date => !isNaN(date.getTime()));
-      
+
       const checkOutDates = bookings.accommodation
         .map(acc => new Date(acc.checkOutDate))
         .filter(date => !isNaN(date.getTime()));
@@ -81,7 +81,7 @@ export default function BookingConfirmationScreen() {
       if (checkInDates.length > 0) {
         earliestDate = new Date(Math.min(...checkInDates.map(d => d.getTime())));
       }
-      
+
       if (checkOutDates.length > 0) {
         latestDate = new Date(Math.max(...checkOutDates.map(d => d.getTime())));
       }
@@ -101,7 +101,7 @@ export default function BookingConfirmationScreen() {
     try {
       const existingBookings = await AsyncStorage.getItem('upcomingBookings');
       const bookingsArray = existingBookings ? JSON.parse(existingBookings) : [];
-      
+
       bookingsArray.push(booking);
       await AsyncStorage.setItem('upcomingBookings', JSON.stringify(bookingsArray));
     } catch (error) {
@@ -121,7 +121,7 @@ export default function BookingConfirmationScreen() {
         // Generate trip details
         const tripName = generateTripName();
         const { startDate, endDate } = calculateTripDates();
-        
+
         // Create confirmed booking object
         const newBooking: ConfirmedBooking = {
           id: `booking_${Date.now()}`,
@@ -142,10 +142,10 @@ export default function BookingConfirmationScreen() {
 
         // Save to AsyncStorage
         await saveToUpcomingBookings(newBooking);
-        
+
         // Clear temporary bookings
         clearAllBookings();
-        
+
         // Set confirmed booking for display
         setConfirmedBooking(newBooking);
         setIsLoading(false);
@@ -192,7 +192,7 @@ export default function BookingConfirmationScreen() {
   };
 
   const handleViewBookings = () => {
-    router.replace('/(travelerTabs)/myActivity');
+    router.replace('/myTrips/upcoming');
   };
 
   const handleAddToCalendar = async () => {
@@ -200,14 +200,14 @@ export default function BookingConfirmationScreen() {
 
     const startDate = new Date(confirmedBooking.startDate);
     const endDate = new Date(confirmedBooking.endDate);
-    
+
     const title = encodeURIComponent(confirmedBooking.tripName);
     const details = encodeURIComponent(`Booking ID: ${confirmedBooking.bookingId}`);
     const startDateString = startDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     const endDateString = endDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    
+
     const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDateString}/${endDateString}&details=${details}`;
-    
+
     try {
       await Linking.openURL(calendarUrl);
     } catch {
@@ -248,11 +248,11 @@ export default function BookingConfirmationScreen() {
               <ThemedText style={styles.confettiText}>🎉 ✨ 🎊 ✨ 🎉</ThemedText>
             </Animated.View>
           )}
-          
+
           <View style={styles.successIcon}>
             <Ionicons name="checkmark-circle" size={80} color={Colors.success} />
           </View>
-          
+
           <ThemedText style={styles.successTitle}>Booking Confirmed!</ThemedText>
           <ThemedText style={styles.successSubtitle}>
             Your Sri Lankan adventure is all set! 🇱🇰
@@ -272,7 +272,7 @@ export default function BookingConfirmationScreen() {
 
           <View style={styles.tripInfo}>
             <ThemedText style={styles.tripName}>{confirmedBooking.tripName}</ThemedText>
-            
+
             <View style={styles.dateRange}>
               <Ionicons name="calendar-outline" size={16} color={Colors.primary600} />
               <ThemedText style={styles.dateText}>
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
     color: Colors.secondary700,
     marginBottom: 8,
   },
-  
+
   dateRange: {
     flexDirection: 'row',
     alignItems: 'center',

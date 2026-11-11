@@ -344,7 +344,7 @@ export default function FAQHelpScreen() {
         <View style={styles.helpCard}>
           <Text style={styles.helpCardTitle}>Still need help?</Text>
           <Text style={styles.helpCardText}>
-            Can't find what you're looking for? Our support team is here to help you with any questions or issues.
+            Can&apos;t find what you&apos;re looking for? Our support team is here to help you with any questions or issues.
           </Text>
           <TouchableOpacity style={styles.helpCardButton} onPress={handleSubmitTicket}>
             <Text style={styles.helpCardButtonText}>Contact Support</Text>

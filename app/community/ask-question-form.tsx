@@ -46,7 +46,7 @@ export default function AskQuestionFormScreen() {
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<ValidationErrors>({});
-  
+
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   // Validation function
@@ -170,7 +170,7 @@ export default function AskQuestionFormScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-    
+
     setSelectedCategory(categoryId);
     clearError('category');
   };
@@ -199,7 +199,7 @@ export default function AskQuestionFormScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Question Title *</Text>
             <Text style={styles.sectionHint}>
-              Be specific and imagine you're asking a question to another person
+              Be specific and imagine you&apos;re asking a question to another person
             </Text>
             <TextInput
               style={[styles.input, errors.title && styles.inputError]}
@@ -235,7 +235,7 @@ export default function AskQuestionFormScreen() {
                   ]}
                   onPress={() => handleCategoryPress(category.id)}
                 >
-                  <Animated.View 
+                  <Animated.View
                     style={[
                       styles.categoryContent,
                       { transform: [{ scale: scaleAnim }] }

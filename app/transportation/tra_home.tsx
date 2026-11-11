@@ -12,13 +12,13 @@ import { TransportationApiService, Transportation, TransportationFilters } from 
 
 export default function TransportationHomeScreen() {
   const insets = useSafeAreaInsets();
-  
+
   // API data state
   const [transportation, setTransportation] = useState<Transportation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   const [filterVisible, setFilterVisible] = useState(false);
   const [selectedType, setSelectedType] = useState('');
   const [passengerCount, setPassengerCount] = useState<number | null>(null);
@@ -31,10 +31,10 @@ export default function TransportationHomeScreen() {
     try {
       setLoading(true);
       setError(null);
-      
+
       console.log('🚗 Fetching transportation...');
       const response = await TransportationApiService.getAllTransportation();
-      
+
       if (response.success && response.data) {
         setTransportation(response.data);
         console.log('✅ Transportation loaded:', response.data.length);
@@ -68,8 +68,8 @@ export default function TransportationHomeScreen() {
       <View style={[styles.statusBarBackground, { height: insets.top }]} />
       <StatusBar style="light" translucent />
       <ServicesTopBar onProfilePress={() => {}} onNotificationsPress={() => {}} />
-      <ScrollView 
-        style={styles.scrollView} 
+      <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
@@ -116,7 +116,7 @@ export default function TransportationHomeScreen() {
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
               {transportation
-                .filter(vehicle => vehicle.rating >= 4.5)
+                .filter(vehicle => (vehicle.rating ?? 0) >= 4.5)
                 .slice(0, 5)
                 .map((item, i) => (
                   <ItemCard
@@ -203,15 +203,15 @@ export default function TransportationHomeScreen() {
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
               {transportation.slice(0, 5).map((item, i) => (
-                <ItemCard 
-                  key={i} 
+                <ItemCard
+                  key={i}
                   image={item.images && item.images.length > 0 ? item.images[0] : '/placeholder-vehicle.jpg'}
                   title={`${item.brand} ${item.model}`}
                   city={item.location}
                   price={`$${item.pricingPerKm}/km`}
                   capacity={item.seats}
                   ac={item.ac}
-                  style={styles.carouselCard} 
+                  style={styles.carouselCard}
                   type="vehicle"
                   id={item._id}
                 />
@@ -224,15 +224,15 @@ export default function TransportationHomeScreen() {
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
               {transportation.filter(v => v.seats >= 4).map((item, i) => (
-                <ItemCard 
-                  key={i} 
+                <ItemCard
+                  key={i}
                   image={item.images && item.images.length > 0 ? item.images[0] : '/placeholder-vehicle.jpg'}
                   title={`${item.brand} ${item.model}`}
                   city={item.location}
                   price={`$${item.pricingPerKm}/km`}
                   capacity={item.seats}
                   ac={item.ac}
-                  style={styles.carouselCard} 
+                  style={styles.carouselCard}
                   type="vehicle"
                   id={item._id}
                 />
@@ -245,15 +245,15 @@ export default function TransportationHomeScreen() {
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
               {transportation.filter(v => v.pricingPerKm <= 50).map((item, i) => (
-                <ItemCard 
-                  key={i} 
+                <ItemCard
+                  key={i}
                   image={item.images && item.images.length > 0 ? item.images[0] : '/placeholder-vehicle.jpg'}
                   title={`${item.brand} ${item.model}`}
                   city={item.location}
                   price={`$${item.pricingPerKm}/km`}
                   capacity={item.seats}
                   ac={item.ac}
-                  style={styles.carouselCard} 
+                  style={styles.carouselCard}
                   type="vehicle"
                   id={item._id}
                 />
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8fafc',
   },
-  
+
   // Status Bar
   statusBarBackground: {
     position: 'absolute',
@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary800,
     zIndex: 10,
   },
-  
+
   // Header Section
   greetingContainer: {
     backgroundColor: Colors.primary800,
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'center',
   },
-  
+
   // Scroll View
   scrollView: {
     flex: 1,
@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 60,
   },
-  
+
   // Search Area
   searchArea: {
     flexDirection: 'row',
@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
     minWidth: 56,
     height: 56,
   },
-  
+
   // Content Sections
   sectionHeader: {
     flexDirection: 'row',
@@ -504,7 +504,7 @@ const styles = StyleSheet.create({
     color: Colors.primary600,
     fontWeight: '600',
   },
-  
+
   // Carousels
   carousel: {
     paddingLeft: 24,
@@ -514,7 +514,7 @@ const styles = StyleSheet.create({
     width: 280,
     marginRight: 16,
   },
-  
+
   // Booking Form
   bookingForm: {
     backgroundColor: '#ffffff',
@@ -568,7 +568,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-  
+
   // Filter Section
   addFilterLink: {
     marginTop: 12,
@@ -600,9 +600,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 13,
   },
-  
-  
-  
+
+
+
   // Modal Styles
   modalOverlay: {
     flex: 1,
@@ -686,7 +686,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     minHeight: 48,
   },
-  
+
   // Loading States
   loadingContainer: {
     flex: 1,
@@ -700,7 +700,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  
+
   // Error States
   errorContainer: {
     flex: 1,
@@ -729,7 +729,7 @@ const styles = StyleSheet.create({
     minWidth: 120,
     borderRadius: 16,
   },
-  
+
   // Empty States
   emptyContainer: {
     flex: 1,

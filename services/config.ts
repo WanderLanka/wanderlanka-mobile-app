@@ -51,6 +51,13 @@ function resolveDevBaseUrl(): string {
   return 'http://localhost:3000';
 }
 
+function productionBaseUrl(): string {
+  if (!ENV_BASE_URL || !ENV_BASE_URL.startsWith('https://')) {
+    throw new Error('EXPO_PUBLIC_API_URL must be an HTTPS gateway URL for release builds');
+  }
+  return ENV_BASE_URL.replace(/\/$/, '');
+}
+
 const DEV_BASE_URL = resolveDevBaseUrl();
 
 // Log the selected URL for debugging
@@ -65,7 +72,7 @@ if (__DEV__) {
 
 export const API_CONFIG = {
   // Dynamic BASE_URL for development/testing
-  BASE_URL: __DEV__ ? DEV_BASE_URL : 'https://your-production-api.com',
+  BASE_URL: __DEV__ ? DEV_BASE_URL : productionBaseUrl(),
   ENDPOINTS: {
     AUTH: '/api/auth', // Gateway namespace for auth endpoints
     HEALTH: '/health',

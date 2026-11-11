@@ -32,9 +32,9 @@ export default function AccommodationPlanningScreen() {
             Coming Soon! 🏨
           </ThemedText>
           <ThemedText variant="default" style={styles.comingSoonDescription}>
-            Accommodation planning will be available in the next update. You'll be able to:
+            Accommodation planning will be available in the next update. You&apos;ll be able to:
           </ThemedText>
-          
+
           <View style={styles.featuresList}>
             <View style={styles.featureItem}>
               <Ionicons name="checkmark-circle" size={20} color={Colors.success} />

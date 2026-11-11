@@ -22,24 +22,24 @@ export default function AccomodationDetailsScreen() {
   const [currentImage, setCurrentImage] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
-  
+
   // API data state
   const [accommodation, setAccommodation] = useState<Accommodation | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Booking state (currently unused but kept for future booking functionality)
   // const [bookingLoading, setBookingLoading] = useState(false);
   // const [bookingError, setBookingError] = useState<string | null>(null);
   // const [showBookingSuccess, setShowBookingSuccess] = useState(false);
-  
+
   // Booking form state (matching web app structure)
   const [bookingData, setBookingData] = useState({
     checkInDate: '',
     checkOutDate: '',
     adults: 2,
     children: 0,
-    selectedRooms: [], // Array of {type, quantity, pricePerNight} - matching web app
+    selectedRooms: [] as { type: string; quantity: number; pricePerNight: number }[], // Array of {type, quantity, pricePerNight} - matching web app
     guestDetails: {
       firstName: '',
       lastName: '',
@@ -58,7 +58,7 @@ export default function AccomodationDetailsScreen() {
   const handleSelectCheckInDate = (dateString: string) => {
     setBookingData(prev => ({ ...prev, checkInDate: dateString }));
     setShowCheckInCalendar(false);
-    
+
     // If check-in date is after check-out date, adjust check-out date
     if (bookingData.checkOutDate) {
       const checkIn = new Date(dateString);
@@ -94,10 +94,10 @@ export default function AccomodationDetailsScreen() {
         if ((roomType.availableRooms || 0) <= 0) return prev;
         return {
           ...prev,
-          selectedRooms: [...prev.selectedRooms, { 
-            type: roomType.type, 
-            quantity: 1, 
-            pricePerNight: roomType.pricePerNight 
+          selectedRooms: [...prev.selectedRooms, {
+            type: roomType.type,
+            quantity: 1,
+            pricePerNight: roomType.pricePerNight
           }]
         };
       }
@@ -128,7 +128,7 @@ export default function AccomodationDetailsScreen() {
   const getTotalRooms = () => {
     return bookingData.selectedRooms.reduce((total: number, room: any) => total + room.quantity, 0);
   };
-  
+
   // Map accommodation data to display format (matching web app structure)
   const details = accommodation ? {
     images: accommodation.images && accommodation.images.length > 0 ? accommodation.images : ['/placeholder-hotel.jpg'],
@@ -154,14 +154,14 @@ export default function AccomodationDetailsScreen() {
   // Fetch accommodation data
   const fetchAccommodationDetails = useCallback(async () => {
     if (!id) return;
-    
+
     try {
       setLoading(true);
       setError(null);
-      
+
       console.log('🏨 Fetching accommodation details for ID:', id);
-      const response = await AccommodationApiService.getAccommodationById(id);
-      
+      const response = await AccommodationApiService.getAccommodationById(Array.isArray(id) ? id[0] : id);
+
       if (response.success && response.data) {
         setAccommodation(response.data);
         console.log('✅ Accommodation details loaded:', response.data.name);
@@ -184,19 +184,19 @@ export default function AccomodationDetailsScreen() {
   // Booking handler
   const handleConfirmBooking = async () => {
     if (!accommodation) return;
-    
+
     // Validate booking data
     if (!bookingData.checkInDate || !bookingData.checkOutDate) {
       console.error('Please select check-in and check-out dates');
       return;
     }
-    
-    if (!bookingData.guestDetails.firstName || !bookingData.guestDetails.lastName || 
+
+    if (!bookingData.guestDetails.firstName || !bookingData.guestDetails.lastName ||
         !bookingData.guestDetails.email || !bookingData.guestDetails.phone) {
       console.error('Please fill in all guest details');
       return;
     }
-    
+
     if (getTotalRooms() <= 0) {
       console.error('Please select at least one room');
       return;
@@ -204,25 +204,25 @@ export default function AccomodationDetailsScreen() {
 
     try {
       setBookingLoading(true);
-      
+
       // Calculate nights
       const checkIn = new Date(bookingData.checkInDate);
       const checkOut = new Date(bookingData.checkOutDate);
       const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-      
+
       if (nights <= 0) {
         console.error('Check-out date must be after check-in date');
         return;
       }
-      
+
       // Calculate total amount based on selected rooms
       const totalAmount = bookingData.selectedRooms.reduce((total: number, room: any) => {
         return total + (room.pricePerNight * room.quantity * nights);
       }, 0) + 25; // Add service fee
-      
+
       // Get user data for contact info (if needed for future use)
       // const userData = await StorageService.getUserData();
-      
+
       const bookingPayload: CreateAccommodationBookingRequest = {
         serviceType: 'accommodation',
         serviceId: accommodation._id,
@@ -257,19 +257,19 @@ export default function AccomodationDetailsScreen() {
           cardholderName: `${bookingData.guestDetails.firstName} ${bookingData.guestDetails.lastName}`
         }
       };
-      
+
       console.log('🏨 Creating accommodation booking:', bookingPayload);
-      
+
       // Create booking
       const response = await BookingService.createAccommodationBooking(bookingPayload);
-      
+
       if (response.success) {
         console.log('✅ Accommodation booking created successfully');
         // You can add success handling here (e.g., show success message, navigate, etc.)
       } else {
         throw new Error(response.error || 'Failed to create booking');
       }
-      
+
     } catch (error: any) {
       console.error('❌ Error creating accommodation booking:', error);
       // You can add error handling here (e.g., show error message)
@@ -330,7 +330,7 @@ const openBookingModal = () => {
   }
 
   // No data state
-  if (!loading && !error && !accommodation) {
+  if (!accommodation || !details) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
@@ -531,15 +531,15 @@ const openBookingModal = () => {
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <ThemedText variant="title" style={styles.modalTitle}>Booking Details</ThemedText>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.closeButton}
               onPress={() => setShowBookingModal(false)}
             >
               <Ionicons name="close" size={24} color={Colors.text} />
             </TouchableOpacity>
           </View>
-          
-          <ScrollView 
+
+          <ScrollView
             contentContainerStyle={styles.modalContent}
             showsVerticalScrollIndicator={false}
           >
@@ -554,11 +554,11 @@ const openBookingModal = () => {
               disabled={bookingLoading || !bookingData.checkInDate || !bookingData.checkOutDate || getTotalRooms() <= 0}
             />
           </View>
-          
+
           <View style={styles.sheetBody}>
             <View style={styles.dateRow}>
               {/* Check-in Date Picker */}
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.datePickerButton, { flex: 1, marginRight: 8 }]}
                 onPress={() => setShowCheckInCalendar(true)}
                 activeOpacity={0.7}
@@ -568,7 +568,7 @@ const openBookingModal = () => {
                   <View style={styles.datePickerTextContainer}>
                     <ThemedText style={styles.datePickerLabel}>Check-in Date</ThemedText>
                     <ThemedText style={styles.datePickerValue}>
-                      {bookingData.checkInDate 
+                      {bookingData.checkInDate
                         ? new Date(bookingData.checkInDate).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
@@ -583,7 +583,7 @@ const openBookingModal = () => {
               </TouchableOpacity>
 
               {/* Check-out Date Picker */}
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.datePickerButton, { flex: 1, marginLeft: 8 }]}
                 onPress={() => setShowCheckOutCalendar(true)}
                 activeOpacity={0.7}
@@ -593,7 +593,7 @@ const openBookingModal = () => {
                   <View style={styles.datePickerTextContainer}>
                     <ThemedText style={styles.datePickerLabel}>Check-out Date</ThemedText>
                     <ThemedText style={styles.datePickerValue}>
-                      {bookingData.checkOutDate 
+                      {bookingData.checkOutDate
                         ? new Date(bookingData.checkOutDate).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
@@ -611,21 +611,21 @@ const openBookingModal = () => {
               <View style={styles.peopleCol}>
                 <ThemedText style={styles.peopleLabel}>Adults</ThemedText>
                 <View style={styles.counterRow}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.counterBtn}
-                    onPress={() => setBookingData(prev => ({ 
-                      ...prev, 
-                      adults: Math.max(1, prev.adults - 1) 
+                    onPress={() => setBookingData(prev => ({
+                      ...prev,
+                      adults: Math.max(1, prev.adults - 1)
                     }))}
                   >
                     <Ionicons name="remove-circle-outline" size={28} color={Colors.primary600} />
                   </TouchableOpacity>
                   <Text style={styles.counterValue}>{bookingData.adults}</Text>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.counterBtn}
-                    onPress={() => setBookingData(prev => ({ 
-                      ...prev, 
-                      adults: Math.min(10, prev.adults + 1) 
+                    onPress={() => setBookingData(prev => ({
+                      ...prev,
+                      adults: Math.min(10, prev.adults + 1)
                     }))}
                   >
                     <Ionicons name="add-circle-outline" size={28} color={Colors.primary600} />
@@ -635,21 +635,21 @@ const openBookingModal = () => {
               <View style={styles.peopleCol}>
                 <ThemedText style={styles.peopleLabel}>Children</ThemedText>
                 <View style={styles.counterRow}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.counterBtn}
-                    onPress={() => setBookingData(prev => ({ 
-                      ...prev, 
-                      children: Math.max(0, prev.children - 1) 
+                    onPress={() => setBookingData(prev => ({
+                      ...prev,
+                      children: Math.max(0, prev.children - 1)
                     }))}
                   >
                     <Ionicons name="remove-circle-outline" size={28} color={Colors.primary600} />
                   </TouchableOpacity>
                   <Text style={styles.counterValue}>{bookingData.children}</Text>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.counterBtn}
-                    onPress={() => setBookingData(prev => ({ 
-                      ...prev, 
-                      children: Math.min(10, prev.children + 1) 
+                    onPress={() => setBookingData(prev => ({
+                      ...prev,
+                      children: Math.min(10, prev.children + 1)
                     }))}
                   >
                     <Ionicons name="add-circle-outline" size={28} color={Colors.primary600} />
@@ -666,7 +666,7 @@ const openBookingModal = () => {
                   {details.roomTypes.map((room, index) => {
                     const selectedRoom = bookingData.selectedRooms.find((r: any) => r.type === room.type);
                     const selectedQuantity = selectedRoom?.quantity || 0;
-                    
+
                     return (
                       <View key={index} style={styles.roomTypeCard}>
                         <View style={styles.roomTypeInfo}>
@@ -686,7 +686,7 @@ const openBookingModal = () => {
                         <View style={styles.roomTypePrice}>
                           <ThemedText style={styles.roomPrice}>${room.pricePerNight}/night</ThemedText>
                         </View>
-                        
+
                         {/* Quantity Selection */}
                         <View style={styles.quantitySelection}>
                           <TouchableOpacity
@@ -697,10 +697,10 @@ const openBookingModal = () => {
                             onPress={() => removeRoomType(room)}
                             disabled={selectedQuantity === 0}
                           >
-                            <Ionicons 
-                              name="remove" 
-                              size={16} 
-                              color={selectedQuantity === 0 ? Colors.secondary400 : Colors.primary600} 
+                            <Ionicons
+                              name="remove"
+                              size={16}
+                              color={selectedQuantity === 0 ? Colors.secondary400 : Colors.primary600}
                             />
                           </TouchableOpacity>
                           <ThemedText style={styles.quantityValue}>{selectedQuantity}</ThemedText>
@@ -712,10 +712,10 @@ const openBookingModal = () => {
                             onPress={() => addRoomType(room)}
                             disabled={room.availableRooms <= selectedQuantity}
                           >
-                            <Ionicons 
-                              name="add" 
-                              size={16} 
-                              color={room.availableRooms <= selectedQuantity ? Colors.secondary400 : Colors.primary600} 
+                            <Ionicons
+                              name="add"
+                              size={16}
+                              color={room.availableRooms <= selectedQuantity ? Colors.secondary400 : Colors.primary600}
                             />
                           </TouchableOpacity>
                         </View>
@@ -723,7 +723,7 @@ const openBookingModal = () => {
                     );
                   })}
                 </View>
-                
+
                 {/* Total Rooms Summary */}
                 {getTotalRooms() > 0 && (
                   <View style={styles.totalRoomsSummary}>
@@ -738,14 +738,14 @@ const openBookingModal = () => {
             {/* Guest Details */}
             <View style={styles.guestDetailsContainer}>
               <ThemedText style={styles.guestDetailsTitle}>Guest Information</ThemedText>
-              
+
               <View style={styles.guestDetailsRow}>
                 <CustomTextInput
                   label="First Name"
                   placeholder="Enter first name"
                   value={bookingData.guestDetails.firstName}
-                  onChangeText={(val) => setBookingData(prev => ({ 
-                    ...prev, 
+                  onChangeText={(val) => setBookingData(prev => ({
+                    ...prev,
                     guestDetails: { ...prev.guestDetails, firstName: val }
                   }))}
                   containerStyle={{ flex: 1, marginRight: 8 }}
@@ -754,44 +754,44 @@ const openBookingModal = () => {
                   label="Last Name"
                   placeholder="Enter last name"
                   value={bookingData.guestDetails.lastName}
-                  onChangeText={(val) => setBookingData(prev => ({ 
-                    ...prev, 
+                  onChangeText={(val) => setBookingData(prev => ({
+                    ...prev,
                     guestDetails: { ...prev.guestDetails, lastName: val }
                   }))}
                   containerStyle={{ flex: 1, marginLeft: 8 }}
                 />
               </View>
-              
+
               <CustomTextInput
                 label="Email"
                 placeholder="Enter email address"
                 value={bookingData.guestDetails.email}
-                onChangeText={(val) => setBookingData(prev => ({ 
-                  ...prev, 
+                onChangeText={(val) => setBookingData(prev => ({
+                  ...prev,
                   guestDetails: { ...prev.guestDetails, email: val }
                 }))}
                 keyboardType="email-address"
                 containerStyle={{ marginBottom: 12 }}
               />
-              
+
               <CustomTextInput
                 label="Phone Number"
                 placeholder="Enter phone number"
                 value={bookingData.guestDetails.phone}
-                onChangeText={(val) => setBookingData(prev => ({ 
-                  ...prev, 
+                onChangeText={(val) => setBookingData(prev => ({
+                  ...prev,
                   guestDetails: { ...prev.guestDetails, phone: val }
                 }))}
                 keyboardType="phone-pad"
                 containerStyle={{ marginBottom: 12 }}
               />
-              
+
               <CustomTextInput
                 label="Emergency Contact (Optional)"
                 placeholder="Enter emergency contact"
                 value={bookingData.guestDetails.emergencyContact}
-                onChangeText={(val) => setBookingData(prev => ({ 
-                  ...prev, 
+                onChangeText={(val) => setBookingData(prev => ({
+                  ...prev,
                   guestDetails: { ...prev.guestDetails, emergencyContact: val }
                 }))}
                 keyboardType="phone-pad"
@@ -807,7 +807,7 @@ const openBookingModal = () => {
                   {bookingData.selectedRooms.map((room: any, index: number) => {
                     const nights = Math.ceil((new Date(bookingData.checkOutDate).getTime() - new Date(bookingData.checkInDate).getTime()) / (1000 * 60 * 60 * 24));
                     const roomTotal = room.pricePerNight * room.quantity * nights;
-                    
+
                     return (
                       <View key={index} style={styles.priceBreakdownItem}>
                         <ThemedText style={styles.priceBreakdownDescription}>
@@ -819,7 +819,7 @@ const openBookingModal = () => {
                       </View>
                     );
                   })}
-                  
+
                   <View style={styles.priceBreakdownItem}>
                     <ThemedText style={styles.priceBreakdownDescription}>Subtotal</ThemedText>
                     <ThemedText style={styles.priceBreakdownAmount}>
@@ -829,12 +829,12 @@ const openBookingModal = () => {
                       }, 0)}
                     </ThemedText>
                   </View>
-                  
+
                   <View style={styles.priceBreakdownItem}>
                     <ThemedText style={styles.priceBreakdownDescription}>Service fee</ThemedText>
                     <ThemedText style={styles.priceBreakdownAmount}>$25</ThemedText>
                   </View>
-                  
+
                   <View style={[styles.priceBreakdownItem, styles.priceBreakdownTotal]}>
                     <ThemedText style={styles.priceBreakdownTotalText}>Total</ThemedText>
                     <ThemedText style={styles.priceBreakdownTotalAmount}>
@@ -866,7 +866,7 @@ const openBookingModal = () => {
               <Ionicons name="close" size={24} color={Colors.secondary700} />
             </TouchableOpacity>
           </View>
-          
+
           <View style={styles.calendarContainer}>
             <Calendar
               style={styles.calendar}
@@ -922,7 +922,7 @@ const openBookingModal = () => {
               <Ionicons name="close" size={24} color={Colors.secondary700} />
             </TouchableOpacity>
           </View>
-          
+
           <View style={styles.calendarContainer}>
             <Calendar
               style={styles.calendar}
@@ -1539,7 +1539,7 @@ const styles = StyleSheet.create({
     color: Colors.primary800,
     marginHorizontal: 8,
   },
-  
+
   // Loading and Error States
   loadingContainer: {
     flex: 1,

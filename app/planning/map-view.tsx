@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '../../components';
 import { myTripsApi } from '../../utils/itineraryApi';
 
-const GOOGLE_DIRECTIONS_API_KEY = 'AIzaSyDEi9t8bE0Jq1sMlkLpwIL7MrHH02XxVrM';
+const GOOGLE_DIRECTIONS_API_KEY = (process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '');
 
 interface Place {
   id: string;
@@ -50,7 +50,7 @@ export default function MapViewScreen() {
   // Start spinning animation for loading
   useEffect(() => {
     let spinAnimation: Animated.CompositeAnimation | undefined;
-    
+
     if (isLoadingDirections) {
       spinAnimation = Animated.loop(
         Animated.timing(spinAnim, {
@@ -64,7 +64,7 @@ export default function MapViewScreen() {
       spinAnimation?.stop();
       spinAnim.setValue(0);
     }
-    
+
     return () => {
       spinAnimation?.stop();
     };
@@ -83,7 +83,7 @@ export default function MapViewScreen() {
     try {
       setIsLoading(true);
       const response = await myTripsApi.getTripDetails(itineraryId as string);
-      
+
       if (response.success && response.data) {
         const tripData = response.data;
         setTrip(tripData);
@@ -153,20 +153,20 @@ export default function MapViewScreen() {
       const routeType = tripData.selectedRoute || 'recommended';
       setSelectedRouteType(routeType);
       console.log(`🗺️  Fetching ${routeType} route from database...`);
-      
+
       // Import routeApi
       const { routeApi } = require('../../utils/itineraryApi');
-      
+
       // Fetch routes for this itinerary
       const response = await routeApi.getItineraryRoutes(tripData._id);
-      
+
       if (response.success && response.data) {
         const routeData = response.data[routeType];
-        
+
         if (!routeData) {
           console.warn(`No ${routeType} route found in database`);
           Alert.alert(
-            'Route Not Available', 
+            'Route Not Available',
             `The ${routeType} route hasn't been calculated yet. Routes are calculated automatically when you create an itinerary. Please go back and refresh the trip.`,
             [{ text: 'OK', onPress: () => router.back() }]
           );
@@ -176,11 +176,11 @@ export default function MapViewScreen() {
         console.log(`✅ Loaded ${routeType} route:`, routeData.totalDistance, 'meters');
         console.log('📍 Route has waypoints:', routeData.waypoints?.length);
         console.log('📍 Route overview polyline:', routeData.overview?.polyline?.substring(0, 50) + '...');
-        
+
         // Calculate bounds from waypoints
         const lats = routeData.waypoints.map((wp: any) => wp.location.latitude);
         const lngs = routeData.waypoints.map((wp: any) => wp.location.longitude);
-        
+
         const bounds = {
           northeast: {
             lat: Math.max(...lats),
@@ -191,7 +191,7 @@ export default function MapViewScreen() {
             lng: Math.min(...lngs),
           },
         };
-        
+
         const directionsData = {
           route: routeData,
           distance: `${Math.round(routeData.totalDistance / 1000)} km`,
@@ -201,7 +201,7 @@ export default function MapViewScreen() {
           segments: routeData.segments,
           routeType: routeType,
         };
-        
+
         console.log('🎯 Setting route directions:', {
           distance: directionsData.distance,
           duration: directionsData.duration,
@@ -209,9 +209,9 @@ export default function MapViewScreen() {
           hasPolyline: !!directionsData.polyline,
           polylineLength: directionsData.polyline?.length,
         });
-        
+
         setRouteDirections(directionsData);
-        
+
         // Auto-fit map to show route
         if (mapRef.current && bounds) {
           const { northeast, southwest } = bounds;
@@ -282,7 +282,7 @@ export default function MapViewScreen() {
           });
         }
       }
-      
+
       return points;
     } catch (error) {
       console.error('Error decoding polyline:', error);
@@ -311,7 +311,7 @@ export default function MapViewScreen() {
         >
           <Ionicons name="arrow-back" size={24} color={Colors.white} />
         </TouchableOpacity>
-        
+
         <View style={styles.headerCenter}>
           <ThemedText style={styles.headerTitle}>
             {trip?.tripName || 'Trip Map'}
@@ -334,13 +334,13 @@ export default function MapViewScreen() {
               </View>
               {routeDirections.routeType && (
                 <View style={styles.routeTypeBadge}>
-                  <Ionicons 
+                  <Ionicons
                     name={
                       routeDirections.routeType === 'shortest' ? 'flash' :
                       routeDirections.routeType === 'recommended' ? 'star' : 'leaf'
-                    } 
-                    size={12} 
-                    color={Colors.white} 
+                    }
+                    size={12}
+                    color={Colors.white}
                   />
                   <ThemedText style={styles.routeTypeText}>
                     {routeDirections.routeType.charAt(0).toUpperCase() + routeDirections.routeType.slice(1)} Route
@@ -392,7 +392,7 @@ export default function MapViewScreen() {
             </View>
           </Marker>
         )}
-        
+
         {/* Places Markers */}
         {places.map((place, index) => (
           <Marker
@@ -444,7 +444,7 @@ export default function MapViewScreen() {
               </View>
             )}
           </View>
-          
+
           <View style={styles.bottomCardStats}>
             <View style={styles.bottomStat}>
               <Ionicons name="location" size={18} color={Colors.secondary500} />

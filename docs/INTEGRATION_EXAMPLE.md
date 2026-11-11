@@ -1,3 +1,8 @@
+# Map reviews integration examples
+
+These fragments illustrate additions to an existing component.
+
+```tsx
 /**
  * INTEGRATION GUIDE FOR CROWDSOURCE MAP REVIEWS
  * 
@@ -366,3 +371,5 @@ const [selectedPointForReview, setSelectedPointForReview] = useState<MapPoint | 
  */
 
 export default {};
+
+```

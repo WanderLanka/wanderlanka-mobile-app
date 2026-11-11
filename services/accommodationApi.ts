@@ -13,11 +13,11 @@ export class AccommodationApiService {
   static async getAllAccommodations(): Promise<AccommodationResponse> {
     try {
       console.log('🏨 Fetching all accommodations...');
-      
+
       const response = await ApiService.get<AccommodationResponse>(
         `${this.ACCOMMODATION_ENDPOINT}/accommodations`
       );
-      
+
       console.log('✅ Accommodations fetched successfully:', response);
       return response;
     } catch (error: any) {
@@ -32,11 +32,11 @@ export class AccommodationApiService {
   static async getAccommodationById(id: string): Promise<AccommodationDetailResponse> {
     try {
       console.log('🏨 Fetching accommodation by ID:', id);
-      
+
       const response = await ApiService.get<AccommodationDetailResponse>(
         `${this.ACCOMMODATION_ENDPOINT}/accommodations/${id}`
       );
-      
+
       console.log('✅ Accommodation details fetched successfully:', response);
       return response;
     } catch (error: any) {
@@ -51,22 +51,22 @@ export class AccommodationApiService {
   static async searchAccommodations(filters: AccommodationFilters): Promise<AccommodationResponse> {
     try {
       console.log('🔍 Searching accommodations with filters:', filters);
-      
+
       const queryParams = new URLSearchParams();
-      
+
       if (filters.location) queryParams.append('location', filters.location);
       if (filters.minPrice) queryParams.append('minPrice', filters.minPrice.toString());
       if (filters.maxPrice) queryParams.append('maxPrice', filters.maxPrice.toString());
       if (filters.accommodationType) queryParams.append('accommodationType', filters.accommodationType);
       if (filters.minRating) queryParams.append('minRating', filters.minRating.toString());
-      
+
       const queryString = queryParams.toString();
-      const url = queryString 
+      const url = queryString
         ? `${this.ACCOMMODATION_ENDPOINT}/accommodations?${queryString}`
         : `${this.ACCOMMODATION_ENDPOINT}/accommodations`;
-      
+
       const response = await ApiService.get<AccommodationResponse>(url);
-      
+
       console.log('✅ Accommodation search completed:', response);
       return response;
     } catch (error: any) {
@@ -80,6 +80,7 @@ export class AccommodationApiService {
  * Type definitions for accommodation data
  */
 export interface Accommodation {
+  availability?: string;
   _id: string;
   userId: string;
   name: string;

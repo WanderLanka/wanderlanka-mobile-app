@@ -113,7 +113,7 @@ export default function CreatePostScreen() {
         const newImage: SelectedImage = {
           uri: result.assets[0].uri,
           id: Date.now().toString(),
-          type: result.assets[0].type,
+          type: result.assets[0].type ?? undefined,
         };
         setSelectedImages(prev => [...prev, newImage]);
       }
@@ -137,7 +137,7 @@ export default function CreatePostScreen() {
         const newImages: SelectedImage[] = result.assets.map((asset: any) => ({
           uri: asset.uri,
           id: `${Date.now()}_${Math.random()}`,
-          type: asset.type,
+          type: asset.type ?? undefined,
         }));
         setSelectedImages(prev => [...prev, ...newImages].slice(0, 10)); // Max 10 images
       }
@@ -206,7 +206,7 @@ export default function CreatePostScreen() {
 
   const handleLocationInputChange = (text: string) => {
     setLocation(text);
-    
+
     // Clear previous timeout
     if (locationSearchTimeout) {
       clearTimeout(locationSearchTimeout);
@@ -223,20 +223,20 @@ export default function CreatePostScreen() {
   const selectLocationSuggestion = (suggestion: LocationSuggestion) => {
     // Mark that a suggestion was just selected
     setSuggestionJustSelected(true);
-    
+
     // Update the location immediately
     setLocation(suggestion.description);
-    
+
     // Hide suggestions immediately
     setLocationSuggestions([]);
     setShowLocationSuggestions(false);
-    
+
     // Clear any pending search timeout
     if (locationSearchTimeout) {
       clearTimeout(locationSearchTimeout);
       setLocationSearchTimeout(null);
     }
-    
+
     // Reset the flag after a short delay
     setTimeout(() => setSuggestionJustSelected(false), 100);
   };
@@ -246,7 +246,7 @@ export default function CreatePostScreen() {
       Alert.alert('Missing Title', 'Please add a title for your travel post');
       return;
     }
-    
+
     if (!postContent.trim()) {
       Alert.alert('Missing Content', 'Please write something about your travel experience');
       return;
@@ -262,7 +262,7 @@ export default function CreatePostScreen() {
     try {
       // Get auth token
       const token = await AsyncStorage.getItem('accessToken');
-      
+
       if (!token) {
         Alert.alert('Authentication Required', 'Please log in to create a post');
         setIsPosting(false);
@@ -275,7 +275,7 @@ export default function CreatePostScreen() {
       formData.append('content', postContent.trim());
       formData.append('locationName', location.trim());
       formData.append('tags', JSON.stringify([selectedCategory]));
-      
+
       // Add post options
       formData.append('allowComments', postOptions.allowComments.toString());
       formData.append('allowSharing', postOptions.allowSharing.toString());
@@ -285,7 +285,7 @@ export default function CreatePostScreen() {
         selectedImages.forEach((image, index) => {
           const uriParts = image.uri.split('.');
           const fileType = uriParts[uriParts.length - 1];
-          
+
           formData.append('images', {
             uri: image.uri,
             name: `photo_${index}.${fileType}`,
@@ -315,7 +315,7 @@ export default function CreatePostScreen() {
 
       if (response.ok && data.success) {
         console.log('✅ Post created successfully:', data.data);
-        
+
         Alert.alert(
           'Post Created! 🎉',
           'Your travel story has been shared with the WanderLanka community.',
@@ -356,7 +356,7 @@ export default function CreatePostScreen() {
           <Text style={styles.cancelText}>Cancel</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Share Travel Story</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={handlePost}
           disabled={!postTitle.trim() || !postContent.trim() || !location.trim() || isPosting}
           style={[
@@ -392,8 +392,8 @@ export default function CreatePostScreen() {
         {/* Post Category Selection */}
         <View style={styles.categorySection}>
           <Text style={styles.sectionTitle}>Post Category</Text>
-          <ScrollView 
-            horizontal 
+          <ScrollView
+            horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.categoryScroll}
           >
@@ -499,22 +499,22 @@ export default function CreatePostScreen() {
                 </TouchableOpacity>
               )}
             </View>
-            <TouchableOpacity 
-              style={styles.locationButton} 
+            <TouchableOpacity
+              style={styles.locationButton}
               onPress={getCurrentLocation}
               disabled={isLocationLoading}
             >
-              <Ionicons 
-                name={isLocationLoading ? "hourglass-outline" : "locate-outline"} 
-                size={16} 
-                color={Colors.primary600} 
+              <Ionicons
+                name={isLocationLoading ? "hourglass-outline" : "locate-outline"}
+                size={16}
+                color={Colors.primary600}
               />
               <Text style={styles.locationButtonText}>
                 {isLocationLoading ? 'Getting...' : 'Current'}
               </Text>
             </TouchableOpacity>
           </View>
-          
+
           {/* Location Suggestions */}
           {showLocationSuggestions && (
             <View style={styles.locationSuggestions}>
@@ -531,10 +531,10 @@ export default function CreatePostScreen() {
                       delayPressIn={0}
                       delayLongPress={2000}
                     >
-                      <Ionicons 
-                        name={getLocationIcon(suggestion.types) as any} 
-                        size={16} 
-                        color={Colors.primary600} 
+                      <Ionicons
+                        name={getLocationIcon(suggestion.types) as any}
+                        size={16}
+                        color={Colors.primary600}
                       />
                       <View style={styles.suggestionTextContainer}>
                         <Text style={styles.suggestionMainText}>{suggestion.main_text}</Text>
@@ -572,7 +572,7 @@ export default function CreatePostScreen() {
                 <Text style={styles.photoBadgeText}>Optional</Text>
               </View>
             </View>
-            
+
             {selectedImages.length > 0 ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imagesList}>
                 {selectedImages.map((image) => (
@@ -604,8 +604,8 @@ export default function CreatePostScreen() {
         <View style={styles.inputSection}>
           <Text style={styles.inputLabel}>Privacy & Settings</Text>
           <View style={styles.optionsContainer}>
-            <TouchableOpacity 
-              style={styles.option} 
+            <TouchableOpacity
+              style={styles.option}
               onPress={() => setPostOptions(prev => ({ ...prev, allowComments: !prev.allowComments }))}
             >
               <View style={styles.optionLeft}>
@@ -617,8 +617,8 @@ export default function CreatePostScreen() {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.option} 
+            <TouchableOpacity
+              style={styles.option}
               onPress={() => setPostOptions(prev => ({ ...prev, allowSharing: !prev.allowSharing }))}
             >
               <View style={styles.optionLeft}>
@@ -630,8 +630,8 @@ export default function CreatePostScreen() {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.option} 
+            <TouchableOpacity
+              style={styles.option}
               onPress={() => setPostOptions(prev => ({ ...prev, showExactLocation: !prev.showExactLocation }))}
             >
               <View style={styles.optionLeft}>
